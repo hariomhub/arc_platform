@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+
+@font-face {
+  font-family: 'AmpersandFix';
+  src: local('Inter'), local('Arial'), sans-serif;
+  unicode-range: U+0026;
+}
+
+:root {
+  /* Colors */
+  --primary: #003366;
+  /* Ocean Blue */
+  --primary-dark: #002244;
+  --primary-light: #004488;
+  --accent: #0055A4;
+
+  --bg-white: #ffffff;
+  --bg-light: #F0F4F8;
+  /* Subtle blue-grey */
+  --bg-dark: #0F172A;
+
+  --text-main: #1A202C;
+  --text-secondary: #4A5568;
+  /* Ensure this is readable */
+  --text-light: #64748B;
+  /* Darkened from #718096 for better accessibility */
+  --text-inverse: #ffffff;
+
+  --border-light: #E2E8F0;
+  --border-medium: #CBD5E0;
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
+
+  /* Typography */
+  --font-serif: 'AmpersandFix', 'Playfair Display', serif;
+  --font-sans: 'Inter', sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-white);
+  color: var(--text-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  color: var(--primary);
+  line-height: 1.2;
+  margin-bottom: var(--spacing-md);
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2.25rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+p {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Utilities */
+.container {
+  max-width: 95%;
+  /* Fluid width as requested */
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  /* Reduced padding from 0.75rem 1.5rem */
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  /* Increased weight for legibility */
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-size: 0.9rem;
+  /* Reduced font size from 1rem */
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-light);
+}
+
+.card {
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-bottom: 3px solid var(--primary);
+  /* Corporate accent */
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-sm);
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.section {
+  padding: var(--spacing-3xl) 0;
+}
+
+.section-bg {
+  background-color: var(--bg-light);
+}
+
+/* High Contrast Overrides */
+.text-high-contrast {
+  color: var(--text-main) !important;
+}
