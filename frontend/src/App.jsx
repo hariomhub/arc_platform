@@ -1,54 +1,98 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import UserManagement from './pages/UserManagement';
-import AdminDashboard from './pages/AdminDashboard';
-// Pages
-import Home from './pages/Home';
-import About from './pages/About';
-import Framework from './pages/Framework';
-import Assessment from './pages/Assessment';
-import Services from './pages/Services';
-import Resources from './pages/Resources';
-import Certifications from './pages/Certifications';
-import Membership from './pages/Membership';
-import Contact from './pages/Contact';
-import RiskDomain from './pages/RiskDomain';
-import CommunityQnA from './pages/CommunityQnA';
-import Events from './pages/Events';
+import React, { Suspense, lazy } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+import Navbar from './components/layout/Navbar.jsx';
+import Footer from './components/layout/Footer.jsx';
+import ScrollToTop from './components/common/ScrollToTop.jsx';
+import LoadingSpinner from './components/common/LoadingSpinner.jsx';
+import ProtectedRoute from './components/common/ProtectedRoute.jsx';
+import AdminRoute from './components/common/AdminRoute.jsx';
+import { useAuth } from './hooks/useAuth.js';
+
+// ─── Lazy page imports ────────────────────────────────────────────────────────
+const Home = lazy(() => import('./pages/Home.jsx'));
+const About = lazy(() => import('./pages/About.jsx'));
+const Events = lazy(() => import('./pages/Events.jsx'));
+const Services = lazy(() => import('./pages/Services.jsx'));
+const Framework = lazy(() => import('./pages/Framework.jsx'));
+const Assessment = lazy(() => import('./pages/Assessment.jsx'));
+const Resources = lazy(() => import('./pages/Resources.jsx'));
+const Certifications = lazy(() => import('./pages/Certifications.jsx'));
+const CommunityQnA = lazy(() => import('./pages/CommunityQnA.jsx'));
+const Contact = lazy(() => import('./pages/Contact.jsx'));
+const Membership = lazy(() => import('./pages/Membership.jsx'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
+const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
+const NotFound = lazy(() => import('./pages/NotFound.jsx'));
+
+// ─── Auth-aware redirector (login / register redirect if already signed in) ──
+const GuestRoute = ({ children }) => {
+  const { user, isAuthLoading } = useAuth();
+  if (isAuthLoading) return <LoadingSpinner fullPage />;
+  if (user) return <Navigate to="/" replace />;
+  return children;
+};
 
 function App() {
-  const { pathname } = useLocation();
-
-  // Scroll to top on route change
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header />
-      <main style={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/risk-domains/:id" element={<RiskDomain />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/framework" element={<Framework />} />
-          <Route path="/assessment" element={<Assessment />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/resources" element={<Resources />} />
-          <Route path="/certifications" element={<Certifications />} />
-          <Route path="/membership" element={<Membership />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/admin/users" element={<UserManagement />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/community" element={<CommunityQnA />} />
-          <Route path="/events" element={<Events />} />
-        </Routes>
-      </main>
-      <Footer />
-    </div>
+    <>
+      <ScrollToTop />
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Navbar />
+        <main id="main-content" style={{ flex: 1 }}>
+          <Suspense fallback={<LoadingSpinner fullPage />}>
+            <Routes>
+              {/* ── Public routes ── */}
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/framework" element={<Framework />} />
+              <Route path="/assessment" element={<Assessment />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/certifications" element={<Certifications />} />
+              <Route path="/community" element={<CommunityQnA />} />
+              <Route path="/contact" element={<Contact />} />
+
+              {/* ── Guest-only routes ── */}
+              <Route path="/membership" element={<Membership />} />
+
+              {/* ── Protected routes ── */}
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Membership />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ── Admin routes ── */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminRoute>
+                    <UserManagement />
+                  </AdminRoute>
+                }
+              />
+
+              {/* ── Catch-all ── */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </main>
+        <Footer />
+      </div>
+    </>
   );
 }
 

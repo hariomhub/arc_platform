@@ -1,42 +1,19 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'carbonnex_super_secret_key_2025';
+const auth = (req, res, next) => {
+    const token = req.cookies?.arc_token;
 
-// Require valid JWT — returns 401 if missing/invalid
-const authRequired = (req, res, next) => {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Authentication required' });
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });
     }
-    const token = header.split(' ')[1];
+
     try {
-        req.user = jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
         next();
     } catch {
-        return res.status(401).json({ error: 'Invalid or expired token' });
+        return res.status(401).json({ success: false, message: 'Invalid or expired token. Please log in again.' });
     }
 };
 
-// Optional JWT — attaches user if token present, continues either way
-const authOptional = (req, res, next) => {
-    const header = req.headers.authorization;
-    if (header && header.startsWith('Bearer ')) {
-        const token = header.split(' ')[1];
-        try {
-            req.user = jwt.verify(token, JWT_SECRET);
-        } catch {
-            req.user = null;
-        }
-    }
-    next();
-};
-
-// Must be admin role — use AFTER authRequired
-const adminOnly = (req, res, next) => {
-    if (req.user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
-};
-
-module.exports = { JWT_SECRET, authRequired, authOptional, adminOnly };
+export default auth;

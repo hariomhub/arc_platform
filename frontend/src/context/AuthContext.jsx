@@ -1,107 +1,105 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { getMe, logoutUser } from '../api/auth.js';
 
 const AuthContext = createContext(null);
 
-const API = 'http://localhost:5000/api';
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(() => sessionStorage.getItem('token'));
-    const [loading, setLoading] = useState(true);
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-    // On mount, verify token and load user
+    // ── Restore session on mount via HttpOnly cookie ──────────────────────────
     useEffect(() => {
-        const verify = async () => {
-            if (!token) { setLoading(false); return; }
+        let cancelled = false;
+
+        const restoreSession = async () => {
             try {
-                const res = await fetch(`${API}/auth/me`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setUser(data);
-                } else {
-                    // Token invalid/expired
-                    sessionStorage.removeItem('token');
-                    setToken(null);
-                    setUser(null);
+                const res = await getMe();
+                if (!cancelled && res.data?.success) {
+                    setUser(res.data.data);
                 }
             } catch {
-                setUser(null);
+                // 401 = not logged in — that's fine, just silently skip
+                if (!cancelled) setUser(null);
             } finally {
-                setLoading(false);
+                if (!cancelled) setIsAuthLoading(false);
             }
         };
-        verify();
-    }, [token]);
 
-    const login = async (email, password) => {
-        const res = await fetch(`${API}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Login failed');
-        sessionStorage.setItem('token', data.token);
-        setToken(data.token);
-        setUser(data.user);
-        return data.user;
-    };
+        restoreSession();
+        return () => { cancelled = true; };
+    }, []);
 
-    const register = async (name, email, password) => {
-        const res = await fetch(`${API}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed');
-        sessionStorage.setItem('token', data.token);
-        setToken(data.token);
-        setUser(data.user);
-        return data.user;
-    };
+    // ── login: called after successful POST /auth/login ───────────────────────
+    // The server already set the HttpOnly cookie; we just store the user object.
+    const login = useCallback((userData) => {
+        setUser(userData);
+    }, []);
 
-    const logout = () => {
-        sessionStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-    };
+    // ── logout: clear cookie server-side, clear local state ───────────────────
+    const logout = useCallback(async () => {
+        try {
+            await logoutUser();
+        } catch {
+            // ignore — cookie might already be gone
+        } finally {
+            setUser(null);
+            window.location.href = '/membership';
+        }
+    }, []);
 
-    // Role helpers
-    const isAdmin = user?.role === 'admin';
-    const isMember = user?.role === 'member' || user?.role === 'admin';
-    const isLoggedIn = !!user;
+    // ── Role helpers ──────────────────────────────────────────────────────────
+    const isAdmin = () => user?.role === 'admin';
+    const isExecutive = () => user?.role === 'executive';
+    const isPaidMember = () => user?.role === 'paid_member';
+    const isProductCompany = () => user?.role === 'product_company';
+    const isUniversity = () => user?.role === 'university';
 
-    // Authenticated fetch helper
-    const authFetch = (url, options = {}) => {
-        return fetch(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                ...options.headers
-            }
-        });
-    };
+    const canDownloadFramework = () =>
+        ['admin', 'executive', 'paid_member', 'product_company'].includes(user?.role);
+
+    const canUploadWhitepaper = () => user?.role === 'university';
+    const canUploadProduct = () => user?.role === 'product_company';
+
+    // Provide a static API base URL for legacy code
+    const API = 'http://localhost:5000/api';
+
+    // Provide a dummy token (could be replaced with real JWT if needed)
+    const token = null;
+
+    // Provide a fetch wrapper that uses credentials
+    const authFetch = (...args) => fetch(...args);
 
     return (
-        <AuthContext.Provider value={{
-            user, token, loading,
-            login, register, logout,
-            isAdmin, isMember, isLoggedIn,
-            authFetch, API
-        }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                isAuthLoading,
+                login,
+                logout,
+                isAdmin,
+                isExecutive,
+                isPaidMember,
+                isProductCompany,
+                isUniversity,
+                canDownloadFramework,
+                canUploadWhitepaper,
+                canUploadProduct,
+                isLoggedIn: !!user,
+                isMember: !!user,
+                API,
+                token,
+                authFetch,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );
 };
 
-export const useAuth = () => {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-    return ctx;
-};
-
+import { useContext } from 'react';
 export default AuthContext;
+
+// Custom hook for consuming AuthContext
+export function useAuth() {
+    return useContext(AuthContext);
+}

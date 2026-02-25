@@ -1,86 +1,64 @@
-const router = require('express').Router();
-const db = require('../Db');
-const { authRequired, adminOnly } = require('../middleware/auth');
-const multer = require('multer');
-const path = require('path');
+import { Router } from 'express';
+import { body, validationResult } from 'express-validator';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import * as teamController from '../controllers/teamController.js';
+import auth from '../middleware/auth.js';
+import requireRole from '../middleware/requireRole.js';
 
-// Configure Multer for Team Member Image Uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const router = Router();
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ success: false, message: errors.array()[0].msg });
+    }
+    next();
+};
+
+// Multer for team member photos (images only, 5MB)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, './uploads/');
+        const dir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'team-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage });
-
-// GET /api/team
-router.get('/', async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT * FROM team_members ORDER BY id ASC');
-        res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error fetching team members' });
-    }
+        cb(null, `team-${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
+    },
 });
 
-// POST /api/team (Admin Only)
-router.post('/', authRequired, adminOnly, upload.single('image'), async (req, res) => {
-    const { name, role, description, linkedin_url, category } = req.body;
-    if (!name || !role) return res.status(400).json({ error: 'Name and role are required' });
-
-    // Handle image path correctly focusing on cross-platform compatibility
-    let imageUrl = '';
-    if (req.file) {
-        // e.g., 'uploads\\team-123.jpg' -> '/uploads/team-123.jpg'
-        imageUrl = '/' + req.file.path.replace(/\\/g, '/');
-    }
-
-    try {
-        const [result] = await db.query(
-            'INSERT INTO team_members (name, role, description, linkedin_url, image_url, category) VALUES (?, ?, ?, ?, ?, ?)',
-            [name, role, description || '', linkedin_url || '', imageUrl, category || 'leadership']
-        );
-        res.status(201).json({ id: result.insertId, name, role, description, linkedin_url, image_url: imageUrl, category: category || 'leadership' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error creating team member' });
-    }
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed for team member photos.'), false);
+        }
+    },
 });
 
-// PUT /api/team/:id (Admin Only)
-router.put('/:id', authRequired, adminOnly, upload.single('image'), async (req, res) => {
-    const { name, role, description, linkedin_url, category } = req.body;
-    let imageUrl = req.body.image_url; // fallback if no new image
+const teamValidation = [
+    body('name').trim().notEmpty().withMessage('Name is required.').isLength({ max: 255 }).withMessage('Name must be 255 characters or fewer.'),
+    body('role').trim().notEmpty().withMessage('Role/title is required.').isLength({ max: 255 }).withMessage('Role must be 255 characters or fewer.'),
+    body('bio').optional().trim(),
+    body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
+];
 
-    if (req.file) {
-        imageUrl = '/' + req.file.path.replace(/\\/g, '/');
-    }
+// Public
+router.get('/', teamController.getTeam);
+router.get('/:id', teamController.getTeamMemberById);
 
-    try {
-        await db.query(
-            'UPDATE team_members SET name=?, role=?, description=?, linkedin_url=?, image_url=?, category=? WHERE id=?',
-            [name, role, description || '', linkedin_url || '', imageUrl, category || 'leadership', req.params.id]
-        );
-        res.json({ message: 'Team member updated', image_url: imageUrl });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error updating team member' });
-    }
-});
+// Admin only
+router.post('/', auth, requireRole('admin'), upload.single('photo'), teamValidation, validate, teamController.createTeamMember);
+router.put('/:id', auth, requireRole('admin'), upload.single('photo'), teamValidation, validate, teamController.updateTeamMember);
+router.delete('/:id', auth, requireRole('admin'), teamController.deleteTeamMember);
 
-// DELETE /api/team/:id (Admin Only)
-router.delete('/:id', authRequired, adminOnly, async (req, res) => {
-    try {
-        await db.query('DELETE FROM team_members WHERE id=?', [req.params.id]);
-        res.json({ message: 'Team member deleted' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error deleting team member' });
-    }
-});
-
-module.exports = router;
+export default router;

@@ -1,10 +1,27 @@
-const router = require('express').Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const db = require('../Db');
-const { authRequired, authOptional, adminOnly } = require('../middleware/auth');
+import { Router } from 'express';
+import { body, validationResult } from 'express-validator';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import * as resourcesController from '../controllers/resourcesController.js';
+import auth from '../middleware/auth.js';
+import requireRole from '../middleware/requireRole.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const router = Router();
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ success: false, message: errors.array()[0].msg });
+    }
+    next();
+};
+
+// Multer setup — PDF only, 10MB, MIME type verified
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '../uploads');
@@ -13,153 +30,71 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-    }
+    },
 });
 
 const upload = multer({
     storage,
-    limits: { fileSize: 20 * 1024 * 1024 },
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     fileFilter: (req, file, cb) => {
-        const allowed = ['.pdf', '.docx', '.xlsx'];
-        const ext = path.extname(file.originalname).toLowerCase();
-        allowed.includes(ext) ? cb(null, true) : cb(new Error('Only PDF, DOCX, XLSX allowed'));
-    }
-});
-
-// Helper: does this user have member-or-above access?
-// Roles: 'user' (public only), 'member' (all), 'admin' (all + manage)
-const hasMemberAccess = (user) => user && (user.role === 'member' || user.role === 'admin');
-
-// GET /api/resources
-router.get('/', authOptional, async (req, res) => {
-    try {
-        let query = 'SELECT * FROM resources WHERE 1=1';
-        const params = [];
-
-        if (req.query.type) { query += ' AND type = ?'; params.push(req.query.type); }
-
-        query += ' ORDER BY created_at DESC';
-        const [rows] = await db.query(query, params);
-        res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// GET /api/resources/:id
-router.get('/:id', authOptional, async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        const resource = rows[0];
-        // Block 'user' role and unauthenticated from member resources
-        if (resource.access === 'Members Only' && !hasMemberAccess(req.user)) {
-            return res.status(403).json({ error: 'Member access required' });
+        if (file.mimetype === 'application/pdf') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only PDF files are allowed.'), false);
         }
-        res.json(resource);
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
+    },
 });
 
-// POST /api/resources/:id/download — increment download count
-router.post('/:id/download', authOptional, async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT id, access FROM resources WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        if (rows[0].access === 'Members Only' && !hasMemberAccess(req.user)) {
-            return res.status(403).json({ error: 'Member access required' });
-        }
-        await db.query('UPDATE resources SET download_count = COALESCE(download_count, 0) + 1 WHERE id = ?', [req.params.id]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+const resourceValidation = [
+    body('title').trim().notEmpty().withMessage('Resource title is required.').isLength({ max: 255 }).withMessage('Title must be 255 characters or fewer.'),
+    body('description').optional().trim(),
+    body('abstract').optional().trim(),
+    body('demo_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Demo URL must be a valid URL.'),
+    body('type')
+        .notEmpty().withMessage('Resource type is required.')
+        .isIn(['framework', 'whitepaper', 'product']).withMessage('Type must be: framework, whitepaper, or product.'),
+];
 
-// POST /api/resources — admin only
-router.post('/', authRequired, adminOnly, upload.single('file'), async (req, res) => {
-    const { title, summary, description, source_url, external_link, type, access_level, access, category_slug } = req.body;
-    if (!title) return res.status(400).json({ error: 'Title required' });
-    const file_path = req.file ? `/uploads/${req.file.filename}` : null;
-    try {
-        const desc = summary || description || null;
-        const link = source_url || external_link || null;
-        const acc = access_level || access || 'Public';
+// Public routes
+router.get('/', resourcesController.getResources);
+router.get('/:id', resourcesController.getResourceById);
 
-        // Let's resolve category ID if slug is provided
-        let catId = null;
-        if (category_slug) {
-            const [cats] = await db.query('SELECT id FROM categories WHERE name = ?', [category_slug]);
-            if (cats.length > 0) catId = cats[0].id;
-        }
+// GET /api/resources/:id/download — requires login; controller enforces role-based access
+// admin, executive, paid_member, product_company → allowed
+// free_member, university → 403
+router.get('/:id/download', auth, resourcesController.downloadResource);
 
-        const [result] = await db.query(
-            `INSERT INTO resources (title, description, external_link, file_path, type, access, category_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [title, desc, link, file_path, type || 'Guide', acc, catId]
-        );
-        const [rows] = await db.query('SELECT * FROM resources WHERE id = ?', [result.insertId]);
-        res.status(201).json(rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+// POST /api/resources — role gated (university: whitepaper, product_company: product, admin: all)
+router.post(
+    '/',
+    auth,
+    requireRole('admin', 'university', 'product_company'),
+    upload.single('file'),
+    resourceValidation,
+    validate,
+    resourcesController.createResource
+);
 
 // PUT /api/resources/:id — admin only
-router.put('/:id', authRequired, adminOnly, upload.single('file'), async (req, res) => {
-    const { title, summary, description, source_url, external_link, type, access_level, access, category_slug } = req.body;
-    if (!title) return res.status(400).json({ error: 'Title required' });
+router.put(
+    '/:id',
+    auth,
+    requireRole('admin'),
+    upload.single('file'),
+    resourceValidation,
+    validate,
+    resourcesController.updateResource
+);
 
-    try {
-        const desc = summary || description || null;
-        const link = source_url || external_link || null;
-        const acc = access_level || access || 'Public';
+// DELETE /api/resources/:id
+// admin: can delete any
+// university / product_company: can only delete their own (uploader_id = req.user.id)
+// controller performs the ownership check
+router.delete(
+    '/:id',
+    auth,
+    requireRole('admin', 'university', 'product_company'),
+    resourcesController.deleteResource
+);
 
-        // Resolve Category String to ID
-        let catId = null;
-        if (category_slug) {
-            const [cats] = await db.query('SELECT id FROM categories WHERE name = ?', [category_slug]);
-            if (cats.length > 0) catId = cats[0].id;
-        }
-
-        if (req.file) {
-            const file_path = `/uploads/${req.file.filename}`;
-            await db.query(
-                `UPDATE resources SET title=?, description=?, external_link=?, file_path=?, type=?, access=?, category_id=? WHERE id=?`,
-                [title, desc, link, file_path, type || 'Guide', acc, catId, req.params.id]
-            );
-        } else {
-            await db.query(
-                `UPDATE resources SET title=?, description=?, external_link=?, type=?, access=?, category_id=? WHERE id=?`,
-                [title, desc, link, type || 'Guide', acc, catId, req.params.id]
-            );
-        }
-
-        const [rows] = await db.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
-        res.json(rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// DELETE /api/resources/:id — admin only
-router.delete('/:id', authRequired, adminOnly, async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT file_path FROM resources WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        if (rows[0].file_path) {
-            const fp = path.join(__dirname, '..', rows[0].file_path);
-            if (fs.existsSync(fp)) fs.unlinkSync(fp);
-        }
-        await db.query('DELETE FROM resources WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Deleted' });
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-module.exports = router;
+export default router;
