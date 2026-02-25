@@ -78,7 +78,7 @@ function App() {
 
               {/* ── Admin routes ── */}
               <Route
-                path="/admin"
+                path="/admin-dashboard"
                 element={
                   <AdminRoute>
                     <AdminDashboard />
@@ -86,7 +86,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/users"
+                path="/admin-dashboard/users"
                 element={
                   <AdminRoute>
                     <UserManagement />

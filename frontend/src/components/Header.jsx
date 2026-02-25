@@ -64,7 +64,7 @@ const Header = () => {
                     {isLoggedIn ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             {isAdmin && (
-                                <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', padding: '0.4rem 0.9rem', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
+                                <button onClick={() => navigate('/admin-dashboard')} style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', padding: '0.4rem 0.9rem', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
                                     Admin Dashboard
                                 </button>
                             )}
@@ -86,10 +86,10 @@ const Header = () => {
                                         </div>
                                         {isAdmin && (
                                             <>
-                                                <Link to="/admin/users" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: '500', textDecoration: 'none' }}>
+                                                <Link to="/admin-dashboard/users" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: '500', textDecoration: 'none' }}>
                                                     <Shield size={14} /> Manage Users
                                                 </Link>
-                                                <Link to="/admin" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: '500', textDecoration: 'none' }}>
+                                                <Link to="/admin-dashboard" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: '500', textDecoration: 'none' }}>
                                                     <Shield size={14} /> Admin Dashboard
                                                 </Link>
                                             </>

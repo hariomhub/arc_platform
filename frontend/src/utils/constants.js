@@ -52,8 +52,8 @@ export const ROUTES = {
     LOGIN: '/login',
     REGISTER: '/register',
     PROFILE: '/profile',
-    ADMIN: '/admin',
-    ADMIN_USERS: '/admin/users',
+    ADMIN: '/admin-dashboard',
+    ADMIN_USERS: '/admin-dashboard/users',
 };
 
 // ─── Pagination defaults ──────────────────────────────────────────────────────

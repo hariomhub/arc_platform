@@ -139,7 +139,7 @@ const Navbar = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             {isAdmin && isAdmin() && (
                                 <button
-                                    onClick={() => navigate('/admin')}
+                                    onClick={() => navigate('/admin-dashboard')}
                                     aria-label="Go to Admin Dashboard"
                                     style={{
                                         background: 'transparent',
@@ -260,7 +260,7 @@ const Navbar = () => {
                                             <>
                                                 <Link
                                                     role="menuitem"
-                                                    to="/admin/users"
+                                                    to="/admin-dashboard/users"
                                                     onClick={() => setUserMenuOpen(false)}
                                                     style={{
                                                         display: 'flex',
@@ -277,7 +277,7 @@ const Navbar = () => {
                                                 </Link>
                                                 <Link
                                                     role="menuitem"
-                                                    to="/admin"
+                                                    to="/admin-dashboard"
                                                     onClick={() => setUserMenuOpen(false)}
                                                     style={{
                                                         display: 'flex',
