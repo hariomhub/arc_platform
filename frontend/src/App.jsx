@@ -18,9 +18,14 @@ const Framework = lazy(() => import('./pages/Framework.jsx'));
 const Assessment = lazy(() => import('./pages/Assessment.jsx'));
 const Resources = lazy(() => import('./pages/Resources.jsx'));
 const Certifications = lazy(() => import('./pages/Certifications.jsx'));
+const AIResearch = lazy(() => import('./pages/AIResearch.jsx'));
 const CommunityQnA = lazy(() => import('./pages/CommunityQnA.jsx'));
+const QnADetail = lazy(() => import('./pages/QnADetail.jsx'));
 const Contact = lazy(() => import('./pages/Contact.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
@@ -50,19 +55,23 @@ function App() {
               <Route path="/framework" element={<Framework />} />
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/resources" element={<Resources />} />
-              <Route path="/certifications" element={<Certifications />} />
-              <Route path="/community" element={<CommunityQnA />} />
+              <Route path="/certification" element={<Certifications />} />
+              <Route path="/ai-research" element={<AIResearch />} />
+              <Route path="/community-qna" element={<CommunityQnA />} />
+              <Route path="/community-qna/:id" element={<QnADetail />} />
               <Route path="/contact" element={<Contact />} />
 
               {/* ── Guest-only routes ── */}
               <Route path="/membership" element={<Membership />} />
+              <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+              <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
               {/* ── Protected routes ── */}
               <Route
                 path="/profile"
                 element={
                   <ProtectedRoute>
-                    <Membership />
+                    <Profile />
                   </ProtectedRoute>
                 }
               />

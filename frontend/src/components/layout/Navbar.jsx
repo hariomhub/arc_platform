@@ -3,17 +3,18 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, LogOut, User, ChevronDown, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
-// Nav items — kept in sync with existing mockData navItems
+// Nav items — kept in sync with ROUTES constants
 const navItems = [
     { label: 'Home', path: '/' },
     { label: 'About Us', path: '/about' },
     { label: 'Events', path: '/events' },
     { label: 'Services', path: '/services' },
     { label: 'AI Risk Framework', path: '/framework' },
-    { label: 'AI Risk Assessment & Council', path: '/assessment' },
-    { label: 'Research & Resources', path: '/resources' },
-    { label: 'Certifications', path: '/certifications' },
-    { label: 'Community Q&A', path: '/community' },
+    { label: 'AI Risk Assessment', path: '/assessment' },
+    { label: 'Resources', path: '/resources' },
+    { label: 'AI Research', path: '/ai-research' },
+    { label: 'Certifications', path: '/certification' },
+    { label: 'Community Q&A', path: '/community-qna' },
     { label: 'Contact Us', path: '/contact' },
 ];
 

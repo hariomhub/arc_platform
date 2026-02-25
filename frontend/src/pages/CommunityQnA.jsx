@@ -1,443 +1,264 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { MessageSquare, PlusCircle, CheckCircle, User, AlertCircle, Loader, Search, X } from 'lucide-react';
-import Section from '../components/Section';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+    MessageCircle, PlusCircle, ThumbsUp, Search, X,
+    AlertCircle, Loader2, RefreshCw, ArrowRight
+} from 'lucide-react';
+import { useAuth } from '../hooks/useAuth.js';
+import { useToast } from '../hooks/useToast.js';
+import { useDebounce } from '../hooks/useDebounce.js';
+import { getQnaPosts } from '../api/qna.js';
+import { timeAgo } from '../utils/dateFormatter.js';
+import { getErrorMessage } from '../utils/apiHelpers.js';
+import Pagination from '../components/common/Pagination.jsx';
+import AskQuestionModal from '../components/modals/AskQuestionModal.jsx';
 
-const API = 'http://localhost:5000/api';
+const ITEMS_PER_PAGE = 10;
 
-// Common English stopwords to strip before keyword matching
-const STOPWORDS = new Set(['how', 'to', 'a', 'the', 'my', 'i', 'is', 'in', 'and', 'or', 'for', 'of', 'do', 'does', 'can', 'this', 'that', 'what', 'why', 'when', 'where', 'which', 'should', 'would', 'could', 'will', 'be', 'have', 'has', 'are', 'was', 'were', 'an', 'it', 'its', 'about', 'with', 'from', 'by', 'at', 'on', 'as']);
-
-const tokenize = (query) =>
-    query.toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .map(t => t.trim())
-        .filter(t => t.length > 1 && !STOPWORDS.has(t));
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-const AuthorBadge = ({ name, role }) => {
-    const roleColors = { admin: '#7C3AED', member: '#003366', user: '#64748B' };
-    return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: roleColors[role] || '#64748B', fontWeight: '600' }}>
-            <User size={11} /> {name}
-            {role === 'admin' && <span style={{ background: '#7C3AED', color: 'white', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>ADMIN</span>}
-            {role === 'member' && <span style={{ background: '#003366', color: 'white', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>MEMBER</span>}
-        </span>
-    );
-};
-
-// ─── Answer box for a single question ─────────────────────────────────────────
-const AnswerBox = ({ questionId, token, isLoggedIn }) => {
-    const [answers, setAnswers] = useState(null);
-    const [expanded, setExpanded] = useState(false);
-    const [replyText, setReplyText] = useState('');
-    const [replyError, setReplyError] = useState('');
-    const [replyLoading, setReplyLoading] = useState(false);
-    const [replyOpen, setReplyOpen] = useState(false);
-
-    const loadAnswers = useCallback(async () => {
-        const res = await fetch(`${API}/questions/${questionId}/answers`);
-        if (res.ok) setAnswers(await res.json());
-    }, [questionId]);
-
-    useEffect(() => { loadAnswers(); }, [loadAnswers]);
-
-    const handleReply = async () => {
-        if (!replyText.trim()) return;
-        setReplyLoading(true);
-        setReplyError('');
-        try {
-            const res = await fetch(`${API}/questions/${questionId}/answers`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ content: replyText }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                setReplyError(data.error || 'Failed to post answer.');
-            } else {
-                setReplyText('');
-                setReplyOpen(false);
-                loadAnswers();
-            }
-        } catch {
-            setReplyError('Network error. Please try again.');
-        } finally {
-            setReplyLoading(false);
-        }
-    };
-
-    const count = answers?.length ?? 0;
-
-    return (
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px', marginTop: '4px' }}>
-            <button
-                onClick={() => setExpanded(!expanded)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#003366', fontWeight: '600', fontSize: '0.85rem', padding: '0', marginBottom: expanded ? '14px' : 0 }}
-            >
-                <MessageSquare size={15} color="#003366" />
-                {count > 0 ? `${count} Answer${count !== 1 ? 's' : ''}` : 'No answers yet'} {expanded ? '▲' : '▼'}
-            </button>
-
-            {expanded && (
-                <>
-                    {answers && answers.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
-                            {answers.map(ans => (
-                                <div key={ans.id} style={{
-                                    background: ans.is_official ? '#EFF6FF' : '#F8FAFC',
-                                    padding: '12px 14px', borderRadius: '8px',
-                                    borderLeft: `3px solid ${ans.is_official ? '#3B82F6' : '#CBD5E1'}`
-                                }}>
-                                    <p style={{ margin: '0 0 8px', fontSize: '0.92rem', color: '#1E293B', lineHeight: '1.55' }}>{ans.content}</p>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <AuthorBadge name={ans.author_name} role={ans.author_role} />
-                                        <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{fmtDate(ans.created_at)}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p style={{ fontSize: '0.87rem', color: '#94A3B8', marginBottom: '14px' }}>No answers yet — be the first to help!</p>
-                    )}
-
-                    {isLoggedIn && !replyOpen && (
-                        <button
-                            onClick={() => setReplyOpen(true)}
-                            style={{ border: '1px solid #CBD5E1', background: 'white', color: '#003366', padding: '7px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                        >
-                            + Add Answer
-                        </button>
-                    )}
-
-                    {!isLoggedIn && (
-                        <p style={{ fontSize: '0.83rem', color: '#94A3B8' }}>Please <a href="/membership" style={{ color: '#003366', fontWeight: '700' }}>sign in</a> to post an answer.</p>
-                    )}
-
-                    {replyOpen && (
-                        <div style={{ marginTop: '10px' }}>
-                            <textarea
-                                rows="3" placeholder="Write your answer..."
-                                value={replyText} onChange={e => { setReplyText(e.target.value); setReplyError(''); }}
-                                style={{ width: '100%', padding: '10px', border: `1.5px solid ${replyError ? '#FCA5A5' : '#CBD5E1'}`, borderRadius: '8px', marginBottom: '8px', fontFamily: 'var(--font-sans)', resize: 'vertical', boxSizing: 'border-box', fontSize: '0.9rem' }}
-                            />
-                            {replyError && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#DC2626', fontSize: '0.82rem', marginBottom: '8px' }}>
-                                    <AlertCircle size={13} /> {replyError}
-                                </div>
-                            )}
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                    onClick={handleReply} disabled={replyLoading || !replyText.trim()}
-                                    style={{ background: '#003366', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '6px', fontWeight: '700', cursor: 'pointer', fontSize: '0.87rem', opacity: (replyLoading || !replyText.trim()) ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}
-                                >
-                                    {replyLoading && <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />}
-                                    Post Answer
-                                </button>
-                                <button onClick={() => { setReplyOpen(false); setReplyText(''); setReplyError(''); }}
-                                    style={{ background: 'transparent', color: '#64748B', border: 'none', padding: '8px 14px', fontWeight: '600', cursor: 'pointer', fontSize: '0.87rem' }}>
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
-    );
-};
-
-// ─── Question Card ─────────────────────────────────────────────────────────────
-const QuestionCard = ({ q, token, isLoggedIn }) => (
-    <div style={{ background: 'white', padding: '22px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid #F1F5F9' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '12px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1E293B', lineHeight: '1.4', flexGrow: 1 }}>{q.title}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
-                <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>{fmtDate(q.created_at)}</span>
-                <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: q.status === 'answered' ? '#D1FAE5' : q.status === 'closed' ? '#FEE2E2' : '#EFF6FF', color: q.status === 'answered' ? '#065F46' : q.status === 'closed' ? '#991B1B' : '#1D4ED8', textTransform: 'uppercase' }}>
-                    {q.status || 'open'}
-                </span>
-            </div>
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-            <AuthorBadge name={q.author_name} role={q.author_role} />
-        </div>
-        {q.details && (
-            <p style={{ color: '#475569', fontSize: '0.93rem', lineHeight: '1.65', marginBottom: '14px' }}>{q.details}</p>
-        )}
-        <AnswerBox questionId={q.id} token={token} isLoggedIn={isLoggedIn} />
+// ─── Skeleton card ─────────────────────────────────────────────────────────────
+const SkeletonCard = () => (
+    <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="h-4 w-3/4 bg-slate-200 rounded mb-3 animate-pulse" />
+        <div className="h-3 w-full bg-slate-200 rounded mb-2 animate-pulse" />
+        <div className="h-3 w-4/5 bg-slate-200 rounded animate-pulse" />
     </div>
 );
 
-// ─── My Q&A Panel ─────────────────────────────────────────────────────────────
-const MyQnAPanel = ({ token }) => {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+// ─── Question card ─────────────────────────────────────────────────────────────
+const QuestionCard = ({ q, onTagClick }) => (
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <Link
+            to={`/community-qna/${q.id}`}
+            className="block text-lg font-bold text-slate-800 no-underline mb-2 leading-snug hover:text-[#003366] transition-colors"
+        >
+            {q.title}
+        </Link>
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`${API}/questions/my`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (res.ok) setData(await res.json());
-                else setError('Could not load your Q&A.');
-            } catch {
-                setError('Network error.');
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, [token]);
+        {q.body && (
+            <p className="text-sm text-slate-500 leading-relaxed mb-3">
+                {q.body.length > 150 ? `${q.body.slice(0, 150)}...` : q.body}
+            </p>
+        )}
 
-    if (loading) return <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8' }}><Loader size={28} /></div>;
-    if (error) return <div style={{ textAlign: 'center', padding: '3rem', color: '#EF4444' }}>{error}</div>;
-
-    const { questions = [], answers = [] } = data || {};
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* My Questions */}
-            <div>
-                <h3 style={{ color: '#1E293B', fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <MessageSquare size={18} color="#003366" /> My Questions
-                    <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.85rem' }}>({questions.length})</span>
-                </h3>
-                {questions.length === 0 ? (
-                    <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>You haven't asked any questions yet.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {questions.map(q => (
-                            <div key={q.id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '14px 18px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                                    <h4 style={{ margin: '0 0 4px', color: '#1E293B', fontSize: '0.97rem', fontWeight: '700' }}>{q.title}</h4>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: q.status === 'answered' ? '#D1FAE5' : '#EFF6FF', color: q.status === 'answered' ? '#065F46' : '#1D4ED8', textTransform: 'uppercase', flexShrink: 0 }}>{q.status || 'open'}</span>
-                                </div>
-                                {q.details && <p style={{ margin: '0 0 6px', color: '#64748B', fontSize: '0.85rem', lineHeight: '1.5' }}>{q.details}</p>}
-                                <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{fmtDate(q.created_at)}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
+        {q.tags && q.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+                {q.tags.map((tag) => (
+                    <button
+                        key={tag}
+                        onClick={() => onTagClick(tag)}
+                        className="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border-none cursor-pointer hover:bg-blue-100 transition-colors font-sans"
+                    >
+                        #{tag}
+                    </button>
+                ))}
             </div>
+        )}
 
-            {/* My Answers */}
-            <div>
-                <h3 style={{ color: '#1E293B', fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle size={18} color="#10B981" /> My Answers
-                    <span style={{ fontWeight: '400', color: '#94A3B8', fontSize: '0.85rem' }}>({answers.length})</span>
-                </h3>
-                {answers.length === 0 ? (
-                    <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>You haven't answered any questions yet.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {answers.map(a => (
-                            <div key={a.id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '14px 18px', borderLeft: '3px solid #10B981' }}>
-                                <p style={{ margin: '0 0 6px', color: '#374151', fontSize: '0.88rem', lineHeight: '1.55' }}>{a.content}</p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-                                    <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
-                                        On: <strong style={{ color: '#003366' }}>{a.question_title}</strong>
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{fmtDate(a.created_at)}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+        <div className="flex justify-between items-center flex-wrap gap-2">
+            <span className="text-xs text-slate-400">
+                {q.author_name && <strong className="text-slate-500">{q.author_name}</strong>}
+                {q.author_name && ' · '}{timeAgo(q.created_at)}
+            </span>
+            <div className="flex gap-4 items-center">
+                <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <ThumbsUp size={13} /> {q.vote_count ?? 0}
+                </span>
+                <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <MessageCircle size={13} /> {q.answer_count ?? 0}
+                </span>
+                <Link to={`/community-qna/${q.id}`} className="flex items-center gap-1 text-xs text-[#003366] font-bold no-underline">
+                    View <ArrowRight size={12} />
+                </Link>
             </div>
         </div>
-    );
-};
+    </div>
+);
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
+// ─── Main page ─────────────────────────────────────────────────────────────────
 const CommunityQnA = () => {
-    const { token, isLoggedIn, user } = useAuth();
-    const [questions, setQuestions] = useState([]);
-    const [formParams, setFormParams] = useState({ title: '', details: '' });
-    const [isAsking, setIsAsking] = useState(false);
-    const [formError, setFormError] = useState('');
-    const [formLoading, setFormLoading] = useState(false);
-    const [tab, setTab] = useState('all'); // 'all' | 'mine'
-    const [searchQuery, setSearchQuery] = useState('');
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { user } = useAuth();
+    const { showToast } = useToast();
 
-    const fetchQuestions = useCallback(async () => {
+    const sort = searchParams.get('sort') || 'newest';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+
+    const [searchInput, setSearchInput] = useState('');
+    const [tagFilter, setTagFilter] = useState('');
+    const debouncedSearch = useDebounce(searchInput, 350);
+
+    const [posts, setPosts] = useState([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [askOpen, setAskOpen] = useState(false);
+
+    useEffect(() => { document.title = 'Community Q&A | ARC'; }, []);
+
+    const fetchPosts = useCallback(async (signal) => {
+        setLoading(true); setError('');
         try {
-            const res = await fetch(`${API}/questions`);
-            if (res.ok) setQuestions(await res.json());
+            const params = { sort, page, limit: ITEMS_PER_PAGE };
+            if (debouncedSearch) params.search = debouncedSearch;
+            if (tagFilter.trim()) params.tags = tagFilter.trim();
+            const res = await getQnaPosts(params);
+            if (!signal?.aborted) {
+                const payload = res.data?.data;
+                setPosts(Array.isArray(payload) ? payload : (payload?.posts || []));
+                setTotalPages(payload?.totalPages ?? 1);
+            }
         } catch (err) {
-            console.error('Failed to fetch questions:', err);
-        }
-    }, []);
-
-    useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
-
-    const handleAskQuestion = async (e) => {
-        e.preventDefault();
-        if (!formParams.title.trim()) { setFormError('Question title is required.'); return; }
-        setFormLoading(true);
-        setFormError('');
-        try {
-            const res = await fetch(`${API}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify(formParams),
-            });
-            const data = await res.json();
-            if (!res.ok) { setFormError(data.error || 'Failed to post question.'); return; }
-            setFormParams({ title: '', details: '' });
-            setIsAsking(false);
-            fetchQuestions();
-        } catch {
-            setFormError('Network error. Please try again.');
+            if (!signal?.aborted) setError(getErrorMessage(err) || 'Failed to load questions.');
         } finally {
-            setFormLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
+    }, [sort, page, debouncedSearch, tagFilter]);
+
+    useEffect(() => {
+        const ctrl = new AbortController();
+        fetchPosts(ctrl.signal);
+        return () => ctrl.abort();
+    }, [fetchPosts]);
+
+    const setParam = useCallback((key, value) => {
+        setSearchParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set(key, value);
+            if (key !== 'page') n.set('page', '1');
+            return n;
+        });
+    }, [setSearchParams]);
+
+    const handleAskClick = () => {
+        if (!user) navigate('/login', { state: { message: 'Please login to ask questions', from: '/community-qna' } });
+        else setAskOpen(true);
     };
 
-    const TABS = [
-        { key: 'all', label: `All Questions (${questions.length})` },
-        ...(isLoggedIn ? [{ key: 'mine', label: 'My Q&A' }] : []),
-    ];
+    const handleQuestionPosted = useCallback(() => {
+        setAskOpen(false);
+        showToast('Question posted successfully!', 'success');
+        fetchPosts();
+    }, [showToast, fetchPosts]);
 
-    // Multi-keyword client-side search
-    const keywords = tokenize(searchQuery);
-    const filteredQuestions = keywords.length === 0
-        ? questions
-        : questions.filter(q => {
-            const haystack = `${q.title} ${q.details || ''}`.toLowerCase();
-            return keywords.some(kw => haystack.includes(kw));
-        });
+    const handleTagClick = useCallback((tag) => {
+        setTagFilter(tag);
+        setParam('page', '1');
+    }, [setParam]);
+
+    const hasActiveSearch = debouncedSearch || tagFilter;
 
     return (
-        <div style={{ backgroundColor: '#F8FAFC', minHeight: '100vh', padding: '48px 0 64px' }}>
-            <Section>
+        <div className="bg-slate-50 min-h-screen py-12 px-8 pb-20">
+            <div className="max-w-3xl mx-auto">
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
                     <div>
-                        <h1 style={{ color: '#003366', fontSize: '2.2rem', marginBottom: '6px' }}>Community Q&A</h1>
-                        <p style={{ color: '#64748B', fontSize: '1rem' }}>Ask questions, share knowledge, and connect with global AI risk professionals.</p>
+                        <h1 className="text-[#003366] text-4xl font-extrabold mb-1.5">Community Q&amp;A</h1>
+                        <p className="text-slate-500 text-base">Ask questions and share knowledge with global AI risk professionals.</p>
                     </div>
-                    {isLoggedIn && (
-                        <button
-                            onClick={() => { setIsAsking(!isAsking); setFormError(''); }}
-                            style={{ backgroundColor: isAsking ? '#E2E8F0' : '#003366', color: isAsking ? '#475569' : 'white', padding: '10px 22px', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                        >
-                            <PlusCircle size={18} /> {isAsking ? 'Cancel' : 'Ask a Question'}
-                        </button>
-                    )}
+                    <button
+                        onClick={handleAskClick}
+                        className="inline-flex items-center gap-2 bg-[#003366] text-white px-5 py-2.5 border-none rounded-lg font-bold text-sm cursor-pointer font-sans"
+                    >
+                        <PlusCircle size={18} /> Ask a Question
+                    </button>
                 </div>
 
-                {/* Not logged in banner */}
-                {!isLoggedIn && (
-                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '1rem 1.25rem', borderRadius: '10px', color: '#1D4ED8', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
-                        <MessageSquare size={17} />
-                        <span>Please <a href="/membership" style={{ fontWeight: '700', color: '#1D4ED8' }}>sign in</a> to ask questions or post answers.</span>
-                    </div>
-                )}
-
-                {/* Ask question form */}
-                {isAsking && (
-                    <form onSubmit={handleAskQuestion} style={{ background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', marginBottom: '2rem', border: '1px solid #E2E8F0' }}>
-                        <h3 style={{ marginTop: 0, marginBottom: '1.1rem', color: '#1E293B' }}>Ask the Community</h3>
-                        <input
-                            type="text" placeholder="Briefly summarize your question…" required
-                            value={formParams.title}
-                            onChange={e => { setFormParams(p => ({ ...p, title: e.target.value })); setFormError(''); }}
-                            style={{ width: '100%', padding: '11px', border: '1.5px solid #CBD5E1', borderRadius: '8px', marginBottom: '12px', fontSize: '0.95rem', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
-                        />
-                        <textarea
-                            placeholder="Add more context or details (optional)…"
-                            rows="4" value={formParams.details}
-                            onChange={e => setFormParams(p => ({ ...p, details: e.target.value }))}
-                            style={{ width: '100%', padding: '11px', border: '1.5px solid #CBD5E1', borderRadius: '8px', marginBottom: '12px', fontSize: '0.95rem', fontFamily: 'var(--font-sans)', resize: 'vertical', boxSizing: 'border-box' }}
-                        />
-                        {formError && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#DC2626', fontSize: '0.83rem', marginBottom: '12px' }}>
-                                <AlertCircle size={14} /> {formError}
-                            </div>
-                        )}
-                        <button type="submit" disabled={formLoading} style={{ background: '#003366', color: 'white', border: 'none', padding: '10px 22px', borderRadius: '7px', fontWeight: '700', cursor: formLoading ? 'not-allowed' : 'pointer', fontSize: '0.9rem', opacity: formLoading ? 0.7 : 1 }}>
-                            {formLoading ? 'Posting…' : 'Post Question'}
-                        </button>
-                    </form>
-                )}
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', gap: '4px', background: '#E2E8F0', borderRadius: '8px', padding: '3px', width: 'fit-content' }}>
-                        {TABS.map(t => (
-                            <button key={t.key} onClick={() => setTab(t.key)} style={{
-                                padding: '7px 18px', borderRadius: '6px', fontSize: '0.855rem', fontWeight: '700', border: 'none', cursor: 'pointer',
-                                background: tab === t.key ? 'white' : 'transparent',
-                                color: tab === t.key ? '#003366' : '#64748B',
-                                boxShadow: tab === t.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                                transition: 'all 0.15s',
-                            }}>{t.label}</button>
+                {/* Filter bar */}
+                <div className="flex flex-wrap gap-3 items-center mb-7">
+                    {/* Sort toggle */}
+                    <div className="flex bg-slate-200 rounded-lg p-0.5 gap-0.5">
+                        {['newest', 'most_voted'].map((s) => (
+                            <button key={s} onClick={() => setParam('sort', s)}
+                                className={`px-4 py-1.5 rounded-md text-xs font-bold border-none cursor-pointer transition-all font-sans ${sort === s ? 'bg-white text-[#003366] shadow-sm' : 'bg-transparent text-slate-500'}`}>
+                                {s === 'newest' ? 'Newest' : 'Most Voted'}
+                            </button>
                         ))}
                     </div>
 
-                    {/* Search bar — only on All Questions tab */}
-                    {tab === 'all' && (
-                        <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
-                            <Search size={15} color="#94A3B8" style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                            <input
-                                type="text"
-                                placeholder="Search questions… e.g. fix purview solution"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                style={{ width: '100%', padding: '8px 32px 8px 33px', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '0.87rem', fontFamily: 'var(--font-sans)', boxSizing: 'border-box', outline: 'none' }}
-                                onFocus={e => e.target.style.borderColor = '#003366'}
-                                onBlur={e => e.target.style.borderColor = '#CBD5E1'}
-                            />
-                            {searchQuery && (
-                                <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '9px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#94A3B8' }}>
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[200px] max-w-xs">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+                            placeholder="Search questions…"
+                            className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm font-sans outline-none focus:border-[#003366] transition-colors" />
+                        {searchInput && (
+                            <button onClick={() => setSearchInput('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-slate-400 p-0">
+                                <X size={13} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Tag filter */}
+                    <div className="relative flex-1 min-w-[150px] max-w-[220px]">
+                        <input type="text" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+                            placeholder="Filter by tag…"
+                            className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm font-sans outline-none focus:border-[#003366] transition-colors" />
+                        {tagFilter && (
+                            <button onClick={() => setTagFilter('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-slate-400 p-0">
+                                <X size={13} />
+                            </button>
+                        )}
+                    </div>
+
+                    {hasActiveSearch && (
+                        <button onClick={() => { setSearchInput(''); setTagFilter(''); }}
+                            className="bg-transparent border-none text-slate-500 text-xs cursor-pointer underline font-sans">
+                            Clear all
+                        </button>
                     )}
                 </div>
 
-                {/* Content */}
-                {tab === 'all' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* Search result summary */}
-                        {keywords.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#475569', marginBottom: '2px' }}>
-                                <Search size={14} color="#003366" />
-                                <span>Showing <strong style={{ color: '#003366' }}>{filteredQuestions.length}</strong> result{filteredQuestions.length !== 1 ? 's' : ''} for keywords: </span>
-                                {keywords.map(kw => (
-                                    <span key={kw} style={{ background: '#EFF6FF', color: '#1D4ED8', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>{kw}</span>
-                                ))}
-                            </div>
-                        )}
-
-                        {filteredQuestions.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '12px', border: '1px dashed #CBD5E1' }}>
-                                <Search size={36} color="#CBD5E1" style={{ marginBottom: '1rem' }} />
-                                <p style={{ color: '#94A3B8', fontSize: '1rem' }}>
-                                    {keywords.length > 0 ? `No questions matched your search. Try different keywords.` : 'No questions yet. Start the conversation!'}
-                                </p>
-                                {keywords.length > 0 && (
-                                    <button onClick={() => setSearchQuery('')} style={{ marginTop: '0.75rem', background: '#003366', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.87rem' }}>Clear Search</button>
-                                )}
-                            </div>
-                        ) : (
-                            filteredQuestions.map(q => (
-                                <QuestionCard key={q.id} q={q} token={token} isLoggedIn={isLoggedIn} />
-                            ))
-                        )}
+                {/* Loading */}
+                {loading && (
+                    <div className="flex flex-col gap-4" aria-busy="true">
+                        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
                     </div>
                 )}
 
-                {tab === 'mine' && isLoggedIn && (
-                    <MyQnAPanel token={token} />
+                {/* Error */}
+                {error && !loading && (
+                    <div className="text-center py-16 text-red-500">
+                        <AlertCircle size={36} className="mx-auto mb-4 opacity-60" />
+                        <p className="mb-5">{error}</p>
+                        <button onClick={() => fetchPosts()} className="inline-flex items-center gap-1.5 bg-[#003366] text-white border-none px-5 py-2.5 rounded-md cursor-pointer font-bold">
+                            <RefreshCw size={14} /> Try Again
+                        </button>
+                    </div>
                 )}
-            </Section>
+
+                {/* Empty */}
+                {!loading && !error && posts.length === 0 && (
+                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
+                        <MessageCircle size={48} className="mx-auto mb-4 text-slate-300" />
+                        <p className="text-slate-400 mb-4">
+                            {hasActiveSearch ? 'No questions match your search.' : 'No questions yet. Be the first!'}
+                        </p>
+                        {hasActiveSearch
+                            ? <button onClick={() => { setSearchInput(''); setTagFilter(''); }} className="bg-[#003366] text-white border-none px-5 py-2 rounded-md cursor-pointer font-bold text-sm font-sans">Clear Filters</button>
+                            : <button onClick={handleAskClick} className="inline-flex items-center gap-2 bg-[#003366] text-white border-none px-5 py-2 rounded-md cursor-pointer font-bold text-sm font-sans"><PlusCircle size={15} /> Ask a Question</button>
+                        }
+                    </div>
+                )}
+
+                {/* List */}
+                {!loading && !error && posts.length > 0 && (
+                    <>
+                        <p className="text-xs text-slate-400 mb-4" aria-live="polite">
+                            {posts.length} question{posts.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="flex flex-col gap-4" aria-live="polite">
+                            {posts.map((q) => <QuestionCard key={q.id} q={q} onTagClick={handleTagClick} />)}
+                        </div>
+                        {totalPages > 1 && (
+                            <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setParam('page', String(p))} />
+                        )}
+                    </>
+                )}
+            </div>
+
+            {askOpen && <AskQuestionModal isOpen={askOpen} onClose={() => setAskOpen(false)} onSuccess={handleQuestionPosted} />}
         </div>
     );
 };

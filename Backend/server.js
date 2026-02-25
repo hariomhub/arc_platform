@@ -29,7 +29,7 @@ import resourcesRoutes from './routes/resources.js';
 import teamRoutes from './routes/team.js';
 import qnaRoutes from './routes/qna.js';
 import newsRoutes from './routes/news.js';
-import adminRoutes from './routes/admin.js';
+import adminRoutes from './routes/Admin.js';
 import profileRoutes from './routes/profile.js';
 
 const app = express();

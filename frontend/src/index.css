@@ -1,8 +1,90 @@
 /* Tailwind CSS v4 entry point */
 @import "tailwindcss";
 
-/* Google Fonts (also in index.html for preconnect, keep here for CSS reliability) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+/* Google Fonts (also in index.html for preconnect) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap');
+
+/* ─── Tailwind v4 Custom Tokens ─────────────────────────────────────────────── */
+@theme {
+  --color-arc-primary: #003366;
+  --color-arc-primary-dark: #002244;
+  --color-arc-primary-light: #004488;
+  --color-arc-accent: #0055A4;
+  --color-arc-gold: #f9a825;
+  --color-arc-light: #F0F4F8;
+  --color-arc-danger: #c62828;
+  --color-arc-success: #2e7d32;
+  --color-arc-text: #1A202C;
+  --color-arc-muted: #4A5568;
+  --color-arc-border: #E2E8F0;
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-serif: 'Playfair Display', Georgia, serif;
+}
+
+/* ─── Custom Animations ─────────────────────────────────────────────────────── */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes skeleton-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ─── Accessibility utilities ───────────────────────────────────────────────── */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.skip-to-content:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 9999;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  background: white;
+  color: var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+
 
 /* ─── CSS Custom Properties (kept for non-Tailwind inline usage in legacy pages) ─── */
 :root {
@@ -40,7 +122,9 @@
 }
 
 /* ─── Base Reset ─── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -56,17 +140,37 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-serif);
   color: var(--primary);
   line-height: 1.2;
   margin-bottom: var(--spacing-md);
 }
 
-h1 { font-size: 3rem;    font-weight: 700; }
-h2 { font-size: 2.25rem; font-weight: 600; }
-h3 { font-size: 1.75rem; font-weight: 600; }
-h4 { font-size: 1.25rem; font-weight: 600; }
+h1 {
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2.25rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
 
 p {
   margin-bottom: var(--spacing-md);
@@ -79,7 +183,9 @@ a {
   transition: color 0.2s;
 }
 
-a:hover { text-decoration: underline; }
+a:hover {
+  text-decoration: underline;
+}
 
 /* ─── Container util (used by legacy pages) ─── */
 .container {
@@ -108,14 +214,20 @@ a:hover { text-decoration: underline; }
   background-color: var(--primary);
   color: var(--text-inverse);
 }
-.btn-primary:hover { background-color: var(--primary-light); }
+
+.btn-primary:hover {
+  background-color: var(--primary-light);
+}
 
 .btn-secondary {
   background-color: transparent;
   border: 1px solid var(--primary);
   color: var(--primary);
 }
-.btn-secondary:hover { background-color: var(--bg-light); }
+
+.btn-secondary:hover {
+  background-color: var(--bg-light);
+}
 
 /* ─── Legacy card class ─── */
 .card {
@@ -126,16 +238,30 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
   transition: box-shadow 0.2s;
 }
+
 .card:hover {
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-.section        { padding: var(--spacing-3xl) 0; }
-.section-bg     { background-color: var(--bg-light); }
-.text-high-contrast { color: var(--text-main) !important; }
+.section {
+  padding: var(--spacing-3xl) 0;
+}
+
+.section-bg {
+  background-color: var(--bg-light);
+}
+
+.text-high-contrast {
+  color: var(--text-main) !important;
+}
 
 /* ─── Mobile responsive nav helper ─── */
 @media (max-width: 768px) {
-  .desktop-nav      { display: none !important; }
-  .mobile-menu-btn  { display: block !important; }
+  .desktop-nav {
+    display: none !important;
+  }
+
+  .mobile-menu-btn {
+    display: block !important;
+  }
 }
