@@ -1,4 +1,6 @@
 import pool from '../db/connection.js';
+import path from 'path';
+import fs from 'fs';
 
 // Helper: build pagination meta and LIMIT/OFFSET
 const paginate = (query, total) => {
@@ -9,43 +11,45 @@ const paginate = (query, total) => {
     return { page, limit, offset, totalPages };
 };
 
-// GET /api/events
+// GET /api/events  — public: only published; admin passes ?all=true for all
 export const getEvents = async (req, res, next) => {
     try {
-        const { category, upcoming } = req.query;
+        const { category, upcoming, tab } = req.query;
+        const showAll = req.query.all === 'true';
 
-        let countSql = 'SELECT COUNT(*) AS total FROM events WHERE 1=1';
-        let dataSql = 'SELECT * FROM events WHERE 1=1';
+        let countSql = `SELECT COUNT(*) AS total FROM events WHERE ${showAll ? '1=1' : 'is_published = 1'}`;
+        let dataSql  = `SELECT * FROM events WHERE ${showAll ? '1=1' : 'is_published = 1'}`;
         const params = [];
 
         if (category) {
             const clause = ' AND event_category = ?';
             countSql += clause;
-            dataSql += clause;
+            dataSql  += clause;
             params.push(category);
         }
 
-        if (upcoming !== undefined) {
+        // Handle tab parameter ('upcoming' or 'past')
+        if (tab) {
             const clause = ' AND is_upcoming = ?';
             countSql += clause;
-            dataSql += clause;
+            dataSql  += clause;
+            params.push(tab === 'upcoming' ? 1 : 0);
+        } 
+        // Fallback to upcoming parameter for backwards compatibility
+        else if (upcoming !== undefined) {
+            const clause = ' AND is_upcoming = ?';
+            countSql += clause;
+            dataSql  += clause;
             params.push(upcoming === 'true' || upcoming === '1' ? 1 : 0);
         }
 
         const [[{ total }]] = await pool.query(countSql, params);
         const { page, limit, offset, totalPages } = paginate(req.query, total);
 
-        dataSql += ' ORDER BY date DESC LIMIT ? OFFSET ?';
+        dataSql += ' ORDER BY date ASC LIMIT ? OFFSET ?';
         const [rows] = await pool.query(dataSql, [...params, limit, offset]);
 
-        return res.json({
-            success: true,
-            data: rows,
-            total,
-            page,
-            limit,
-            totalPages,
-        });
+        return res.json({ success: true, data: rows, total, page, limit, totalPages });
     } catch (err) {
         next(err);
     }
@@ -67,11 +71,12 @@ export const getEventById = async (req, res, next) => {
 // POST /api/events  (admin only)
 export const createEvent = async (req, res, next) => {
     try {
-        const { title, date, location, description, link, event_category, is_upcoming, recording_url } = req.body;
+        const { title, date, location, description, link, event_category, is_upcoming, recording_url, banner_image, is_published } = req.body;
 
         const [result] = await pool.query(
-            `INSERT INTO events (title, date, location, description, link, event_category, is_upcoming, recording_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO events
+               (title, date, location, description, link, event_category, is_upcoming, recording_url, banner_image, is_published)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 date,
@@ -81,6 +86,8 @@ export const createEvent = async (req, res, next) => {
                 event_category,
                 is_upcoming !== undefined ? Boolean(is_upcoming) : true,
                 recording_url ? recording_url.trim() : null,
+                banner_image ? banner_image.trim() : null,
+                is_published !== undefined ? Boolean(is_published) : true,
             ]
         );
 
@@ -94,7 +101,7 @@ export const createEvent = async (req, res, next) => {
 // PUT /api/events/:id  (admin only)
 export const updateEvent = async (req, res, next) => {
     try {
-        const { title, date, location, description, link, event_category, is_upcoming, recording_url } = req.body;
+        const { title, date, location, description, link, event_category, is_upcoming, recording_url, banner_image, is_published } = req.body;
 
         const [check] = await pool.query('SELECT id FROM events WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
@@ -102,8 +109,10 @@ export const updateEvent = async (req, res, next) => {
         }
 
         await pool.query(
-            `UPDATE events SET title=?, date=?, location=?, description=?, link=?, event_category=?, is_upcoming=?, recording_url=?
-       WHERE id=?`,
+            `UPDATE events
+             SET title=?, date=?, location=?, description=?, link=?, event_category=?,
+                 is_upcoming=?, recording_url=?, banner_image=?, is_published=?
+             WHERE id=?`,
             [
                 title.trim(),
                 date,
@@ -113,9 +122,61 @@ export const updateEvent = async (req, res, next) => {
                 event_category,
                 Boolean(is_upcoming),
                 recording_url ? recording_url.trim() : null,
+                banner_image ? banner_image.trim() : null,
+                is_published !== undefined ? Boolean(is_published) : true,
                 req.params.id,
             ]
         );
+
+        const [rows] = await pool.query('SELECT * FROM events WHERE id = ?', [req.params.id]);
+        return res.json({ success: true, data: rows[0] });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/events/:id/publish  (admin only) — toggle publish state
+export const togglePublishEvent = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query('SELECT id, is_published FROM events WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+
+        const newState = !rows[0].is_published;
+        await pool.query('UPDATE events SET is_published = ? WHERE id = ?', [newState, req.params.id]);
+
+        const [updated] = await pool.query('SELECT * FROM events WHERE id = ?', [req.params.id]);
+        return res.json({
+            success: true,
+            data: updated[0],
+            message: newState ? 'Event published.' : 'Event unpublished.',
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /api/events/:id/upload-banner  (admin only, multipart/form-data)
+export const uploadBanner = async (req, res, next) => {
+    try {
+        const [check] = await pool.query('SELECT id, banner_image FROM events WHERE id = ?', [req.params.id]);
+        if (check.length === 0) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+
+        if (!req.file) {
+            return res.status(422).json({ success: false, message: 'No image file provided.' });
+        }
+
+        // Remove old banner file if it exists
+        if (check[0].banner_image) {
+            const oldPath = path.resolve(`./${check[0].banner_image}`);
+            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+
+        const banner_image = `uploads/events/${req.file.filename}`;
+        await pool.query('UPDATE events SET banner_image = ? WHERE id = ?', [banner_image, req.params.id]);
 
         const [rows] = await pool.query('SELECT * FROM events WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: rows[0] });

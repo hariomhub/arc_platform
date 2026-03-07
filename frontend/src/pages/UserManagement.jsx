@@ -4,27 +4,29 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
     Shield, UserPlus, Trash2, ChevronDown, Ban, CheckCircle,
-    AlertCircle, X, Search, Users, Crown, User
+    AlertCircle, X, Search, Users, Crown, User, Clock
 } from 'lucide-react';
+import {
+    getAllUsers,
+    createAdminUser,
+    updateUserRole,
+    updateUserStatus,
+    deleteUser,
+} from '../api/admin.js';
 
 const ROLE_STYLES = {
-    admin: { bg: '#7C3AED', label: 'Admin', icon: <Crown size={12} /> },
-    member: { bg: '#003366', label: 'Member', icon: <Shield size={12} /> },
-    user: { bg: '#64748B', label: 'User', icon: <User size={12} /> },
+    admin:           { bg: '#7C3AED', label: 'Admin',       icon: <Crown size={12} /> },
+    executive:       { bg: '#1D4ED8', label: 'Executive',   icon: <Shield size={12} /> },
+    paid_member:     { bg: '#003366', label: 'Paid Member', icon: <Shield size={12} /> },
+    free_member:     { bg: '#64748B', label: 'Free Member', icon: <User size={12} /> },
+    product_company: { bg: '#0F766E', label: 'Product Co.', icon: <Shield size={12} /> },
+    university:      { bg: '#9A3412', label: 'University',  icon: <Shield size={12} /> },
 };
 
-const Badge = ({ role }) => {
-    const s = ROLE_STYLES[role] || ROLE_STYLES.user;
-    return (
-        <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-            background: s.bg, color: 'white',
-            padding: '0.2rem 0.6rem', borderRadius: '100px',
-            fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em'
-        }}>
-            {s.icon} {s.label}
-        </span>
-    );
+const STATUS_STYLES = {
+    approved: { bg: '#D1FAE5', color: '#065F46', icon: <CheckCircle size={11} />, label: 'Approved' },
+    pending:  { bg: '#FEF3C7', color: '#92400E', icon: <Clock size={11} />,        label: 'Pending'  },
+    rejected: { bg: '#FEE2E2', color: '#DC2626', icon: <Ban size={11} />,          label: 'Rejected' },
 };
 
 const Toast = ({ message, type, onClose }) => (
@@ -79,90 +81,68 @@ const inputStyle = {
 };
 
 const UserManagement = () => {
-    const { authFetch, API, user: currentUser, isAdmin } = useAuth();
+    const { user: currentUser, isAdmin } = useAuth();
     const navigate = useNavigate();
 
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [toast, setToast] = useState(null);
+    const [users, setUsers]                     = useState([]);
+    const [loading, setLoading]                 = useState(true);
+    const [search, setSearch]                   = useState('');
+    const [toast, setToast]                     = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(null); // user to delete
-    const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'user' });
-    const [createLoading, setCreateLoading] = useState(false);
+    const [confirmDelete, setConfirmDelete]     = useState(null);
+    const [createForm, setCreateForm]           = useState({ name: '', email: '', password: '', role: 'free_member', status: 'approved' });
+    const [createLoading, setCreateLoading]     = useState(false);
 
     useEffect(() => {
-        if (!isAdmin) { navigate('/'); return; }
+        if (isAdmin && !isAdmin()) { navigate('/'); return; }
         fetchUsers();
-    }, [isAdmin]);
-
-    const fetchUsers = async () => {
-        setLoading(true);
-        try {
-            const res = await authFetch(`${API}/admin/users`);
-            const data = await res.json();
-            if (res.ok) setUsers(data);
-            else showToast(data.error || 'Failed to load users', 'error');
-        } catch {
-            showToast('Network error', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, []);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
 
-    const handleRoleChange = async (userId, newRole) => {
+    const fetchUsers = async () => {
+        setLoading(true);
         try {
-            const res = await authFetch(`${API}/admin/users/${userId}/role`, {
-                method: 'PATCH',
-                body: JSON.stringify({ role: newRole })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-                showToast(`Role updated to ${newRole}`);
-            } else {
-                showToast(data.error, 'error');
-            }
-        } catch {
-            showToast('Failed to update role', 'error');
+            const res = await getAllUsers();
+            setUsers(res.data?.data || res.data || []);
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Failed to load users', 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleBanToggle = async (userId, currentBanned) => {
+    const handleRoleChange = async (userId, newRole) => {
         try {
-            const res = await authFetch(`${API}/admin/users/${userId}/ban`, {
-                method: 'PATCH',
-                body: JSON.stringify({ is_banned: !currentBanned })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_banned: !currentBanned } : u));
-                showToast(`User ${!currentBanned ? 'banned' : 'unbanned'} successfully`);
-            } else {
-                showToast(data.error, 'error');
-            }
-        } catch {
-            showToast('Failed to update ban status', 'error');
+            await updateUserRole(userId, newRole);
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+            showToast(`Role updated to ${ROLE_STYLES[newRole]?.label || newRole}`);
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Failed to update role', 'error');
+        }
+    };
+
+    const handleStatusToggle = async (userId, currentStatus) => {
+        const newStatus = currentStatus === 'approved' ? 'rejected' : 'approved';
+        try {
+            await updateUserStatus(userId, newStatus);
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+            showToast(`User ${newStatus === 'rejected' ? 'suspended' : 'approved'} successfully`);
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Failed to update status', 'error');
         }
     };
 
     const handleDelete = async (userId) => {
         try {
-            const res = await authFetch(`${API}/admin/users/${userId}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok) {
-                setUsers(prev => prev.filter(u => u.id !== userId));
-                showToast('User deleted successfully');
-            } else {
-                showToast(data.error, 'error');
-            }
-        } catch {
-            showToast('Failed to delete user', 'error');
+            await deleteUser(userId);
+            setUsers(prev => prev.filter(u => u.id !== userId));
+            showToast('User deleted successfully');
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Failed to delete user', 'error');
         } finally {
             setConfirmDelete(null);
         }
@@ -172,38 +152,29 @@ const UserManagement = () => {
         e.preventDefault();
         setCreateLoading(true);
         try {
-            const res = await authFetch(`${API}/admin/users`, {
-                method: 'POST',
-                body: JSON.stringify(createForm)
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showToast(`${createForm.role} account created for ${createForm.name}`);
-                setShowCreateModal(false);
-                setCreateForm({ name: '', email: '', password: '', role: 'user' });
-                fetchUsers();
-            } else {
-                showToast(data.error, 'error');
-            }
-        } catch {
-            showToast('Failed to create user', 'error');
+            await createAdminUser(createForm);
+            showToast(`Account created for ${createForm.name}`);
+            setShowCreateModal(false);
+            setCreateForm({ name: '', email: '', password: '', role: 'free_member', status: 'approved' });
+            fetchUsers();
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Failed to create user', 'error');
         } finally {
             setCreateLoading(false);
         }
     };
 
     const filtered = users.filter(u =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase()) ||
-        u.role.toLowerCase().includes(search.toLowerCase())
+        (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.role || '').toLowerCase().includes(search.toLowerCase())
     );
 
-    // Stats
     const stats = {
-        total: users.length,
-        admins: users.filter(u => u.role === 'admin').length,
-        members: users.filter(u => u.role === 'member').length,
-        banned: users.filter(u => u.is_banned).length,
+        total:    users.length,
+        approved: users.filter(u => u.status === 'approved').length,
+        pending:  users.filter(u => u.status === 'pending').length,
+        rejected: users.filter(u => u.status === 'rejected').length,
     };
 
     return (
@@ -237,10 +208,10 @@ const UserManagement = () => {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                     {[
-                        { label: 'Total Users', value: stats.total, color: '#003366' },
-                        { label: 'Admins', value: stats.admins, color: '#7C3AED' },
-                        { label: 'Members', value: stats.members, color: '#0369A1' },
-                        { label: 'Banned', value: stats.banned, color: '#DC2626' },
+                        { label: 'Total Users', value: stats.total,    color: '#003366' },
+                        { label: 'Approved',    value: stats.approved, color: '#059669' },
+                        { label: 'Pending',     value: stats.pending,  color: '#D97706' },
+                        { label: 'Rejected',    value: stats.rejected, color: '#DC2626' },
                     ].map(({ label, value, color }) => (
                         <div key={label} style={{
                             background: 'white', border: '1px solid var(--border-light)',
@@ -272,7 +243,8 @@ const UserManagement = () => {
                     ) : filtered.length === 0 ? (
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No users found.</div>
                     ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                             <thead>
                                 <tr style={{ background: 'var(--bg-light)', borderBottom: '1px solid var(--border-light)' }}>
                                     {['User', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
@@ -282,23 +254,24 @@ const UserManagement = () => {
                             </thead>
                             <tbody>
                                 {filtered.map((u, i) => {
-                                    const isSelf = u.id === currentUser?.id;
+                                    const isSelf      = u.id === currentUser?.id;
+                                    const roleStyle   = ROLE_STYLES[u.role] || ROLE_STYLES.free_member;
+                                    const statusStyle = STATUS_STYLES[u.status] || STATUS_STYLES.pending;
                                     return (
                                         <tr key={u.id} style={{
                                             borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none',
-                                            background: u.is_banned ? '#FFF7F7' : 'white',
-                                            transition: 'background 0.15s'
+                                            background: u.status === 'rejected' ? '#FFF7F7' : 'white',
                                         }}>
                                             {/* User */}
                                             <td style={{ padding: '1rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <div style={{
                                                         width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                                                        background: ROLE_STYLES[u.role]?.bg || '#64748B',
+                                                        background: roleStyle.bg,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         color: 'white', fontSize: '0.85rem', fontWeight: '700'
                                                     }}>
-                                                        {u.name.charAt(0).toUpperCase()}
+                                                        {(u.name || '?').charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
                                                         <p style={{ margin: 0, fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-main)' }}>
@@ -312,7 +285,9 @@ const UserManagement = () => {
                                             {/* Role selector */}
                                             <td style={{ padding: '1rem' }}>
                                                 {isSelf ? (
-                                                    <Badge role={u.role} />
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: roleStyle.bg, color: 'white', padding: '0.2rem 0.6rem', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                        {roleStyle.icon} {roleStyle.label}
+                                                    </span>
                                                 ) : (
                                                     <div style={{ position: 'relative', display: 'inline-block' }}>
                                                         <select
@@ -320,18 +295,21 @@ const UserManagement = () => {
                                                             onChange={e => handleRoleChange(u.id, e.target.value)}
                                                             style={{
                                                                 appearance: 'none', padding: '0.3rem 1.8rem 0.3rem 0.7rem',
-                                                                borderRadius: '100px', border: `1.5px solid ${ROLE_STYLES[u.role]?.bg}`,
-                                                                background: 'white', color: ROLE_STYLES[u.role]?.bg,
+                                                                borderRadius: '100px', border: `1.5px solid ${roleStyle.bg}`,
+                                                                background: 'white', color: roleStyle.bg,
                                                                 fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer',
                                                                 textTransform: 'uppercase', letterSpacing: '0.05em',
                                                                 fontFamily: 'var(--font-sans)'
                                                             }}
                                                         >
-                                                            <option value="user">User</option>
-                                                            <option value="member">Member</option>
+                                                            <option value="free_member">Free Member</option>
+                                                            <option value="paid_member">Paid Member</option>
+                                                            <option value="executive">Executive</option>
+                                                            <option value="university">University</option>
+                                                            <option value="product_company">Product Co.</option>
                                                             <option value="admin">Admin</option>
                                                         </select>
-                                                        <ChevronDown size={10} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: ROLE_STYLES[u.role]?.bg }} />
+                                                        <ChevronDown size={10} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: roleStyle.bg }} />
                                                     </div>
                                                 )}
                                             </td>
@@ -341,17 +319,15 @@ const UserManagement = () => {
                                                 <span style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                                                     padding: '0.2rem 0.65rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '600',
-                                                    background: u.is_banned ? '#FEE2E2' : '#D1FAE5',
-                                                    color: u.is_banned ? '#DC2626' : '#065F46'
+                                                    background: statusStyle.bg, color: statusStyle.color
                                                 }}>
-                                                    {u.is_banned ? <Ban size={11} /> : <CheckCircle size={11} />}
-                                                    {u.is_banned ? 'Banned' : 'Active'}
+                                                    {statusStyle.icon} {statusStyle.label}
                                                 </span>
                                             </td>
 
                                             {/* Joined */}
-                                            <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                                {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                                             </td>
 
                                             {/* Actions */}
@@ -359,19 +335,20 @@ const UserManagement = () => {
                                                 {!isSelf && (
                                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                         <button
-                                                            onClick={() => handleBanToggle(u.id, u.is_banned)}
-                                                            title={u.is_banned ? 'Unban user' : 'Ban user'}
+                                                            onClick={() => handleStatusToggle(u.id, u.status)}
+                                                            title={u.status === 'approved' ? 'Suspend user' : 'Approve user'}
                                                             style={{
                                                                 display: 'flex', alignItems: 'center', gap: '0.3rem',
                                                                 padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer',
-                                                                border: `1px solid ${u.is_banned ? '#059669' : '#F59E0B'}`,
-                                                                background: u.is_banned ? '#ECFDF5' : '#FFFBEB',
-                                                                color: u.is_banned ? '#059669' : '#B45309',
+                                                                border: `1px solid ${u.status === 'approved' ? '#F59E0B' : '#059669'}`,
+                                                                background: u.status === 'approved' ? '#FFFBEB' : '#ECFDF5',
+                                                                color: u.status === 'approved' ? '#B45309' : '#059669',
                                                                 fontSize: '0.75rem', fontWeight: '600', fontFamily: 'var(--font-sans)'
                                                             }}
                                                         >
-                                                            {u.is_banned ? <CheckCircle size={13} /> : <Ban size={13} />}
-                                                            {u.is_banned ? 'Unban' : 'Ban'}
+                                                            {u.status === 'approved'
+                                                                ? <><Ban size={13} /> Suspend</>
+                                                                : <><CheckCircle size={13} /> Approve</>}
                                                         </button>
                                                         <button
                                                             onClick={() => setConfirmDelete(u)}
@@ -393,6 +370,7 @@ const UserManagement = () => {
                                 })}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </div>
             </Section>
@@ -418,14 +396,20 @@ const UserManagement = () => {
                         ))}
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Role</label>
-                            <select
-                                value={createForm.role}
-                                onChange={e => setCreateForm(prev => ({ ...prev, role: e.target.value }))}
-                                style={{ ...inputStyle }}
-                            >
-                                <option value="user">User — Public access only</option>
-                                <option value="member">Member — Member-only resources</option>
-                                <option value="admin">Admin — Full access</option>
+                            <select value={createForm.role} onChange={e => setCreateForm(prev => ({ ...prev, role: e.target.value }))} style={inputStyle}>
+                                <option value="free_member">Free Member</option>
+                                <option value="paid_member">Paid Member</option>
+                                <option value="executive">Executive</option>
+                                <option value="university">University</option>
+                                <option value="product_company">Product Company</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Initial Status</label>
+                            <select value={createForm.status} onChange={e => setCreateForm(prev => ({ ...prev, status: e.target.value }))} style={inputStyle}>
+                                <option value="approved">Approved (immediate access)</option>
+                                <option value="pending">Pending (needs approval)</option>
                             </select>
                         </div>
                         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>

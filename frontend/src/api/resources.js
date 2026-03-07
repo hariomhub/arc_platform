@@ -24,3 +24,13 @@ export const updateResource = (id, formData) =>
 
 export const deleteResource = (id) =>
     api.delete(`/resources/${id}`);
+
+// ─── Admin-only resource approval ─────────────────────────────────────────────
+export const getPendingResources = () =>
+    api.get('/resources/admin/pending');
+
+export const approveResource = (id) =>
+    api.patch(`/resources/${id}/approve`);
+
+export const rejectResource = (id) =>
+    api.patch(`/resources/${id}/reject`);

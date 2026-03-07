@@ -68,10 +68,16 @@ const Login = () => {
         try {
             const res = await loginUser({ email: email.trim().toLowerCase(), password });
             if (res.data?.success) {
-                login(res.data.data.user);
+                const userData = res.data.data.user;
+                login(userData);
                 showToast('Welcome back!', 'success');
-                const from = location.state?.from?.pathname || '/';
-                navigate(from, { replace: true });
+                // Role-based redirect
+                if (userData.role === 'admin') {
+                    navigate('/admin-dashboard', { replace: true });
+                } else {
+                    const from = location.state?.from?.pathname || '/';
+                    navigate(from, { replace: true });
+                }
             }
         } catch (err) {
             const msg = getErrorMessage(err);

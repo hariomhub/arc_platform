@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             // ignore — cookie might already be gone
         } finally {
             setUser(null);
-            window.location.href = '/membership';
+            window.location.href = '/';
         }
     }, []);
 
@@ -52,8 +52,8 @@ export const AuthProvider = ({ children }) => {
     const isExecutive = () => user?.role === 'executive';
     const isPaidMember = () => user?.role === 'paid_member';
     const isProductCompany = () => user?.role === 'product_company';
-    const isUniversity = () => user?.role === 'university';
-
+    const isUniversity = () => user?.role === 'university';    // isMember: any authenticated, approved user
+    const isMember = () => !!user;
     const canDownloadFramework = () =>
         ['admin', 'executive', 'paid_member', 'product_company'].includes(user?.role);
 
@@ -81,11 +81,11 @@ export const AuthProvider = ({ children }) => {
                 isPaidMember,
                 isProductCompany,
                 isUniversity,
+                isMember,
                 canDownloadFramework,
                 canUploadWhitepaper,
                 canUploadProduct,
                 isLoggedIn: !!user,
-                isMember: !!user,
                 API,
                 token,
                 authFetch,

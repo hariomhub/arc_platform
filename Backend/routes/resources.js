@@ -8,6 +8,7 @@ import * as resourcesController from '../controllers/resourcesController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,7 +22,30 @@ const validate = (req, res, next) => {
     next();
 };
 
-// Multer setup — PDF only, 10MB, MIME type verified
+// Multer setup — all common document, image and video types, 100MB
+const ALLOWED_MIMETYPES = [
+    // Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Images
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    // Videos
+    'video/mp4',
+    'video/webm',
+    'video/ogg',
+    'video/quicktime',
+    'video/x-msvideo',
+];
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '../uploads');
@@ -35,12 +59,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/pdf') {
+        if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error('Only PDF files are allowed.'), false);
+            cb(new Error('Unsupported file type. Allowed: PDF, Word, Excel, PowerPoint, images (JPEG/PNG/GIF/WebP), videos (MP4/WebM/MOV).'), false);
         }
     },
 });
@@ -96,5 +120,14 @@ router.delete(
     requireRole('admin', 'university', 'product_company'),
     resourcesController.deleteResource
 );
+
+// GET /api/resources/admin/pending — admin only: list pending resources awaiting approval
+router.get('/admin/pending', auth, requireRole('admin'), resourcesController.getPendingResources);
+
+// PATCH /api/resources/:id/approve — admin only
+router.patch('/:id/approve', auth, requireRole('admin'), resourcesController.approveResource);
+
+// PATCH /api/resources/:id/reject — admin only
+router.patch('/:id/reject', auth, requireRole('admin'), resourcesController.rejectResource);
 
 export default router;

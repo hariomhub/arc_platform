@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Award, Users, Linkedin, X, User, AlertCircle, RefreshCw } from 'lucide-react';
+import { Shield, Award, Users, BookOpen, Target, Linkedin, X, User, AlertCircle, RefreshCw } from 'lucide-react';
 import { getTeam } from '../api/team.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
@@ -219,6 +219,30 @@ const About = () => {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+
+                {/* ── What Defines Us ── */}
+                <div style={{ marginTop: '4rem', paddingTop: '3.5rem', borderTop: '1px solid #E2E8F0' }}>
+                    <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>What Defines Us</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+                        {[
+                            { icon: Shield, title: 'Independent', desc: 'Zero vendor affiliation — unbiased advice you can trust and cite in board-level reporting.' },
+                            { icon: BookOpen, title: 'Research-Backed', desc: 'Peer-reviewed publications, open datasets, and audit-ready templates you can deploy immediately.' },
+                            { icon: Award, title: 'Globally Recognised', desc: 'Cited by OECD, EU AI Office, NIST, and national ministries across six continents.' },
+                            { icon: Target, title: 'Actionable', desc: 'Practical frameworks digestible in hours — not weeks of consultant time or opaque recommendations.' },
+                        ].map(({ icon: Icon, title, desc }) => (
+                            <div key={title}
+                                style={{ background: '#F8FAFC', borderRadius: '12px', padding: '1.5rem', border: '1px solid #E2E8F0', transition: 'box-shadow 0.15s, transform 0.15s' }}
+                                onMouseOver={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,51,102,0.1)'; e.currentTarget.style.transform = 'translateY(-3px)'; }}
+                                onMouseOut={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.85rem' }}>
+                                    <Icon size={20} color="#003366" />
+                                </div>
+                                <h4 style={{ margin: '0 0 6px', fontWeight: '700', color: '#1E293B', fontSize: '0.95rem' }}>{title}</h4>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B', lineHeight: '1.6' }}>{desc}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

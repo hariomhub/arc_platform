@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import * as adminController from '../controllers/adminController.js';
+import { getWaitlist, updateWaitlistStatus } from '../controllers/waitlistController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
 
@@ -77,5 +78,17 @@ router.patch(
 
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', adminController.deleteUser);
+
+// ─── Waitlist ─────────────────────────────────────────────────────────────────
+// GET /api/admin/waitlist
+router.get('/waitlist', getWaitlist);
+
+// PATCH /api/admin/waitlist/:id/status
+router.patch(
+    '/waitlist/:id/status',
+    [body('status').isIn(['pending', 'contacted', 'converted']).withMessage('Invalid status.')],
+    validate,
+    updateWaitlistStatus
+);
 
 export default router;

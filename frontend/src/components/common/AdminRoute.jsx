@@ -14,7 +14,7 @@ const AdminRoute = ({ children }) => {
     const { user, isAuthLoading, isAdmin } = useAuth();
 
     if (isAuthLoading) return <LoadingSpinner fullPage />;
-    if (!user) return <Navigate to="/membership" state={{ mode: 'login' }} replace />;
+    if (!user) return <Navigate to="/login" replace />;
     if (!isAdmin()) return <Navigate to="/" replace />;
 
     return children;

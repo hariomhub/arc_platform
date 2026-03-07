@@ -34,7 +34,7 @@ const Footer = () => (
                     </h5>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <Link to="/framework" style={{ color: '#CBD5E0', fontSize: '0.9rem' }}>Risk Framework</Link>
-                        <Link to="/assessment" style={{ color: '#CBD5E0', fontSize: '0.9rem' }}>Assessment &amp; Certification</Link>
+                        <Link to="/certification" style={{ color: '#CBD5E0', fontSize: '0.9rem' }}>Assessment &amp; Certification</Link>
                         <Link to="/services" style={{ color: '#CBD5E0', fontSize: '0.9rem' }}>Global Standards</Link>
                         <Link to="/contact" style={{ color: '#CBD5E0', fontSize: '0.9rem' }}>Policy &amp; Regulation</Link>
                     </div>

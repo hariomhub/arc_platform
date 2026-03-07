@@ -18,8 +18,8 @@ const ProtectedRoute = ({ children }) => {
     if (!user) {
         return (
             <Navigate
-                to="/membership"
-                state={{ from: location, mode: 'login' }}
+                to="/login"
+                state={{ from: location }}
                 replace
             />
         );

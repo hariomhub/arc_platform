@@ -31,13 +31,9 @@ api.interceptors.response.use(
 
         const { status } = error.response;
 
-        if (status === 401) {
-            // Not authenticated — redirect to login
-            // Only redirect if not already on the membership/login page
-            if (!window.location.pathname.includes('/membership')) {
-                window.location.href = '/membership';
-            }
-        }
+        // 401: Not authenticated — let AuthContext / ProtectedRoute handle it.
+        // Do NOT redirect here — it causes spurious redirects on the initial
+        // session-restore check when users are simply not logged in.
 
         // 403: Forbidden — let caller handle it (show upgrade modal, etc.)
         // 422: Validation error — let caller handle it

@@ -31,6 +31,14 @@ import qnaRoutes from './routes/qna.js';
 import newsRoutes from './routes/news.js';
 import adminRoutes from './routes/Admin.js';
 import profileRoutes from './routes/profile.js';
+import waitlistRoutes from './routes/waitlist.js';
+import productReviewsRoutes from './routes/productReviews.js';
+import nominationsRoutes from './routes/nominations.js';
+import frameworkRoutes from './routes/framework.js';
+import autoNewsRoutes from './routes/autoNews.js';
+
+// ─── Automated News Cron Job ──────────────────────────────────────────────────
+import { initNewsFetchCron } from './jobs/newsFetchJob.js';
 
 const app = express();
 
@@ -38,8 +46,17 @@ const app = express();
 app.use(helmet());
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigin = (origin, callback) => {
+    // In development allow any localhost port; in production use FRONTEND_URL only
+    if (!origin) return callback(null, true); // same-origin / curl / Postman
+    const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(origin);
+    if (isLocalhost && process.env.NODE_ENV !== 'production') return callback(null, true);
+    if (origin === process.env.FRONTEND_URL) return callback(null, true);
+    return callback(new Error(`CORS: origin '${origin}' not allowed`));
+};
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: allowedOrigin,
     credentials: true,
 }));
 
@@ -66,7 +83,7 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10,
+    max: 50, // 50 attempts per window (was 10)
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many authentication attempts. Please try again later.' },
@@ -82,7 +99,21 @@ app.use('/api/team', teamRoutes);
 app.use('/api/qna', qnaRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/auto-news', autoNewsRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/waitlist', waitlistRoutes);
+app.use('/api/product-reviews', productReviewsRoutes);
+app.use('/api/nominations', nominationsRoutes);
+app.use('/api/framework', frameworkRoutes);
+
+// Serve event banner images publicly (safe — only images, no sensitive files)
+app.use('/uploads/events', express.static('./uploads/events'));
+// Serve product media and evidence files publicly
+app.use('/uploads/products', express.static('./uploads/products'));
+// Serve nominee photos publicly
+app.use('/uploads/nominees', express.static('./uploads/nominees'));
+// Serve framework template files publicly
+app.use('/uploads/framework', express.static('./uploads/framework'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -103,4 +134,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 ARC Backend running on http://localhost:${PORT}`);
+    
+    // Initialize automated news fetching cron job
+    initNewsFetchCron();
+    console.log('📰 Automated news fetching initialized');
 });

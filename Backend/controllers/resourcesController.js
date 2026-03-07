@@ -20,6 +20,7 @@ const paginate = (query, total) => {
 export const getResources = async (req, res, next) => {
     try {
         const { type } = req.query;
+        const isAdmin = req.user?.role === 'admin';
 
         let countSql = `
       SELECT COUNT(*) AS total FROM resources r
@@ -33,6 +34,12 @@ export const getResources = async (req, res, next) => {
       WHERE 1=1
     `;
         const params = [];
+
+        // Non-admins only see approved resources
+        if (!isAdmin) {
+            countSql += " AND r.status = 'approved'";
+            dataSql += " AND r.status = 'approved'";
+        }
 
         if (type) {
             const clause = ' AND r.type = ?';
@@ -127,8 +134,8 @@ export const createResource = async (req, res, next) => {
         const file_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         const [result] = await pool.query(
-            `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, uploader_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 description ? description.trim() : null,
@@ -136,6 +143,7 @@ export const createResource = async (req, res, next) => {
                 file_url,
                 demo_url ? demo_url.trim() : null,
                 type,
+                req.user.role === 'admin' ? 'approved' : 'pending',
                 req.user.id,
             ]
         );
@@ -196,6 +204,48 @@ export const deleteResource = async (req, res, next) => {
 
         await pool.query('DELETE FROM resources WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'Resource deleted successfully.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/resources/pending — admin only
+export const getPendingResources = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT r.*, u.name AS uploader_name, u.email AS uploader_email, u.role AS uploader_role,
+                    u.organization_name AS uploader_org
+             FROM resources r
+             LEFT JOIN users u ON r.uploader_id = u.id
+             WHERE r.status = 'pending'
+             ORDER BY r.created_at ASC`
+        );
+        const sanitized = rows.map(({ file_url, ...rest }) => rest);
+        return res.json({ success: true, data: sanitized });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/resources/:id/approve — admin only
+export const approveResource = async (req, res, next) => {
+    try {
+        const [check] = await pool.query('SELECT id FROM resources WHERE id = ?', [req.params.id]);
+        if (check.length === 0) return res.status(404).json({ success: false, message: 'Resource not found.' });
+        await pool.query("UPDATE resources SET status = 'approved' WHERE id = ?", [req.params.id]);
+        return res.json({ success: true, data: { message: 'Resource approved.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/resources/:id/reject — admin only
+export const rejectResource = async (req, res, next) => {
+    try {
+        const [check] = await pool.query('SELECT id FROM resources WHERE id = ?', [req.params.id]);
+        if (check.length === 0) return res.status(404).json({ success: false, message: 'Resource not found.' });
+        await pool.query("UPDATE resources SET status = 'rejected' WHERE id = ?", [req.params.id]);
+        return res.json({ success: true, data: { message: 'Resource rejected.' } });
     } catch (err) {
         next(err);
     }

@@ -15,10 +15,8 @@ const About = lazy(() => import('./pages/About.jsx'));
 const Events = lazy(() => import('./pages/Events.jsx'));
 const Services = lazy(() => import('./pages/Services.jsx'));
 const Framework = lazy(() => import('./pages/Framework.jsx'));
-const Assessment = lazy(() => import('./pages/Assessment.jsx'));
 const Resources = lazy(() => import('./pages/Resources.jsx'));
 const Certifications = lazy(() => import('./pages/Certifications.jsx'));
-const AIResearch = lazy(() => import('./pages/AIResearch.jsx'));
 const CommunityQnA = lazy(() => import('./pages/CommunityQnA.jsx'));
 const QnADetail = lazy(() => import('./pages/QnADetail.jsx'));
 const Contact = lazy(() => import('./pages/Contact.jsx'));
@@ -28,7 +26,13 @@ const Register = lazy(() => import('./pages/Register.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
+const UserDashboard = lazy(() => import('./pages/UserDashboard.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
+const ProductReviews = lazy(() => import('./pages/ProductReviews.jsx'));
+const ProductReviewDetail = lazy(() => import('./pages/ProductReviewDetail.jsx'));
+const AllNominees = lazy(() => import('./pages/AllNominees.jsx'));
+const AdminNominees = lazy(() => import('./pages/AdminNominees.jsx'));
+const News = lazy(() => import('./pages/News.jsx'));
 
 // ─── Auth-aware redirector (login / register redirect if already signed in) ──
 const GuestRoute = ({ children }) => {
@@ -53,13 +57,26 @@ function App() {
               <Route path="/events" element={<Events />} />
               <Route path="/services" element={<Services />} />
               <Route path="/framework" element={<Framework />} />
-              <Route path="/assessment" element={<Assessment />} />
-              <Route path="/resources" element={<Resources />} />
+              <Route path="/assessment" element={<Navigate to="/framework" replace />} />
+              <Route path="/ai-research" element={<Navigate to="/community-qna" replace />} />
               <Route path="/certification" element={<Certifications />} />
-              <Route path="/ai-research" element={<AIResearch />} />
+
+              {/* ── Admin-only: Research & Resources ── */}
+              <Route
+                path="/resources"
+                element={
+                  <AdminRoute>
+                    <Resources />
+                  </AdminRoute>
+                }
+              />
               <Route path="/community-qna" element={<CommunityQnA />} />
               <Route path="/community-qna/:id" element={<QnADetail />} />
+              <Route path="/news" element={<News />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/services/product-reviews" element={<ProductReviews />} />
+              <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />
+              <Route path="/nominees" element={<AllNominees />} />
 
               {/* ── Guest-only routes ── */}
               <Route path="/membership" element={<Membership />} />
@@ -72,6 +89,16 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Profile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ── User dashboard ── */}
+              <Route
+                path="/user/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <UserDashboard />
                   </ProtectedRoute>
                 }
               />
@@ -90,6 +117,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <UserManagement />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin-dashboard/nominees"
+                element={
+                  <AdminRoute>
+                    <AdminNominees />
                   </AdminRoute>
                 }
               />
