@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     MessageCircle, PlusCircle, ThumbsUp, Search, X,
-    AlertCircle, Loader2, RefreshCw, ArrowRight
+    AlertCircle, RefreshCw, ArrowRight, Tag, Users, TrendingUp, BookOpen
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -15,66 +15,120 @@ import AskQuestionModal from '../components/modals/AskQuestionModal.jsx';
 
 const ITEMS_PER_PAGE = 10;
 
-// ─── Skeleton card ─────────────────────────────────────────────────────────────
-const SkeletonCard = () => (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <div className="h-4 w-3/4 bg-slate-200 rounded mb-3 animate-pulse" />
-        <div className="h-3 w-full bg-slate-200 rounded mb-2 animate-pulse" />
-        <div className="h-3 w-4/5 bg-slate-200 rounded animate-pulse" />
+const roleLabel = (role) => {
+    const map = { admin: 'Admin', member: 'Member', fellow: 'Fellow', expert: 'Expert' };
+    return map[role?.toLowerCase()] || role || 'Member';
+};
+
+const roleBg = (role) => {
+    const map = {
+        admin:  { bg: '#FFF3E0', color: '#E65100', border: '#FFCC80' },
+        fellow: { bg: '#E8F5E9', color: '#2E7D32', border: '#A5D6A7' },
+        expert: { bg: '#E3F2FD', color: '#1565C0', border: '#90CAF9' },
+    };
+    return map[role?.toLowerCase()] || { bg: '#F1F5F9', color: '#475569', border: '#CBD5E1' };
+};
+
+const StatBadge = ({ icon: Icon, value, label }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon size={16} color="rgba(255,255,255,0.7)" />
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value}</span>
+        </div>
+        <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{label}</span>
     </div>
 );
 
-// ─── Question card ─────────────────────────────────────────────────────────────
-const QuestionCard = ({ q, onTagClick }) => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-        <Link
-            to={`/community-qna/${q.id}`}
-            className="block text-lg font-bold text-slate-800 no-underline mb-2 leading-snug hover:text-[#003366] transition-colors"
+const SkeletonCard = () => (
+    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0', padding: '24px', marginBottom: 12 }}>
+        <div style={{ height: 14, width: '70%', background: '#F1F5F9', borderRadius: 8, marginBottom: 12 }} />
+        <div style={{ height: 10, width: '90%', background: '#F1F5F9', borderRadius: 8, marginBottom: 8 }} />
+        <div style={{ height: 10, width: '60%', background: '#F1F5F9', borderRadius: 8 }} />
+    </div>
+);
+
+const TagChip = ({ tag, onClick }) => (
+    <button
+        onClick={() => onClick(tag)}
+        style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: '#EFF6FF', color: '#1D4ED8',
+            border: '1px solid #BFDBFE', borderRadius: 20,
+            fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px',
+            cursor: 'pointer', fontFamily: 'inherit',
+        }}
+    >
+        <Tag size={10} />#{tag}
+    </button>
+);
+
+const QuestionCard = ({ q, onTagClick }) => {
+    const rb = roleBg(q.author_role);
+    return (
+        <div
+            style={{
+                background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '20px 24px',
+                transition: 'box-shadow 0.2s, transform 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,51,102,0.10)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)'; }}
         >
-            {q.title}
-        </Link>
-
-        {q.body && (
-            <p className="text-sm text-slate-500 leading-relaxed mb-3">
-                {q.body.length > 150 ? `${q.body.slice(0, 150)}...` : q.body}
-            </p>
-        )}
-
-        {q.tags && q.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-                {q.tags.map((tag) => (
-                    <button
-                        key={tag}
-                        onClick={() => onTagClick(tag)}
-                        className="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border-none cursor-pointer hover:bg-blue-100 transition-colors font-sans"
+            <Link
+                to={`/community-qna/${q.id}`}
+                style={{ display: 'block', fontSize: '1rem', fontWeight: 700, color: '#1E293B', textDecoration: 'none', marginBottom: 8, lineHeight: 1.4 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#003366'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#1E293B'}
+            >
+                {q.title}
+            </Link>
+            {q.body && (
+                <p style={{ fontSize: '0.83rem', color: '#64748B', lineHeight: 1.6, margin: '0 0 12px' }}>
+                    {q.body.length > 140 ? `${q.body.slice(0, 140)}\u2026` : q.body}
+                </p>
+            )}
+            {q.tags && q.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                    {q.tags.map((tag) => <TagChip key={tag} tag={tag} onClick={onTagClick} />)}
+                </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingTop: 12, borderTop: '1px solid #F1F5F9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #003366, #0055A4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.65rem', fontWeight: 800, color: '#fff', flexShrink: 0,
+                    }}>
+                        {(q.author_name || 'A').charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>{q.author_name || 'Anonymous'}</span>
+                    {q.author_role && (
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: rb.bg, color: rb.color, border: `1px solid ${rb.border}` }}>
+                            {roleLabel(q.author_role)}
+                        </span>
+                    )}
+                    <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>\u00b7 {timeAgo(q.created_at)}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
+                        <ThumbsUp size={13} /> {q.vote_count ?? 0}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
+                        <MessageCircle size={13} /> {q.answer_count ?? 0}
+                    </span>
+                    <Link
+                        to={`/community-qna/${q.id}`}
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', fontWeight: 700, color: '#003366', textDecoration: 'none' }}
                     >
-                        #{tag}
-                    </button>
-                ))}
-            </div>
-        )}
-
-        <div className="flex justify-between items-center flex-wrap gap-2">
-            <span className="text-xs text-slate-400">
-                {q.author_name && <strong className="text-slate-500">{q.author_name}</strong>}
-                {q.author_name && ' · '}{timeAgo(q.created_at)}
-            </span>
-            <div className="flex gap-4 items-center">
-                <span className="flex items-center gap-1 text-xs text-slate-500">
-                    <ThumbsUp size={13} /> {q.vote_count ?? 0}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-slate-500">
-                    <MessageCircle size={13} /> {q.answer_count ?? 0}
-                </span>
-                <Link to={`/community-qna/${q.id}`} className="flex items-center gap-1 text-xs text-[#003366] font-bold no-underline">
-                    View <ArrowRight size={12} />
-                </Link>
+                        View <ArrowRight size={12} />
+                    </Link>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
-// ─── Main page ─────────────────────────────────────────────────────────────────
 const CommunityQnA = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -90,6 +144,7 @@ const CommunityQnA = () => {
 
     const [posts, setPosts] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [askOpen, setAskOpen] = useState(false);
@@ -105,8 +160,10 @@ const CommunityQnA = () => {
             const res = await getQnaPosts(params);
             if (!signal?.aborted) {
                 const payload = res.data?.data;
-                setPosts(Array.isArray(payload) ? payload : (payload?.posts || []));
+                const items = Array.isArray(payload) ? payload : (payload?.posts || []);
+                setPosts(items);
                 setTotalPages(payload?.totalPages ?? 1);
+                setTotalCount(payload?.total ?? items.length);
             }
         } catch (err) {
             if (!signal?.aborted) setError(getErrorMessage(err) || 'Failed to load questions.');
@@ -146,114 +203,126 @@ const CommunityQnA = () => {
         setParam('page', '1');
     }, [setParam]);
 
-    const hasActiveSearch = debouncedSearch || tagFilter;
+    const hasActiveFilter = debouncedSearch || tagFilter;
 
     return (
-        <div className="bg-slate-50 min-h-screen py-12 px-8 pb-20">
-            <div className="max-w-3xl mx-auto">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
-                    <div>
-                        <h1 className="text-[#003366] text-4xl font-extrabold mb-1.5">Community Q&amp;A</h1>
-                        <p className="text-slate-500 text-base">Ask questions and share knowledge with global AI risk professionals.</p>
+        <div style={{ background: '#F8FAFC', minHeight: '100vh' }}>
+
+            {/* Hero */}
+            <section style={{
+                background: 'linear-gradient(135deg, #001a3a 0%, #002c5f 50%, #003d80 100%)',
+                padding: '72px 32px 56px', position: 'relative', overflow: 'hidden',
+            }}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px)', backgroundSize: '26px 26px', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: '50%', background: 'rgba(0,85,164,0.18)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+                <div style={{ maxWidth: 780, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 20, padding: '5px 14px', marginBottom: 20, fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        <BookOpen size={13} /> Knowledge Exchange
+                    </div>
+                    <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 900, color: '#fff', margin: '0 0 14px', lineHeight: 1.1 }}>
+                        Community Q&amp;A
+                    </h1>
+                    <p style={{ fontSize: '1.05rem', color: 'rgba(255,255,255,0.68)', maxWidth: 520, margin: '0 0 40px', lineHeight: 1.6 }}>
+                        Ask questions, share insights and connect with AI risk professionals worldwide.
+                    </p>
+                    <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap', marginBottom: 36, paddingBottom: 36, borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                        <StatBadge icon={MessageCircle} value={totalCount ?? '—'} label="Questions" />
+                        <StatBadge icon={Users} value="1,200+" label="Active Members" />
+                        <StatBadge icon={TrendingUp} value="4,800+" label="Answers Shared" />
                     </div>
                     <button
                         onClick={handleAskClick}
-                        className="inline-flex items-center gap-2 bg-[#003366] text-white px-5 py-2.5 border-none rounded-lg font-bold text-sm cursor-pointer font-sans"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#003366', border: 'none', borderRadius: 10, padding: '12px 26px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', transition: 'transform 0.15s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                         <PlusCircle size={18} /> Ask a Question
                     </button>
                 </div>
+            </section>
+
+            {/* Content */}
+            <div style={{ maxWidth: 780, margin: '0 auto', padding: '36px 24px 80px' }}>
 
                 {/* Filter bar */}
-                <div className="flex flex-wrap gap-3 items-center mb-7">
-                    {/* Sort toggle */}
-                    <div className="flex bg-slate-200 rounded-lg p-0.5 gap-0.5">
-                        {['newest', 'most_voted'].map((s) => (
-                            <button key={s} onClick={() => setParam('sort', s)}
-                                className={`px-4 py-1.5 rounded-md text-xs font-bold border-none cursor-pointer transition-all font-sans ${sort === s ? 'bg-white text-[#003366] shadow-sm' : 'bg-transparent text-slate-500'}`}>
-                                {s === 'newest' ? 'Newest' : 'Most Voted'}
-                            </button>
+                <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 14, padding: '16px 20px', marginBottom: 28, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 8, padding: 3 }}>
+                        {[{ key: 'newest', label: 'Newest' }, { key: 'most_voted', label: 'Most Voted' }].map(({ key, label }) => (
+                            <button key={key} onClick={() => setParam('sort', key)} style={{
+                                padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                                fontSize: '0.78rem', fontWeight: 700, fontFamily: 'inherit', transition: 'all 0.15s',
+                                background: sort === key ? '#fff' : 'transparent',
+                                color: sort === key ? '#003366' : '#64748B',
+                                boxShadow: sort === key ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                            }}>{label}</button>
                         ))}
                     </div>
 
-                    {/* Search */}
-                    <div className="relative flex-1 min-w-[200px] max-w-xs">
-                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                        <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
-                            placeholder="Search questions…"
-                            className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-sm font-sans outline-none focus:border-[#003366] transition-colors" />
-                        {searchInput && (
-                            <button onClick={() => setSearchInput('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-slate-400 p-0">
-                                <X size={13} />
-                            </button>
-                        )}
+                    <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 300 }}>
+                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                        <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search questions\u2026"
+                            style={{ width: '100%', paddingLeft: 32, paddingRight: 30, paddingTop: 8, paddingBottom: 8, border: '1px solid #E2E8F0', borderRadius: 8, fontSize: '0.82rem', fontFamily: 'inherit', outline: 'none', background: '#FAFBFC', color: '#1E293B', boxSizing: 'border-box' }}
+                            onFocus={(e) => e.target.style.borderColor = '#003366'}
+                            onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
+                        />
+                        {searchInput && <button onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#94A3B8', display: 'flex' }}><X size={13} /></button>}
                     </div>
 
-                    {/* Tag filter */}
-                    <div className="relative flex-1 min-w-[150px] max-w-[220px]">
-                        <input type="text" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
-                            placeholder="Filter by tag…"
-                            className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm font-sans outline-none focus:border-[#003366] transition-colors" />
-                        {tagFilter && (
-                            <button onClick={() => setTagFilter('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-slate-400 p-0">
-                                <X size={13} />
-                            </button>
-                        )}
+                    <div style={{ position: 'relative', flex: 1, minWidth: 140, maxWidth: 220 }}>
+                        <Tag size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                        <input type="text" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} placeholder="Filter by tag\u2026"
+                            style={{ width: '100%', paddingLeft: 28, paddingRight: 28, paddingTop: 8, paddingBottom: 8, border: '1px solid #E2E8F0', borderRadius: 8, fontSize: '0.82rem', fontFamily: 'inherit', outline: 'none', background: '#FAFBFC', color: '#1E293B', boxSizing: 'border-box' }}
+                            onFocus={(e) => e.target.style.borderColor = '#003366'}
+                            onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
+                        />
+                        {tagFilter && <button onClick={() => setTagFilter('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#94A3B8', display: 'flex' }}><X size={13} /></button>}
                     </div>
 
-                    {hasActiveSearch && (
-                        <button onClick={() => { setSearchInput(''); setTagFilter(''); }}
-                            className="bg-transparent border-none text-slate-500 text-xs cursor-pointer underline font-sans">
+                    {hasActiveFilter && (
+                        <button onClick={() => { setSearchInput(''); setTagFilter(''); }} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                             Clear all
                         </button>
                     )}
                 </div>
 
-                {/* Loading */}
-                {loading && (
-                    <div className="flex flex-col gap-4" aria-busy="true">
-                        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-                    </div>
-                )}
+                {loading && <div aria-busy="true">{[1,2,3,4].map((i) => <SkeletonCard key={i} />)}</div>}
 
-                {/* Error */}
-                {error && !loading && (
-                    <div className="text-center py-16 text-red-500">
-                        <AlertCircle size={36} className="mx-auto mb-4 opacity-60" />
-                        <p className="mb-5">{error}</p>
-                        <button onClick={() => fetchPosts()} className="inline-flex items-center gap-1.5 bg-[#003366] text-white border-none px-5 py-2.5 rounded-md cursor-pointer font-bold">
+                {!loading && error && (
+                    <div style={{ textAlign: 'center', padding: '64px 32px', color: '#DC2626' }}>
+                        <AlertCircle size={40} style={{ margin: '0 auto 16px', opacity: 0.7, display: 'block' }} />
+                        <p style={{ marginBottom: 20, color: '#64748B' }}>{error}</p>
+                        <button onClick={() => fetchPosts()} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#003366', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>
                             <RefreshCw size={14} /> Try Again
                         </button>
                     </div>
                 )}
 
-                {/* Empty */}
                 {!loading && !error && posts.length === 0 && (
-                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
-                        <MessageCircle size={48} className="mx-auto mb-4 text-slate-300" />
-                        <p className="text-slate-400 mb-4">
-                            {hasActiveSearch ? 'No questions match your search.' : 'No questions yet. Be the first!'}
+                    <div style={{ textAlign: 'center', padding: '72px 32px', background: '#fff', borderRadius: 16, border: '2px dashed #E2E8F0' }}>
+                        <MessageCircle size={48} style={{ margin: '0 auto 16px', display: 'block', color: '#CBD5E1' }} />
+                        <h3 style={{ margin: '0 0 8px', color: '#475569', fontSize: '1.1rem', fontWeight: 700 }}>
+                            {hasActiveFilter ? 'No matching questions' : 'No questions yet'}
+                        </h3>
+                        <p style={{ color: '#94A3B8', marginBottom: 24, fontSize: '0.88rem' }}>
+                            {hasActiveFilter ? 'Try different search terms or tags.' : 'Be the first to start the conversation!'}
                         </p>
-                        {hasActiveSearch
-                            ? <button onClick={() => { setSearchInput(''); setTagFilter(''); }} className="bg-[#003366] text-white border-none px-5 py-2 rounded-md cursor-pointer font-bold text-sm font-sans">Clear Filters</button>
-                            : <button onClick={handleAskClick} className="inline-flex items-center gap-2 bg-[#003366] text-white border-none px-5 py-2 rounded-md cursor-pointer font-bold text-sm font-sans"><PlusCircle size={15} /> Ask a Question</button>
-                        }
+                        {hasActiveFilter ? (
+                            <button onClick={() => { setSearchInput(''); setTagFilter(''); }} style={{ background: '#003366', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>Clear Filters</button>
+                        ) : (
+                            <button onClick={handleAskClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#003366', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}><PlusCircle size={15} /> Ask a Question</button>
+                        )}
                     </div>
                 )}
 
-                {/* List */}
                 {!loading && !error && posts.length > 0 && (
                     <>
-                        <p className="text-xs text-slate-400 mb-4" aria-live="polite">
-                            {posts.length} question{posts.length !== 1 ? 's' : ''}
+                        <p style={{ fontSize: '0.78rem', color: '#94A3B8', marginBottom: 16 }} aria-live="polite">
+                            {hasActiveFilter ? `${posts.length} result${posts.length !== 1 ? 's' : ''} found` : `${totalCount ?? posts.length} question${(totalCount ?? posts.length) !== 1 ? 's' : ''} in the community`}
                         </p>
-                        <div className="flex flex-col gap-4" aria-live="polite">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-live="polite">
                             {posts.map((q) => <QuestionCard key={q.id} q={q} onTagClick={handleTagClick} />)}
                         </div>
-                        {totalPages > 1 && (
-                            <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setParam('page', String(p))} />
-                        )}
+                        {totalPages > 1 && <div style={{ marginTop: 32 }}><Pagination page={page} totalPages={totalPages} onPageChange={(p) => setParam('page', String(p))} /></div>}
                     </>
                 )}
             </div>

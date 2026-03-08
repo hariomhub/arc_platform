@@ -544,7 +544,7 @@ export default function News() {
                                     }}
                                 >
                                     {/* Featured badge for trending articles */}
-                                    {article.is_trending && (
+                                    {!!article.is_trending && (
                                         <div style={{
                                             position: 'absolute',
                                             top: '16px',

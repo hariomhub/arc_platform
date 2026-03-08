@@ -87,6 +87,8 @@ const Home = () => {
     const featuredEventsRef = useRef(null);
     const carouselRef = useRef(null);
     const autoplayRef = useRef(null);
+    const carouselPausedRef = useRef(false);
+    const lastIdxRef = useRef(0);
     const touchStart = useRef(null);
     const statsRef = useRef(null);
     const [statsVisible, setStatsVisible] = useState(false);
@@ -146,37 +148,53 @@ const Home = () => {
         return () => ctrl.abort();
     }, [fetchNews, fetchEvents]);
 
-    // ── Auto-advance carousel every 5s ──────────────────────────────────────
-    useEffect(() => {
-        if (news.length === 0 || carouselPaused) return;
-        autoplayRef.current = setInterval(() => {
-            setActiveNewsIdx((prev) => (prev + 1) % news.length);
-        }, 5000);
-        return () => clearInterval(autoplayRef.current);
-    }, [news.length, carouselPaused]);
+    // ── Auto-advance carousel every 3s ──────────────────────────────────────
+    // Sync carouselPaused state to ref (accessible inside RAF closure)
+    useEffect(() => { carouselPausedRef.current = carouselPaused; }, [carouselPaused]);
 
-    // ── Sync carousel scroll to activeNewsIdx ────────────────────────────────
-    // Use scrollLeft on the container (not scrollIntoView) so only the
-    // carousel scrolls horizontally — avoids page jumping on mount.
+    // Continuous RAF auto-scroll — seamless infinite loop.
+    // Two copies of cards are rendered. When scrollLeft reaches the width of
+    // one full set, it is silently reset by the same amount so the eye never sees a jump.
     useEffect(() => {
-        if (!carouselRef.current || news.length === 0) return;
-        const cards = carouselRef.current.querySelectorAll('[data-news-card]');
-        if (cards[activeNewsIdx]) {
-            carouselRef.current.scrollTo({
-                left: cards[activeNewsIdx].offsetLeft,
-                behavior: 'smooth',
-            });
-        }
-    }, [activeNewsIdx, news.length]);
+        if (news.length === 0) return;
+        const CARD_W = 300;
+        const GAP    = 20;
+        const SPEED  = 55; // px per second
+        const singleSetW = news.length * (CARD_W + GAP);
+        let lastTs = null;
+
+        const tick = (ts) => {
+            if (carouselRef.current) {
+                if (!carouselPausedRef.current) {
+                    if (lastTs !== null) {
+                        const move = (SPEED * (ts - lastTs)) / 1000;
+                        carouselRef.current.scrollLeft += move;
+                        // Seamless reset: jump back one set width invisibly
+                        if (carouselRef.current.scrollLeft >= singleSetW) {
+                            carouselRef.current.scrollLeft -= singleSetW;
+                        }
+                        // Update dot indicator only when card index changes
+                        const newIdx = Math.floor(carouselRef.current.scrollLeft / (CARD_W + GAP)) % news.length;
+                        if (newIdx !== lastIdxRef.current) {
+                            lastIdxRef.current = newIdx;
+                            setActiveNewsIdx(newIdx);
+                        }
+                    }
+                    lastTs = ts;
+                } else {
+                    lastTs = null; // reset so there's no distance jump on resume
+                }
+            }
+            autoplayRef.current = requestAnimationFrame(tick);
+        };
+        autoplayRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(autoplayRef.current);
+    }, [news.length]);
 
     const scrollCarousel = useCallback((dir) => {
-        setActiveNewsIdx((prev) => {
-            let next = prev + dir;
-            if (next < 0) next = news.length - 1;
-            if (next >= news.length) next = 0;
-            return next;
-        });
-    }, [news.length]);
+        if (!carouselRef.current) return;
+        carouselRef.current.scrollLeft += dir * (300 + 20);
+    }, []);
 
     // ── Touch swipe ─────────────────────────────────────────────────────────
     const handleTouchStart = (e) => { touchStart.current = e.touches[0].clientX; };
@@ -639,39 +657,56 @@ const Home = () => {
             </div>
 
             {/* ── News Carousel ────────────────────────────────────────────── */}
-            <div style={{ background: 'white', padding: '4rem 2rem', borderTop: '1px solid #F1F5F9' }}>
-                <div className="container" style={{ maxWidth: '1100px', margin: '0 auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 style={{ fontSize: '1.5rem', color: '#1A202C', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            <Globe size={22} color="#003366" /> Latest News
-                        </h2>
+            <div style={{ background: '#F8FAFC', padding: '5rem 2rem', borderTop: '1px solid #E8EDF3', borderBottom: '1px solid #E8EDF3', position: 'relative', zIndex: 0, overflow: 'hidden' }}>
+                <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+
+                    {/* Section header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <span style={{ display: 'inline-block', background: '#EFF6FF', color: '#003366', fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.3rem 1rem', borderRadius: '100px', marginBottom: '0.75rem' }}>
+                                News &amp; Updates
+                            </span>
+                            <h2 style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: '800', color: '#1E293B', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.02em' }}>
+                                <Globe size={24} color="#003366" /> Latest News
+                            </h2>
+                            <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '6px 0 0' }}>
+                                Stay informed with the latest in AI risk &amp; governance
+                            </p>
+                        </div>
+
+                        {/* Prev / counter / Next */}
                         {!newsLoading && news.length > 0 && (
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <button
                                     onClick={() => scrollCarousel(-1)}
                                     aria-label="Previous news"
-                                    style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', transition: 'transform 0.15s' }}
-                                    onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
-                                    onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                    style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'all 0.2s' }}
+                                    onMouseOver={(e) => { e.currentTarget.style.borderColor = '#003366'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,51,102,0.12)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; }}
                                 >
-                                    <ChevronLeft size={18} color="#1A202C" />
+                                    <ChevronLeft size={18} color="#1E293B" />
                                 </button>
+                                <span style={{ color: '#94A3B8', fontSize: '0.8rem', minWidth: '44px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                                    <span style={{ color: '#003366', fontWeight: '700' }}>{activeNewsIdx + 1}</span>
+                                    <span style={{ margin: '0 3px', color: '#CBD5E1' }}>/</span>
+                                    {news.length}
+                                </span>
                                 <button
                                     onClick={() => scrollCarousel(1)}
                                     aria-label="Next news"
-                                    style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', transition: 'transform 0.15s' }}
-                                    onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
-                                    onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                    style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'all 0.2s' }}
+                                    onMouseOver={(e) => { e.currentTarget.style.borderColor = '#003366'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,51,102,0.12)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; }}
                                 >
-                                    <ChevronRight size={18} color="#1A202C" />
+                                    <ChevronRight size={18} color="#1E293B" />
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Loading */}
+                    {/* Loading skeletons */}
                     {newsLoading && (
-                        <div style={{ display: 'flex', gap: '16px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', gap: '20px', overflow: 'hidden' }}>
                             {[1, 2, 3].map((i) => <SkeletonNewsCard key={i} />)}
                         </div>
                     )}
@@ -680,11 +715,8 @@ const Home = () => {
                     {newsError && !newsLoading && (
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#EF4444' }}>
                             <AlertCircle size={32} style={{ marginBottom: '0.75rem', opacity: 0.6 }} />
-                            <p style={{ marginBottom: '1rem' }}>{newsError}</p>
-                            <button
-                                onClick={() => fetchNews()}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
-                            >
+                            <p style={{ marginBottom: '1rem', color: '#64748B' }}>{newsError}</p>
+                            <button onClick={() => fetchNews()} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
                                 <RefreshCw size={14} /> Try Again
                             </button>
                         </div>
@@ -695,7 +727,7 @@ const Home = () => {
                         <p style={{ textAlign: 'center', color: '#94A3B8', padding: '3rem 0' }}>No news available yet.</p>
                     )}
 
-                    {/* Carousel */}
+                    {/* ── Carousel ───────────────────────────────────────────── */}
                     {!newsLoading && !newsError && news.length > 0 && (
                         <>
                             <div
@@ -707,8 +739,8 @@ const Home = () => {
                                 style={{
                                     display: 'flex',
                                     overflowX: 'auto',
-                                    gap: '16px',
-                                    paddingBottom: '4px',
+                                    gap: '20px',
+                                    padding: '6px 4px 20px',
                                     scrollSnapType: 'x mandatory',
                                     scrollbarWidth: 'none',
                                     msOverflowStyle: 'none',
@@ -716,112 +748,162 @@ const Home = () => {
                                 aria-live="polite"
                                 aria-label="News carousel"
                             >
-                                {news.map((item, idx) => (
+                                {[...news, ...news].map((item, idx) => (
                                     <div
-                                        key={item.id}
+                                        key={`${item.id}-${idx}`}
                                         data-news-card="true"
                                         style={{
-                                            minWidth: '240px',
-                                            flex: '0 0 auto',
+                                            minWidth: '300px',
+                                            width: '300px',
+                                            flex: '0 0 300px',
                                             scrollSnapAlign: 'start',
                                             background: 'white',
-                                            border: `1px solid ${idx === activeNewsIdx ? '#003366' : '#E2E8F0'}`,
-                                            borderRadius: '12px',
-                                            padding: '16px',
-                                            boxShadow: idx === activeNewsIdx ? '0 4px 20px rgba(0,51,102,0.1)' : '0 2px 6px rgba(0,0,0,0.04)',
+                                            border: '1px solid #E2E8F0',
+                                            borderTop: '4px solid #003366',
+                                            borderRadius: '16px',
+                                            overflow: 'hidden',
+                                            boxShadow: '0 2px 10px rgba(0,51,102,0.07)',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            transition: 'border-color 0.2s, box-shadow 0.2s',
+                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                            cursor: 'pointer',
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-4px)';
+                                            e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,51,102,0.13)';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,51,102,0.07)';
                                         }}
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                            <span style={{ background: '#EFF6FF', color: '#003366', padding: '3px 10px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: '700' }}>
-                                                {item.source || 'News'}
-                                            </span>
-                                            <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                                                {formatDate ? formatDate(item.published_at || item.created_at) : new Date(item.published_at || item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                            </span>
-                                        </div>
-                                        <h3
-                                            style={{
-                                                fontSize: '0.95rem', fontWeight: '700', color: '#1A202C',
-                                                marginBottom: '8px', lineHeight: '1.4',
-                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                            }}
-                                        >
-                                            {item.title}
-                                        </h3>
-                                        <p
-                                            style={{
-                                                fontSize: '0.82rem', color: '#4A5568', lineHeight: '1.6',
-                                                flexGrow: 1, marginBottom: '12px',
-                                                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                            }}
-                                        >
-                                            {(item.summary || '').slice(0, 100)}{(item.summary || '').length > 100 ? '…' : ''}
-                                        </p>
-                                        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
-                                            {(item.link || item.article_url) ? (
-                                                <a
-                                                    href={item.article_url || item.link}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        gap: '6px', background: '#F8FAFC', color: '#003366',
-                                                        border: '1px solid #E2E8F0', padding: '6px 12px',
-                                                        borderRadius: '6px', fontWeight: '600', fontSize: '0.78rem',
-                                                        textDecoration: 'none', transition: 'all 0.15s',
-                                                    }}
-                                                    onMouseOver={(e) => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.color = 'white'; }}
-                                                    onMouseOut={(e) => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#003366'; }}
-                                                >
-                                                    Read More <ChevronRight size={13} />
-                                                </a>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setExpandedNews(item)}
-                                                    style={{
-                                                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        gap: '6px', background: '#F8FAFC', color: '#003366',
-                                                        border: '1px solid #E2E8F0', padding: '6px 12px',
-                                                        borderRadius: '6px', fontWeight: '600', fontSize: '0.78rem',
-                                                        cursor: 'pointer', transition: 'all 0.15s',
-                                                    }}
-                                                    onMouseOver={(e) => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.color = 'white'; }}
-                                                    onMouseOut={(e) => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#003366'; }}
-                                                >
-                                                    Read More <ChevronRight size={13} />
-                                                </button>
-                                            )}
+                                        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                                            {/* Source + Date */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                <span style={{
+                                                    background: '#EFF6FF',
+                                                    color: '#003366',
+                                                    padding: '3px 10px',
+                                                    borderRadius: '100px',
+                                                    fontSize: '0.67rem',
+                                                    fontWeight: '700',
+                                                    letterSpacing: '0.05em',
+                                                    textTransform: 'uppercase',
+                                                }}>
+                                                    {item.source || 'News'}
+                                                </span>
+                                                <span style={{ fontSize: '0.7rem', color: '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
+                                                    {formatDate ? formatDate(item.published_at || item.created_at) : new Date(item.published_at || item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                            </div>
+
+                                            {/* Title */}
+                                            <h3 style={{
+                                                fontSize: '0.93rem',
+                                                fontWeight: '700',
+                                                color: '#1E293B',
+                                                marginBottom: '10px',
+                                                lineHeight: '1.5',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                            }}>
+                                                {item.title}
+                                            </h3>
+
+                                            {/* Summary */}
+                                            <p style={{
+                                                fontSize: '0.82rem',
+                                                color: '#64748B',
+                                                lineHeight: '1.65',
+                                                flexGrow: 1,
+                                                marginBottom: '16px',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 3,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                            }}>
+                                                {(item.summary || '').slice(0, 130)}{(item.summary || '').length > 130 ? '…' : ''}
+                                            </p>
+
+                                            {/* Divider + CTA */}
+                                            <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '14px' }}>
+                                                {(item.link || item.article_url) ? (
+                                                    <a
+                                                        href={item.article_url || item.link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            gap: '6px',
+                                                            background: '#003366',
+                                                            color: 'white',
+                                                            border: '1px solid #003366',
+                                                            padding: '9px 14px',
+                                                            borderRadius: '8px',
+                                                            fontWeight: '600',
+                                                            fontSize: '0.8rem',
+                                                            textDecoration: 'none',
+                                                            transition: 'background 0.2s',
+                                                        }}
+                                                        onMouseOver={(e) => { e.currentTarget.style.background = '#002244'; }}
+                                                        onMouseOut={(e) => { e.currentTarget.style.background = '#003366'; }}
+                                                    >
+                                                        Read More <ChevronRight size={13} />
+                                                    </a>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setExpandedNews(item)}
+                                                        style={{
+                                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            gap: '6px',
+                                                            background: '#003366',
+                                                            color: 'white',
+                                                            border: '1px solid #003366',
+                                                            padding: '9px 14px',
+                                                            borderRadius: '8px',
+                                                            fontWeight: '600',
+                                                            fontSize: '0.8rem',
+                                                            cursor: 'pointer',
+                                                            transition: 'background 0.2s',
+                                                        }}
+                                                        onMouseOver={(e) => { e.currentTarget.style.background = '#002244'; }}
+                                                        onMouseOut={(e) => { e.currentTarget.style.background = '#003366'; }}
+                                                    >
+                                                        Read More <ChevronRight size={13} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* Dot indicators */}
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '1rem' }}>
+                            {/* Progress pill indicators */}
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '5px', marginTop: '0.5rem' }}>
                                 {news.map((_, idx) => (
                                     <button
                                         key={idx}
-                                        onClick={() => setActiveNewsIdx(idx)}
+                                        onClick={() => { if (carouselRef.current) carouselRef.current.scrollLeft = idx * (300 + 20); }}
                                         aria-label={`Go to news item ${idx + 1}`}
                                         style={{
-                                            width: idx === activeNewsIdx ? '20px' : '8px',
-                                            height: '8px',
-                                            borderRadius: '4px',
+                                            height: '4px',
+                                            width: idx === activeNewsIdx ? '28px' : '8px',
+                                            borderRadius: '2px',
                                             background: idx === activeNewsIdx ? '#003366' : '#CBD5E1',
                                             border: 'none',
                                             cursor: 'pointer',
-                                            transition: 'all 0.2s',
+                                            transition: 'all 0.3s ease',
                                             padding: 0,
+                                            outline: 'none',
                                         }}
                                     />
                                 ))}
                             </div>
 
-                            {/* See All News Button */}
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+                            {/* View All CTA */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2.5rem' }}>
                                 <a
                                     href="/news"
                                     style={{
@@ -832,26 +914,18 @@ const Home = () => {
                                         background: '#003366',
                                         color: 'white',
                                         borderRadius: '8px',
-                                        fontWeight: '600',
-                                        fontSize: '0.95rem',
+                                        fontWeight: '700',
+                                        fontSize: '0.92rem',
                                         textDecoration: 'none',
-                                        boxShadow: '0 4px 12px rgba(0, 51, 102, 0.2)',
-                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 4px 14px rgba(0,51,102,0.2)',
+                                        transition: 'all 0.2s',
                                     }}
-                                    onMouseOver={(e) => {
-                                        e.currentTarget.style.background = '#002244';
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 51, 102, 0.3)';
-                                    }}
-                                    onMouseOut={(e) => {
-                                        e.currentTarget.style.background = '#003366';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 51, 102, 0.2)';
-                                    }}
+                                    onMouseOver={(e) => { e.currentTarget.style.background = '#002244'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,51,102,0.28)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,51,102,0.2)'; }}
                                 >
-                                    <Globe size={18} />
-                                    View All News & Updates
-                                    <ChevronRight size={18} />
+                                    <Globe size={16} />
+                                    View All News &amp; Updates
+                                    <ChevronRight size={16} />
                                 </a>
                             </div>
                         </>

@@ -8,10 +8,24 @@ const paginate = (query, total) => {
     return { page, limit, offset, totalPages };
 };
 
+// Safe JSON parse for tags field (handles both JSON arrays and plain comma-separated strings)
+const parseTags = (raw) => {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [String(parsed)];
+    } catch {
+        return raw.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+};
+
+const parseTagsInRows = (rows) => rows.map((r) => ({ ...r, tags: parseTags(r.tags) }));
+
 // GET /api/qna
 export const getPosts = async (req, res, next) => {
     try {
-        const { tags } = req.query;
+        const { tags, search, sort } = req.query;
+        const orderBy = sort === 'most_voted' ? 'p.vote_count DESC' : 'p.created_at DESC';
 
         let countSql = `SELECT COUNT(*) AS total FROM qna_posts p WHERE 1=1`;
         let dataSql = `
@@ -29,13 +43,20 @@ export const getPosts = async (req, res, next) => {
             params.push(`%${tags}%`);
         }
 
+        if (search) {
+            const clause = ' AND (p.title LIKE ? OR p.body LIKE ?)';
+            countSql += clause;
+            dataSql += clause;
+            params.push(`%${search}%`, `%${search}%`);
+        }
+
         const [[{ total }]] = await pool.query(countSql, params);
         const { page, limit, offset, totalPages } = paginate(req.query, total);
 
-        dataSql += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
+        dataSql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
         const [rows] = await pool.query(dataSql, [...params, limit, offset]);
 
-        return res.json({ success: true, data: rows, total, page, limit, totalPages });
+        return res.json({ success: true, data: parseTagsInRows(rows), total, page, limit, totalPages });
     } catch (err) {
         next(err);
     }
@@ -62,7 +83,8 @@ export const getPostById = async (req, res, next) => {
             [req.params.id]
         );
 
-        return res.json({ success: true, data: { ...posts[0], answers } });
+        const post = { ...posts[0], tags: parseTags(posts[0].tags) };
+        return res.json({ success: true, data: { ...post, answers } });
     } catch (err) {
         next(err);
     }
@@ -73,9 +95,18 @@ export const createPost = async (req, res, next) => {
     try {
         const { title, body, tags } = req.body;
 
+        // Normalise tags: accept array or comma-separated string, store as JSON
+        let tagsJson = null;
+        if (tags) {
+            const tagArray = Array.isArray(tags)
+                ? tags.map((t) => t.trim()).filter(Boolean)
+                : tags.split(',').map((t) => t.trim()).filter(Boolean);
+            if (tagArray.length) tagsJson = JSON.stringify(tagArray);
+        }
+
         const [result] = await pool.query(
             'INSERT INTO qna_posts (title, body, tags, author_id) VALUES (?, ?, ?, ?)',
-            [title.trim(), body.trim(), tags ? tags.trim() : null, req.user.id]
+            [title.trim(), body.trim(), tagsJson, req.user.id]
         );
 
         const [rows] = await pool.query(
@@ -85,7 +116,7 @@ export const createPost = async (req, res, next) => {
             [result.insertId]
         );
 
-        return res.status(201).json({ success: true, data: rows[0] });
+        return res.status(201).json({ success: true, data: { ...rows[0], tags: parseTags(rows[0].tags) } });
     } catch (err) {
         next(err);
     }
