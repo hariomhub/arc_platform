@@ -1,16 +1,10 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 import * as resourcesController from '../controllers/resourcesController.js';
 import auth from '../middleware/auth.js';
+import optionalAuth from '../middleware/optionalAuth.js';
 import requireRole from '../middleware/requireRole.js';
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = Router();
 
@@ -22,7 +16,7 @@ const validate = (req, res, next) => {
     next();
 };
 
-// Multer setup — all common document, image and video types, 100MB
+// Multer — memory storage; blob upload happens in the controller
 const ALLOWED_MIMETYPES = [
     // Documents
     'application/pdf',
@@ -46,19 +40,8 @@ const ALLOWED_MIMETYPES = [
     'video/x-msvideo',
 ];
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-    },
-});
-
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
     fileFilter: (req, file, cb) => {
         if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
@@ -76,11 +59,15 @@ const resourceValidation = [
     body('demo_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Demo URL must be a valid URL.'),
     body('type')
         .notEmpty().withMessage('Resource type is required.')
-        .isIn(['framework', 'whitepaper', 'product']).withMessage('Type must be: framework, whitepaper, or product.'),
+        .isIn(['framework', 'whitepaper', 'product', 'video', 'article', 'tool', 'news', 'homepage_video', 'lab_result']).withMessage('Type must be a valid resource type.'),
 ];
 
-// Public routes
-router.get('/', resourcesController.getResources);
+// Public routes (optionalAuth so logged-in users also see their own pending uploads)
+router.get('/', optionalAuth, resourcesController.getResources);
+router.get('/recent-videos', resourcesController.getRecentVideos);
+// GET /api/resources/:id/stream — public; returns a short-lived SAS URL for video playback
+// Used by the home-page video carousel so the <video> tag can reach private blobs
+router.get('/:id/stream', resourcesController.getStreamUrl);
 router.get('/:id', resourcesController.getResourceById);
 
 // GET /api/resources/:id/download — requires login; controller enforces role-based access
@@ -88,22 +75,21 @@ router.get('/:id', resourcesController.getResourceById);
 // free_member, university → 403
 router.get('/:id/download', auth, resourcesController.downloadResource);
 
-// POST /api/resources — role gated (university: whitepaper, product_company: product, admin: all)
+// POST /api/resources — any logged-in user can submit; controller enforces type rules & sets pending
 router.post(
     '/',
     auth,
-    requireRole('admin', 'university', 'product_company'),
     upload.single('file'),
     resourceValidation,
     validate,
     resourcesController.createResource
 );
 
-// PUT /api/resources/:id — admin only
+// PUT /api/resources/:id — admin + executive
 router.put(
     '/:id',
     auth,
-    requireRole('admin'),
+    requireRole('founding_member', 'executive'),
     upload.single('file'),
     resourceValidation,
     validate,
@@ -111,23 +97,19 @@ router.put(
 );
 
 // DELETE /api/resources/:id
-// admin: can delete any
-// university / product_company: can only delete their own (uploader_id = req.user.id)
-// controller performs the ownership check
 router.delete(
     '/:id',
     auth,
-    requireRole('admin', 'university', 'product_company'),
     resourcesController.deleteResource
 );
 
-// GET /api/resources/admin/pending — admin only: list pending resources awaiting approval
-router.get('/admin/pending', auth, requireRole('admin'), resourcesController.getPendingResources);
+// GET /api/resources/admin/pending — admin + executive: list pending resources awaiting approval
+router.get('/admin/pending', auth, requireRole('founding_member', 'executive'), resourcesController.getPendingResources);
 
-// PATCH /api/resources/:id/approve — admin only
-router.patch('/:id/approve', auth, requireRole('admin'), resourcesController.approveResource);
+// PATCH /api/resources/:id/approve — admin + executive
+router.patch('/:id/approve', auth, requireRole('founding_member', 'executive'), resourcesController.approveResource);
 
-// PATCH /api/resources/:id/reject — admin only
-router.patch('/:id/reject', auth, requireRole('admin'), resourcesController.rejectResource);
+// PATCH /api/resources/:id/reject — admin + executive
+router.patch('/:id/reject', auth, requireRole('founding_member', 'executive'), resourcesController.rejectResource);
 
 export default router;

@@ -1,4 +1,4 @@
-USE arc_platform;
+-- USE arc_platform;
 
 -- =============================================
 -- USERS (1 per role, all approved except free_member stays pending to test)

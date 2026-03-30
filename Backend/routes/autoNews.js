@@ -18,9 +18,9 @@ import {
 const router = express.Router();
 
 // ─── Admin Routes (Protected) ─────────────────────────────────────────────────
-// All admin routes require authentication and admin role
+// All admin routes require authentication and founding_member or executive role
 router.use(auth);
-router.use(requireRole('admin'));
+router.use(requireRole('founding_member', 'executive'));
 
 // Get pending articles for review
 router.get('/pending', getPendingNews);

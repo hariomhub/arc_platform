@@ -1,5 +1,6 @@
 import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
+import { uploadToBlob } from '../services/azureBlobService.js';
 
 // GET /api/profile
 export const getProfile = async (req, res, next) => {
@@ -23,11 +24,21 @@ export const getProfile = async (req, res, next) => {
 export const updateProfile = async (req, res, next) => {
     try {
         const { name, bio, linkedin_url, organization_name } = req.body;
-        const photo_url = req.file ? `/uploads/${req.file.filename}` : undefined;
 
         const [current] = await pool.query('SELECT photo_url FROM users WHERE id = ?', [req.user.id]);
         if (current.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        let photo_url = undefined;
+        if (req.file) {
+            // Upload new avatar to Azure Blob Storage under profiles/avatars/
+            photo_url = await uploadToBlob(
+                'profiles/avatars',
+                req.file.originalname,
+                req.file.buffer,
+                req.file.mimetype
+            );
         }
 
         const finalPhotoUrl = photo_url !== undefined ? photo_url : current[0].photo_url;

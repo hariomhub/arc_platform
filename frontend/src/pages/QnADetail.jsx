@@ -11,7 +11,7 @@ import { timeAgo, formatDateTime } from '../utils/dateFormatter.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
 const roleLabel = (role) => {
-    const map = { admin: 'Admin', member: 'Member', fellow: 'Fellow', expert: 'Expert' };
+    const map = { founding_member: 'Founding Member', executive: 'Executive', professional: 'Professional', member: 'Member', fellow: 'Fellow', expert: 'Expert' };
     return map[role?.toLowerCase()] || role || 'Member';
 };
 

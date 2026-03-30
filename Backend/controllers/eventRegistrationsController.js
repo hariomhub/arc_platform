@@ -4,6 +4,7 @@
  */
 
 import pool from '../db/connection.js';
+import { sendEventRegistrationEmail } from '../services/emailService.js';
 
 // ── POST /api/events/:id/register ─────────────────────────────────────────────
 export const registerForEvent = async (req, res, next) => {
@@ -57,6 +58,15 @@ export const registerForEvent = async (req, res, next) => {
              WHERE r.id = ?`,
             [result.insertId]
         );
+
+        // Fire-and-forget confirmation email — never blocks the API response
+        sendEventRegistrationEmail({
+            name:           name,
+            email:          email,
+            organization:   organization || null,
+            event:          registration,
+            registrationId: registration.id,
+        });
 
         return res.status(201).json({
             success: true,

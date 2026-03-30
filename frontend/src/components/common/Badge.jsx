@@ -11,13 +11,10 @@ const VARIANT_STYLES = {
     workshop: { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
     podcast: { bg: '#FDF4FF', color: '#7E22CE', border: '#E9D5FF' },
 
-    // User roles (matching Header ROLE_STYLES)
-    admin: { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
+    // User roles
+    founding_member: { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
     executive: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
-    paid: { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
-    university: { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
-    product: { bg: '#F0FDFA', color: '#0F766E', border: '#99F6E4' },
-    free: { bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0' },
+    professional: { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
 
     // Resource types
     framework: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },

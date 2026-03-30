@@ -121,7 +121,6 @@ async function saveArticle(article) {
  */
 async function fetchFromSource(sourceConfig) {
   try {
-    console.log(`Fetching from: ${sourceConfig.name}...`);
     const feed = await parser.parseURL(sourceConfig.url);
     
     let newArticlesCount = 0;
@@ -152,17 +151,10 @@ async function fetchFromSource(sourceConfig) {
 
       // Try to extract image from the article URL (with timeout)
       try {
-        console.log(`  → Fetching image for: ${article.title.substring(0, 50)}...`);
         article.imageUrl = await extractImageFromUrl(article.articleUrl, 8000);
-        if (article.imageUrl) {
-          imagesFound++;
-          console.log(`  ✓ Image found`);
-        } else {
-          console.log(`  ⊗ No image found`);
-        }
-      } catch (error) {
+        if (article.imageUrl) imagesFound++;
+      } catch {
         // Continue without image if extraction fails
-        console.log(`  ⊗ Image extraction failed`);
       }
 
       // Save to database

@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Globe, Search, Filter, Calendar, ExternalLink, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, TrendingUp, Sparkles, Newspaper } from 'lucide-react';
+import { Globe, Search, Filter, Calendar, ExternalLink, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, TrendingUp, Sparkles, Newspaper, Plus, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
 import axios from '../api/axios';
+import { useAuth } from '../context/AuthContext';
+import { createNews, updateNews, deleteNews, togglePublishNews } from '../api/news';
 
 export default function News() {
+    const { isAdmin, isExecutive } = useAuth();
+    const canManageNews = isAdmin?.() || isExecutive?.();
+
     const [news, setNews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -12,6 +17,41 @@ export default function News() {
     const [totalPages, setTotalPages] = useState(1);
     const [animateIn, setAnimateIn] = useState(false);
     const itemsPerPage = 12;
+
+    // Admin modal state
+    const [newsModal, setNewsModal] = useState(null); // null=closed, {}=create, {id,...}=edit
+    const [newsForm, setNewsForm] = useState({ title: '', summary: '', link: '', image_url: '', is_published: true });
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+
+    const openCreate = () => { setNewsForm({ title: '', summary: '', link: '', image_url: '', is_published: true }); setSaveError(''); setNewsModal({}); };
+    const openEdit = (article) => { setNewsForm({ title: article.title || '', summary: article.summary || '', link: article.link || article.article_url || '', image_url: article.image_url || '', is_published: !!article.is_published }); setSaveError(''); setNewsModal(article); };
+    const closeModal = () => { setNewsModal(null); setSaveError(''); };
+
+    const handleSave = async () => {
+        if (!newsForm.title.trim()) { setSaveError('Title is required.'); return; }
+        setSaving(true); setSaveError('');
+        try {
+            if (newsModal?.id) {
+                await updateNews(newsModal.id, newsForm);
+            } else {
+                await createNews(newsForm);
+            }
+            closeModal();
+            fetchNews();
+        } catch (e) {
+            setSaveError(e.response?.data?.message || 'Save failed. Please try again.');
+        } finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Delete this news article? This cannot be undone.')) return;
+        try { await deleteNews(id); fetchNews(); } catch { alert('Delete failed.'); }
+    };
+
+    const handleTogglePublish = async (article) => {
+        try { await togglePublishNews(article.id); fetchNews(); } catch { alert('Failed to update publish status.'); }
+    };
 
     // Fetch news articles
     useEffect(() => {
@@ -175,9 +215,90 @@ export default function News() {
                             <Sparkles size={20} />
                             <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>Live Updates</span>
                         </div>
+                        {canManageNews && (
+                            <button
+                                onClick={openCreate}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                    padding: '12px 24px', background: 'rgba(255,255,255,0.2)',
+                                    border: '2px solid rgba(255,255,255,0.5)', color: 'white',
+                                    borderRadius: '12px', fontWeight: '700', fontSize: '0.9rem',
+                                    cursor: 'pointer', backdropFilter: 'blur(10px)',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.35)'; }}
+                                onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                            >
+                                <Plus size={18} /> Add News Article
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* ── Admin News Modal ─────────────────────────────────────── */}
+            {newsModal !== null && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+                    onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+                    <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+                        {/* Modal header */}
+                        <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#1E293B' }}>
+                                {newsModal?.id ? 'Edit News Article' : 'Add News Article'}
+                            </h2>
+                            <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '4px' }}><X size={20} /></button>
+                        </div>
+                        {/* Form */}
+                        <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {saveError && (
+                                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', color: '#DC2626', fontSize: '0.82rem', fontWeight: '600' }}>
+                                    {saveError}
+                                </div>
+                            )}
+                            {[
+                                { key: 'title', label: 'Title *', placeholder: 'Article title' },
+                                { key: 'summary', label: 'Summary', placeholder: 'Short summary or excerpt' },
+                                { key: 'link', label: 'Article URL', placeholder: 'https://...' },
+                                { key: 'image_url', label: 'Image URL', placeholder: 'https://...' },
+                            ].map(({ key, label, placeholder }) => (
+                                <div key={key}>
+                                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</label>
+                                    {key === 'summary' ? (
+                                        <textarea
+                                            rows={3}
+                                            value={newsForm[key]}
+                                            onChange={e => setNewsForm(f => ({ ...f, [key]: e.target.value }))}
+                                            placeholder={placeholder}
+                                            style={{ width: '100%', padding: '10px 12px', border: '2px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={newsForm[key]}
+                                            onChange={e => setNewsForm(f => ({ ...f, [key]: e.target.value }))}
+                                            placeholder={placeholder}
+                                            style={{ width: '100%', padding: '10px 12px', border: '2px solid #E2E8F0', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                                <input type="checkbox" checked={newsForm.is_published} onChange={e => setNewsForm(f => ({ ...f, is_published: e.target.checked }))} />
+                                Publish immediately
+                            </label>
+                        </div>
+                        {/* Footer */}
+                        <div style={{ padding: '0 1.5rem 1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                            <button onClick={closeModal} style={{ padding: '0.65rem 1.25rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Cancel
+                            </button>
+                            <button onClick={handleSave} disabled={saving} style={{ padding: '0.65rem 1.5rem', background: '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                                {saving ? 'Saving…' : newsModal?.id ? 'Save Changes' : 'Publish Article'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Search and Filters */}
             <div style={{ 
@@ -702,6 +823,25 @@ export default function News() {
                                             >
                                                 Read Full Article
                                                 <ExternalLink size={16} />
+                                            </div>
+                                        )}
+
+                                        {/* Admin controls */}
+                                        {canManageNews && (
+                                            <div style={{ display: 'flex', gap: '6px', paddingTop: '0.75rem', borderTop: '1px dashed #E2E8F0', marginTop: '0.5rem' }}
+                                                onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => openEdit(article)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#EFF6FF', color: '#003366', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                    <Edit2 size={11} /> Edit
+                                                </button>
+                                                <button onClick={() => handleTogglePublish(article)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: article.is_published ? '#FFFBEB' : '#F0FDF4', color: article.is_published ? '#D97706' : '#16A34A', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                    {article.is_published ? <><EyeOff size={11} /> Unpublish</> : <><Eye size={11} /> Publish</>}
+                                                </button>
+                                                <button onClick={() => handleDelete(article.id)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#FEF2F2', color: '#DC2626', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                    <Trash2 size={11} /> Delete
+                                                </button>
                                             </div>
                                         )}
                                     </div>

@@ -1,5 +1,6 @@
 import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
+import { sendAccountApprovedEmail, sendMembershipApplicationStatusEmail } from '../services/emailService.js';
 
 
 const paginate = (query, total) => {
@@ -61,11 +62,24 @@ export const getPendingUsers = async (req, res, next) => {
 // PATCH /api/admin/users/:id/approve
 export const approveUser = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        const [rows] = await pool.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
-        await pool.query("UPDATE users SET status = 'approved' WHERE id = ?", [req.params.id]);
+        const { role } = rows[0];
+        // Set membership_expires_at based on role
+        const expiresAt = role === 'founding_member' ? null
+            : role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
+            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000); // professional: 1 year
+
+        await pool.query(
+            "UPDATE users SET status = 'approved', membership_expires_at = ? WHERE id = ?",
+            [expiresAt, req.params.id]
+        );
+
+        // Notify the user their account is now active
+        sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role });
+
         return res.json({ success: true, message: 'User approved.' });
     } catch (err) {
         next(err);
@@ -95,12 +109,22 @@ export const updateUserStatus = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'You cannot change your own status.' });
         }
 
-        const [check] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        const [rows] = await pool.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
         await pool.query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.id]);
+
+        // When approving, also set membership_expires_at based on role
+        if (status === 'approved') {
+            const expiresAt = rows[0].role === 'founding_member' ? null
+                : rows[0].role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+            await pool.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [expiresAt, req.params.id]);
+            sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role });
+        }
+
         return res.json({ success: true, data: { message: `User status updated to "${status}".` } });
     } catch (err) {
         next(err);
@@ -116,12 +140,19 @@ export const updateUserRole = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'You cannot change your own role.' });
         }
 
-        const [check] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, status FROM users WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+        // Recalculate membership_expires_at when role changes (only for approved users)
+        const expiresAt = check[0].status === 'approved'
+            ? (role === 'founding_member' ? null
+                : role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
+            : null;
+
+        await pool.query('UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?', [role, expiresAt, req.params.id]);
         return res.json({ success: true, data: { message: `User role updated to "${role}".` } });
     } catch (err) {
         next(err);
@@ -159,15 +190,26 @@ export const createUser = async (req, res, next) => {
 
         const password_hash = await bcrypt.hash(password, 12);
 
+        const assignedRole   = role   || 'professional';
+        const assignedStatus = status || 'approved';
+
+        // Compute membership expiry for approved users
+        const expiresAt = assignedStatus === 'approved'
+            ? (assignedRole === 'founding_member' ? null
+                : assignedRole === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
+            : null;
+
         const [result] = await pool.query(
-            `INSERT INTO users (name, email, password_hash, role, status, organization_name, linkedin_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name, linkedin_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name.trim(),
                 email.trim().toLowerCase(),
                 password_hash,
-                role || 'free_member',
-                status || 'approved',
+                assignedRole,
+                assignedStatus,
+                expiresAt,
                 organization_name || null,
                 linkedin_url || null,
             ]
@@ -192,11 +234,119 @@ export const getStats = async (req, res, next) => {
         const [[{ total_resources }]] = await pool.query('SELECT COUNT(*) AS total_resources FROM resources');
         const [[{ total_events }]] = await pool.query('SELECT COUNT(*) AS total_events FROM events');
         const [[{ total_qna }]] = await pool.query('SELECT COUNT(*) AS total_qna FROM qna_posts');
+        const [[{ pending_applications }]] = await pool.query(
+            'SELECT COUNT(*) AS pending_applications FROM membership_applications WHERE status = "pending"'
+        );
 
         return res.json({
             success: true,
-            data: { total_users, pending_users, total_resources, total_events, total_qna },
+            data: { total_users, pending_users, total_resources, total_events, total_qna, pending_applications },
         });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─── Membership Applications ──────────────────────────────────────────────────
+
+// GET /api/admin/membership-applications
+export const getMembershipApplications = async (req, res, next) => {
+    try {
+        const { status, role } = req.query;
+        let sql = `
+            SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status
+            FROM membership_applications ma
+            JOIN users u ON u.id = ma.user_id
+            WHERE 1=1
+        `;
+        const params = [];
+        if (status) { sql += ' AND ma.status = ?'; params.push(status); }
+        if (role)   { sql += ' AND ma.requested_role = ?'; params.push(role); }
+        sql += ' ORDER BY ma.created_at DESC';
+
+        const [rows] = await pool.query(sql, params);
+        return res.json({ success: true, data: rows });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/membership-applications/:id/approve
+export const approveMembershipApplication = async (req, res, next) => {
+    try {
+        const [[app]] = await pool.query(
+            `SELECT ma.*, u.name, u.email FROM membership_applications ma
+             JOIN users u ON u.id = ma.user_id
+             WHERE ma.id = ?`,
+            [req.params.id]
+        );
+        if (!app) return res.status(404).json({ success: false, message: 'Application not found.' });
+        if (app.status !== 'pending') {
+            return res.status(409).json({ success: false, message: 'Application has already been processed.' });
+        }
+
+        const requestedRole = app.requested_role;
+        const expiresAt = requestedRole === 'founding_member' ? null
+            : requestedRole === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
+            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+
+        // Upgrade the user's role
+        await pool.query(
+            `UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?`,
+            [requestedRole, expiresAt, app.user_id]
+        );
+
+        // Mark application approved
+        await pool.query(
+            `UPDATE membership_applications SET status = 'approved', processed_at = NOW(), admin_notes = ?
+             WHERE id = ?`,
+            [req.body.admin_notes || null, req.params.id]
+        );
+
+        // Notify the user
+        sendMembershipApplicationStatusEmail({
+            name:          app.name,
+            email:         app.email,
+            requestedRole: requestedRole,
+            status:        'approved',
+        });
+
+        return res.json({ success: true, message: 'Application approved. User role updated.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/membership-applications/:id/reject
+export const rejectMembershipApplication = async (req, res, next) => {
+    try {
+        const [[app]] = await pool.query(
+            `SELECT ma.*, u.name, u.email FROM membership_applications ma
+             JOIN users u ON u.id = ma.user_id
+             WHERE ma.id = ?`,
+            [req.params.id]
+        );
+        if (!app) return res.status(404).json({ success: false, message: 'Application not found.' });
+        if (app.status !== 'pending') {
+            return res.status(409).json({ success: false, message: 'Application has already been processed.' });
+        }
+
+        await pool.query(
+            `UPDATE membership_applications SET status = 'rejected', processed_at = NOW(), admin_notes = ?
+             WHERE id = ?`,
+            [req.body.admin_notes || null, req.params.id]
+        );
+
+        // Notify the user
+        sendMembershipApplicationStatusEmail({
+            name:          app.name,
+            email:         app.email,
+            requestedRole: app.requested_role,
+            status:        'rejected',
+            adminNotes:    req.body.admin_notes || null,
+        });
+
+        return res.json({ success: true, message: 'Application rejected.' });
     } catch (err) {
         next(err);
     }

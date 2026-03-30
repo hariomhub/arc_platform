@@ -1,15 +1,9 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 import * as teamController from '../controllers/teamController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = Router();
 
@@ -21,20 +15,9 @@ const validate = (req, res, next) => {
     next();
 };
 
-// Multer for team member photos (images only, 5MB)
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `team-${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-    },
-});
-
+// Multer for team member photos — memory storage; blob upload in controller
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
@@ -57,8 +40,8 @@ router.get('/', teamController.getTeam);
 router.get('/:id', teamController.getTeamMemberById);
 
 // Admin only
-router.post('/', auth, requireRole('admin'), upload.single('photo'), teamValidation, validate, teamController.createTeamMember);
-router.put('/:id', auth, requireRole('admin'), upload.single('photo'), teamValidation, validate, teamController.updateTeamMember);
-router.delete('/:id', auth, requireRole('admin'), teamController.deleteTeamMember);
+router.post('/', auth, requireRole('founding_member'), upload.single('photo'), teamValidation, validate, teamController.createTeamMember);
+router.put('/:id', auth, requireRole('founding_member'), upload.single('photo'), teamValidation, validate, teamController.updateTeamMember);
+router.delete('/:id', auth, requireRole('founding_member'), teamController.deleteTeamMember);
 
 export default router;

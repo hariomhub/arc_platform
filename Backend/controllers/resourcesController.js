@@ -1,12 +1,8 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
 import pool from '../db/connection.js';
+import { uploadToBlob, deleteFromBlob, getBlobSasUrl } from '../services/azureBlobService.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Allowed roles for framework download
-const DOWNLOAD_ROLES = ['admin', 'executive', 'paid_member', 'product_company'];
+// Allowed roles for resource file downloads
+const DOWNLOAD_ROLES = ['founding_member', 'executive', 'professional'];
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -16,11 +12,39 @@ const paginate = (query, total) => {
     return { page, limit, offset, totalPages };
 };
 
+// GET /api/resources/recent-videos
+// Fetch the top 3 recent approved video resources (with SAS URLs for direct playback)
+export const getRecentVideos = async (req, res, next) => {
+    try {
+        const sql = `
+            SELECT r.id, r.title, r.description, r.file_url, r.created_at, u.name AS uploader_name
+            FROM resources r
+            LEFT JOIN users u ON r.uploader_id = u.id
+            WHERE r.status = 'approved' AND r.file_url IS NOT NULL
+              AND (r.file_url LIKE '%.mp4' OR r.file_url LIKE '%.webm' OR r.file_url LIKE '%.mov' OR r.file_url LIKE '%.avi' OR r.file_url LIKE '%.ogg')
+            ORDER BY r.created_at DESC
+            LIMIT 3
+        `;
+        const [rows] = await pool.query(sql);
+
+        // Generate SAS URLs for playback
+        const videos = rows.map(({ file_url, ...rest }) => ({
+            ...rest,
+            video_url: getBlobSasUrl(file_url, 1) // 1 hour expiry
+        }));
+
+        return res.json({ success: true, data: videos });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 // GET /api/resources
 export const getResources = async (req, res, next) => {
     try {
         const { type } = req.query;
-        const isAdmin = req.user?.role === 'admin';
+        const isAdmin = req.user?.role === 'founding_member';
 
         let countSql = `
       SELECT COUNT(*) AS total FROM resources r
@@ -35,10 +59,16 @@ export const getResources = async (req, res, next) => {
     `;
         const params = [];
 
-        // Non-admins only see approved resources
         if (!isAdmin) {
-            countSql += " AND r.status = 'approved'";
-            dataSql += " AND r.status = 'approved'";
+            if (req.user) {
+                // Logged-in non-admins see approved resources + their own (any status)
+                countSql += " AND (r.status = 'approved' OR r.uploader_id = ?)";
+                dataSql  += " AND (r.status = 'approved' OR r.uploader_id = ?)";
+                params.push(req.user.id);
+            } else {
+                countSql += " AND r.status = 'approved'";
+                dataSql  += " AND r.status = 'approved'";
+            }
         }
 
         if (type) {
@@ -84,6 +114,7 @@ export const getResourceById = async (req, res, next) => {
 };
 
 // GET /api/resources/:id/download  (RBAC enforced)
+// Returns a short-lived SAS URL for the client to open directly (avoids cross-origin redirect issues)
 export const downloadResource = async (req, res, next) => {
     try {
         const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
@@ -93,7 +124,6 @@ export const downloadResource = async (req, res, next) => {
 
         const resource = rows[0];
 
-        // All downloads require role-based access
         if (!DOWNLOAD_ROLES.includes(req.user.role)) {
             return res.status(403).json({ success: false, message: 'Upgrade your plan to access this resource.' });
         }
@@ -102,36 +132,66 @@ export const downloadResource = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
         }
 
-        // Serve the file from the uploads directory
-        const filePath = path.join(__dirname, '..', resource.file_url);
-        return res.download(filePath, (err) => {
-            if (err) {
-                return res.status(404).json({ success: false, message: 'File not found on server.' });
-            }
-        });
+        // Return a fresh SAS URL — frontend opens it with window.open() for download/playback
+        const sasUrl = getBlobSasUrl(resource.file_url, 2); // 2-hour expiry
+        return res.json({ success: true, url: sasUrl });
     } catch (err) {
         next(err);
     }
 };
 
-// POST /api/resources  (whitepaper: university only | product: product_company only | framework: admin only)
+// GET /api/resources/:id/stream  (public — used for home-page video playback)
+// Returns a short-lived SAS URL so the <video> tag can reach private blobs
+export const getStreamUrl = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT file_url, status FROM resources WHERE id = ?",
+            [req.params.id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Resource not found.' });
+        }
+
+        const resource = rows[0];
+        if (resource.status !== 'approved') {
+            return res.status(403).json({ success: false, message: 'Resource not available.' });
+        }
+        if (!resource.file_url) {
+            return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
+        }
+
+        const sasUrl = getBlobSasUrl(resource.file_url, 2); // 2-hour expiry
+        return res.json({ success: true, url: sasUrl });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /api/resources
 export const createResource = async (req, res, next) => {
     try {
         const { title, description, abstract, demo_url, type } = req.body;
         const uploaderRole = req.user.role;
+        const isAdmin = uploaderRole === 'founding_member';
 
-        // RBAC for upload type
-        if (type === 'whitepaper' && uploaderRole !== 'university' && uploaderRole !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Only university members can upload whitepapers.' });
-        }
-        if (type === 'product' && uploaderRole !== 'product_company' && uploaderRole !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Only product companies can upload products.' });
-        }
-        if (type === 'framework' && uploaderRole !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Only admins can upload frameworks.' });
+        // Types reserved for founding_member and executive only (site-level content)
+        const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
+        const canUploadAdminTypes = ['founding_member', 'executive'].includes(uploaderRole);
+        if (ADMIN_ONLY_TYPES.includes(type) && !canUploadAdminTypes) {
+            return res.status(403).json({ success: false, message: `Only Founding Members and Executives can upload ${type.replace('_', ' ')}s.` });
         }
 
-        const file_url = req.file ? `/uploads/${req.file.filename}` : null;
+        let file_url = null;
+        if (req.file) {
+            // Resource files go to the PRIVATE container — served via SAS URL on download
+            file_url = await uploadToBlob(
+                'resources',
+                req.file.originalname,
+                req.file.buffer,
+                req.file.mimetype,
+                { private: true }
+            );
+        }
 
         const [result] = await pool.query(
             `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
@@ -143,7 +203,7 @@ export const createResource = async (req, res, next) => {
                 file_url,
                 demo_url ? demo_url.trim() : null,
                 type,
-                req.user.role === 'admin' ? 'approved' : 'pending',
+                ['founding_member', 'executive'].includes(req.user.role) ? 'approved' : 'pending',
                 req.user.id,
             ]
         );
@@ -166,7 +226,18 @@ export const updateResource = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
         }
 
-        const file_url = req.file ? `/uploads/${req.file.filename}` : check[0].file_url;
+        let file_url = check[0].file_url;
+        if (req.file) {
+            // Delete old blob if one exists
+            await deleteFromBlob(file_url);
+            file_url = await uploadToBlob(
+                'resources',
+                req.file.originalname,
+                req.file.buffer,
+                req.file.mimetype,
+                { private: true }
+            );
+        }
 
         await pool.query(
             `UPDATE resources SET title=?, description=?, abstract=?, file_url=?, demo_url=?, type=? WHERE id=?`,
@@ -190,17 +261,19 @@ export const updateResource = async (req, res, next) => {
 };
 
 // DELETE /api/resources/:id
-// admin: delete any | university/product_company: only their own
 export const deleteResource = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id, uploader_id FROM resources WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, uploader_id, file_url FROM resources WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
         }
 
-        if (req.user.role !== 'admin' && check[0].uploader_id !== req.user.id) {
+        if (req.user.role !== 'founding_member' && check[0].uploader_id !== req.user.id) {
             return res.status(403).json({ success: false, message: 'You can only delete resources you have uploaded.' });
         }
+
+        // Remove blob from Azure Storage
+        await deleteFromBlob(check[0].file_url);
 
         await pool.query('DELETE FROM resources WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'Resource deleted successfully.' } });

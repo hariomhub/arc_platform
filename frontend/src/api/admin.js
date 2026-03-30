@@ -10,6 +10,7 @@ export const updateUserStatus  = (id, status) => api.patch(`/admin/users/${id}/s
 export const updateUserRole    = (id, role)   => api.patch(`/admin/users/${id}/role`, { role });
 export const deleteUser        = (id)         => api.delete(`/admin/users/${id}`);
 
-// Waitlist
-export const getWaitlist            = (params)       => api.get('/admin/waitlist', { params });
-export const updateWaitlistStatus   = (id, status)   => api.patch(`/admin/waitlist/${id}/status`, { status });
+// Membership applications
+export const getMembershipApplications    = (params)            => api.get('/admin/membership-applications', { params });
+export const approveMembershipApplication = (id)                => api.patch(`/admin/membership-applications/${id}/approve`);
+export const rejectMembershipApplication  = (id, adminNotes)   => api.patch(`/admin/membership-applications/${id}/reject`, { admin_notes: adminNotes });

@@ -66,24 +66,13 @@ export async function extractImageFromUrl(url, timeout = 10000) {
       }
 
       // Validate it's a proper image URL
-      if (imageUrl.length > 2000) {
-        console.log('  ⚠ Image URL too long, skipping');
-        return null;
-      }
+      if (imageUrl.length > 2000) return null;
 
       return imageUrl;
     }
 
     return null;
-  } catch (error) {
-    // Silently fail for image extraction errors
-    if (error.code === 'ECONNABORTED') {
-      console.log('  ⚠ Image fetch timeout');
-    } else if (error.response?.status === 403) {
-      console.log('  ⚠ Access denied for image fetch');
-    } else {
-      console.log(`  ⚠ Image extraction failed: ${error.message}`);
-    }
+  } catch {
     return null;
   }
 }
@@ -115,14 +104,6 @@ export async function extractImagesInBatch(urls, maxConcurrent = 3) {
  * Test the image scraper with a URL
  */
 export async function testImageScraper(testUrl) {
-  console.log(`Testing image scraper with: ${testUrl}`);
   const imageUrl = await extractImageFromUrl(testUrl);
-  
-  if (imageUrl) {
-    console.log(`✓ Found image: ${imageUrl}`);
-  } else {
-    console.log('✗ No image found');
-  }
-  
   return imageUrl;
 }

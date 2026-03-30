@@ -1,6 +1,5 @@
 import pool from '../db/connection.js';
-import path from 'path';
-import fs from 'fs';
+import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 import { verifyRecaptchaToken } from '../middleware/verifyRecaptcha.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -8,7 +7,6 @@ const isDupEntry = (err) =>
     err.code === 'ER_DUP_ENTRY' || (err.message && err.message.includes('Duplicate entry'));
 
 // ── GET /api/nominations/awards ───────────────────────────────────────────────
-// Returns all active awards with their categories nested
 export const getAwards = async (req, res, next) => {
     try {
         const showAll = req.query.all === 'true';
@@ -29,7 +27,6 @@ export const getAwards = async (req, res, next) => {
 };
 
 // ── GET /api/nominations/nominees ─────────────────────────────────────────────
-// Filterable by award_id, category_id, timeline, is_winner, search
 export const getNominees = async (req, res, next) => {
     try {
         const { award_id, category_id, timeline, search } = req.query;
@@ -47,12 +44,11 @@ export const getNominees = async (req, res, next) => {
         `;
         const params = [];
 
-        if (award_id)    { sql += ' AND n.award_id    = ?'; params.push(award_id); }
+        if (award_id) { sql += ' AND n.award_id    = ?'; params.push(award_id); }
         if (category_id) { sql += ' AND n.category_id = ?'; params.push(category_id); }
-        if (timeline)    { sql += ' AND ac.timeline   = ?'; params.push(timeline); }
-        if (search)      { sql += ' AND n.name LIKE ?';     params.push(`%${search}%`); }
+        if (timeline) { sql += ' AND ac.timeline   = ?'; params.push(timeline); }
+        if (search) { sql += ' AND n.name LIKE ?'; params.push(`%${search}%`); }
 
-        // is_winner filter: ?is_winner=true or ?is_winner=false
         if (req.query.is_winner !== undefined) {
             sql += ' AND n.is_winner = ?';
             params.push(req.query.is_winner === 'true' ? 1 : 0);
@@ -83,7 +79,6 @@ export const getNomineeById = async (req, res, next) => {
         );
         if (!rows.length) return res.status(404).json({ success: false, message: 'Nominee not found.' });
 
-        // Also attach vote count
         const [[{ vote_count }]] = await pool.query(
             `SELECT COUNT(*) AS vote_count FROM votes WHERE nominee_id = ?`,
             [req.params.id]
@@ -95,132 +90,82 @@ export const getNomineeById = async (req, res, next) => {
 };
 
 // ── POST /api/nominations/nominees/:id/vote ───────────────────────────────────
-// Supports both authenticated and anonymous voting
-// Anonymous: requires recaptchaToken and anonymousEmail
-// Authenticated: uses req.user.id
-// One vote per user/email per category
 export const castVote = async (req, res, next) => {
     try {
         const nomineeId = parseInt(req.params.id, 10);
         const { isAnonymous, anonymousEmail, recaptchaToken } = req.body;
 
-        // Determine if this is anonymous vote
         const isAnon = Boolean(isAnonymous);
         let userId = null;
         let voterEmail = null;
 
         if (isAnon) {
-            // ── Anonymous Vote Validation ──
             if (!anonymousEmail || !anonymousEmail.trim()) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Email is required for anonymous voting.' 
-                });
+                return res.status(400).json({ success: false, message: 'Email is required for anonymous voting.' });
             }
-
-            // Validate email format
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(anonymousEmail)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Please provide a valid email address.' 
-                });
+                return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
             }
-
-            // Verify reCAPTCHA for anonymous votes
-            if (!recaptchaToken) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'reCAPTCHA verification is required for anonymous voting.' 
-                });
+            // Only enforce reCAPTCHA when the secret key is configured
+            const recaptchaSecretConfigured = !!process.env.RECAPTCHA_SECRET_KEY;
+            if (recaptchaSecretConfigured) {
+                if (!recaptchaToken) {
+                    return res.status(400).json({ success: false, message: 'reCAPTCHA verification is required for anonymous voting.' });
+                }
+                const remoteIp = req.ip || req.connection.remoteAddress;
+                const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, remoteIp);
+                if (!recaptchaResult.success) {
+                    return res.status(400).json({ success: false, message: recaptchaResult.error || 'reCAPTCHA verification failed. Please try again.' });
+                }
             }
-
-            const remoteIp = req.ip || req.connection.remoteAddress;
-            const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, remoteIp);
-
-            if (!recaptchaResult.success) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: recaptchaResult.error || 'reCAPTCHA verification failed. Please try again.' 
-                });
-            }
-
             voterEmail = anonymousEmail.trim().toLowerCase();
         } else {
-            // ── Authenticated Vote ──
             if (!req.user || !req.user.id) {
-                return res.status(401).json({ 
-                    success: false, 
-                    message: 'Authentication required for non-anonymous voting.' 
-                });
+                return res.status(401).json({ success: false, message: 'Authentication required for non-anonymous voting.' });
             }
             userId = req.user.id;
         }
 
-        // ── Check if nominee exists and is active ──
         const [nomRows] = await pool.query(
             'SELECT id, category_id, award_id, is_active FROM nominees WHERE id = ?',
             [nomineeId]
         );
         if (!nomRows.length || !nomRows[0].is_active) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Nominee not found or inactive.' 
-            });
+            return res.status(404).json({ success: false, message: 'Nominee not found or inactive.' });
         }
 
         const { category_id, award_id } = nomRows[0];
 
-        // ── Check for existing vote in this category ──
-        let existingVoteQuery;
-        let existingVoteParams;
-
+        let existingVoteQuery, existingVoteParams;
         if (isAnon) {
-            existingVoteQuery = `
-                SELECT id FROM votes 
-                WHERE category_id = ? AND is_anonymous = 1 AND anonymous_email = ?
-            `;
+            existingVoteQuery = `SELECT id FROM votes WHERE category_id = ? AND is_anonymous = 1 AND anonymous_email = ?`;
             existingVoteParams = [category_id, voterEmail];
         } else {
-            existingVoteQuery = `
-                SELECT id FROM votes 
-                WHERE category_id = ? AND user_id = ?
-            `;
+            existingVoteQuery = `SELECT id FROM votes WHERE category_id = ? AND user_id = ?`;
             existingVoteParams = [category_id, userId];
         }
 
         const [existingVotes] = await pool.query(existingVoteQuery, existingVoteParams);
         if (existingVotes.length > 0) {
-            return res.status(409).json({ 
-                success: false, 
-                message: 'You have already voted in this category.' 
-            });
+            return res.status(409).json({ success: false, message: 'You have already voted in this category.' });
         }
 
-        // ── Insert the vote ──
         await pool.query(
-            `INSERT INTO votes (user_id, nominee_id, category_id, award_id, is_anonymous, anonymous_email) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO votes (user_id, nominee_id, category_id, award_id, is_anonymous, anonymous_email) VALUES (?, ?, ?, ?, ?, ?)`,
             [userId, nomineeId, category_id, award_id, isAnon, voterEmail]
         );
 
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Vote cast successfully!' 
-        });
+        return res.status(201).json({ success: true, message: 'Vote cast successfully!' });
     } catch (err) {
         if (isDupEntry(err)) {
-            return res.status(409).json({ 
-                success: false, 
-                message: 'You have already voted in this category.' 
-            });
+            return res.status(409).json({ success: false, message: 'You have already voted in this category.' });
         }
         next(err);
     }
 };
 
 // ── GET /api/nominations/my-votes ────────────────────────────────────────────
-// Returns array of category_ids the current user has voted in
 export const getMyVotes = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
@@ -362,10 +307,10 @@ export const updateNominee = async (req, res, next) => {
 export const deleteNominee = async (req, res, next) => {
     try {
         const [[nom]] = await pool.query(`SELECT photo_url FROM nominees WHERE id = ?`, [req.params.id]);
-        if (nom?.photo_url) {
-            const fp = path.resolve(`./${nom.photo_url}`);
-            if (fs.existsSync(fp)) fs.unlinkSync(fp);
-        }
+
+        // Delete photo blob from Azure Storage
+        await deleteFromBlob(nom?.photo_url);
+
         await pool.query(`DELETE FROM nominees WHERE id = ?`, [req.params.id]);
         return res.json({ success: true, message: 'Nominee deleted.' });
     } catch (err) { next(err); }
@@ -378,13 +323,17 @@ export const uploadNomineePhoto = async (req, res, next) => {
         if (!nom) return res.status(404).json({ success: false, message: 'Nominee not found.' });
         if (!req.file) return res.status(422).json({ success: false, message: 'No image provided.' });
 
-        // Remove old photo
-        if (nom.photo_url) {
-            const fp = path.resolve(`./${nom.photo_url}`);
-            if (fs.existsSync(fp)) fs.unlinkSync(fp);
-        }
+        // Delete old photo blob
+        await deleteFromBlob(nom.photo_url);
 
-        const photo_url = `uploads/nominees/${req.file.filename}`;
+        // Upload new photo to Azure Blob Storage
+        const photo_url = await uploadToBlob(
+            'nominees/photos',
+            req.file.originalname,
+            req.file.buffer,
+            req.file.mimetype
+        );
+
         await pool.query(`UPDATE nominees SET photo_url = ? WHERE id = ?`, [photo_url, nom.id]);
 
         const [[updated]] = await pool.query(`SELECT * FROM nominees WHERE id = ?`, [nom.id]);

@@ -4,12 +4,19 @@ import api from './axios.js';
 export const getResources = (params) =>
     api.get('/resources', { params });
 
+export const getRecentVideos = () =>
+    api.get('/resources/recent-videos');
+
 export const getResourceById = (id) =>
     api.get(`/resources/${id}`);
 
-// Returns blob — caller must use downloadBlob() util
+// Returns { url: string } — caller should open with window.open(url, '_blank')
 export const downloadResource = (id) =>
-    api.get(`/resources/${id}/download`, { responseType: 'blob' });
+    api.get(`/resources/${id}/download`);
+
+// Returns { url: string } — short-lived SAS URL for video playback (no auth required)
+export const getVideoStreamUrl = (id) =>
+    api.get(`/resources/${id}/stream`);
 
 // formData must include file + title + type etc.
 export const uploadResource = (formData) =>

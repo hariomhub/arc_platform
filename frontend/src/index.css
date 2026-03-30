@@ -1,8 +1,8 @@
 /* Tailwind CSS v4 entry point */
 @import "tailwindcss";
 
-/* Google Fonts (also in index.html for preconnect) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap');
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 
 /* ─── Tailwind v4 Custom Tokens ─────────────────────────────────────────────── */
 @theme {
@@ -18,63 +18,37 @@
   --color-arc-muted: #4A5568;
   --color-arc-border: #E2E8F0;
   --font-family-sans: 'Inter', system-ui, sans-serif;
-  --font-family-serif: 'Playfair Display', Georgia, serif;
+  --font-family-serif: 'Outfit', system-ui, sans-serif;
 }
 
 /* ─── Custom Animations ─────────────────────────────────────────────────────── */
 @keyframes toast-slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
 
 @keyframes modal-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1);    }
 }
 
 @keyframes skeleton-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.4;
-  }
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.4; }
 }
 
-/* ─── Accessibility utilities ───────────────────────────────────────────────── */
+/* ─── Accessibility ─────────────────────────────────────────────────────────── */
 .skip-to-content {
   position: absolute;
-  left: -9999px;
-  top: auto;
-  width: 1px;
-  height: 1px;
+  left: -9999px; top: auto;
+  width: 1px; height: 1px;
   overflow: hidden;
 }
-
 .skip-to-content:focus {
   position: fixed;
-  top: 0.5rem;
-  left: 0.5rem;
+  top: 0.5rem; left: 0.5rem;
   z-index: 9999;
-  width: auto;
-  height: auto;
+  width: auto; height: auto;
   overflow: visible;
   background: white;
   color: var(--primary);
@@ -84,51 +58,54 @@
   text-decoration: none;
 }
 
-
-
-/* ─── CSS Custom Properties (kept for non-Tailwind inline usage in legacy pages) ─── */
+/* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
-  --primary: #003366;
-  --primary-dark: #002244;
+  --primary:       #003366;
+  --primary-dark:  #002244;
   --primary-light: #004488;
-  --accent: #0055A4;
+  --accent:        #0055A4;
 
   --bg-white: #ffffff;
   --bg-light: #F0F4F8;
-  --bg-dark: #0F172A;
+  --bg-dark:  #0F172A;
 
-  --text-main: #1A202C;
+  --text-main:      #1A202C;
   --text-secondary: #4A5568;
-  --text-light: #64748B;
-  --text-inverse: #ffffff;
+  --text-light:     #64748B;
+  --text-inverse:   #ffffff;
 
-  --border-light: #E2E8F0;
+  --border-light:  #E2E8F0;
   --border-medium: #CBD5E0;
 
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
+  --spacing-xs:  0.25rem;
+  --spacing-sm:  0.5rem;
+  --spacing-md:  1rem;
+  --spacing-lg:  1.5rem;
+  --spacing-xl:  2rem;
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
 
-  --font-serif: 'Playfair Display', serif;
-  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Outfit', sans-serif;
+  --font-sans:  'Inter', sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+
+  /* Fluid section spacing */
+  --section-py: clamp(3rem, 6vw, 5rem);
+  --section-px: clamp(1rem, 4vw, 3rem);
+  --container-max: 1400px;
 }
 
-/* ─── Base Reset ─── */
-*,
-*::before,
-*::after {
+/* ─── Base Reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
+
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {
   font-family: var(--font-sans);
@@ -136,41 +113,26 @@ body {
   color: var(--text-main);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+img, video { max-width: 100%; height: auto; display: block; }
+
+/* ─── Typography ─────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
   color: var(--primary);
   line-height: 1.2;
   margin-bottom: var(--spacing-md);
 }
 
-h1 {
-  font-size: 3rem;
-  font-weight: 700;
-}
-
-h2 {
-  font-size: 2.25rem;
-  font-weight: 600;
-}
-
-h3 {
-  font-size: 1.75rem;
-  font-weight: 600;
-}
-
-h4 {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
+h1 { font-size: clamp(1.9rem, 4vw, 3rem);   font-weight: 700; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 600; }
+h3 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 600; }
+h4 { font-size: clamp(1rem, 2vw, 1.25rem);  font-weight: 600; }
 
 p {
   margin-bottom: var(--spacing-md);
@@ -182,54 +144,45 @@ a {
   text-decoration: none;
   transition: color 0.2s;
 }
+a:hover { text-decoration: underline; }
 
-a:hover {
-  text-decoration: underline;
-}
-
-/* ─── Container util (used by legacy pages) ─── */
+/* ─── Container ──────────────────────────────────────────────────────────────── */
 .container {
-  max-width: 95%;
+  max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 var(--spacing-lg);
+  padding: 0 var(--section-px);
+  width: 100%;
 }
 
-/* ─── Legacy button classes (used by existing pages) ─── */
+/* ─── Section helpers ────────────────────────────────────────────────────────── */
+.section    { padding: var(--section-py) 0; }
+.section-bg { background-color: var(--bg-light); }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.1rem;
   border-radius: var(--radius-sm);
   font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
-  font-size: 0.9rem;
+  font-size: clamp(0.8rem, 1.5vw, 0.9rem);
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.btn-primary {
-  background-color: var(--primary);
-  color: var(--text-inverse);
-}
+.btn-primary { background-color: var(--primary); color: var(--text-inverse); }
+.btn-primary:hover { background-color: var(--primary-light); }
 
-.btn-primary:hover {
-  background-color: var(--primary-light);
-}
+.btn-secondary { background-color: transparent; border: 1px solid var(--primary); color: var(--primary); }
+.btn-secondary:hover { background-color: var(--bg-light); }
 
-.btn-secondary {
-  background-color: transparent;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-}
-
-.btn-secondary:hover {
-  background-color: var(--bg-light);
-}
-
-/* ─── Legacy card class ─── */
+/* ─── Card ───────────────────────────────────────────────────────────────────── */
 .card {
   background: var(--bg-white);
   border: 1px solid var(--border-light);
@@ -238,30 +191,84 @@ a:hover {
   border-radius: var(--radius-sm);
   transition: box-shadow 0.2s;
 }
+.card:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06); }
 
-.card:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
+/* ─── Utilities ──────────────────────────────────────────────────────────────── */
+.text-high-contrast { color: var(--text-main) !important; }
 
-.section {
-  padding: var(--spacing-3xl) 0;
-}
-
-.section-bg {
-  background-color: var(--bg-light);
-}
-
-.text-high-contrast {
-  color: var(--text-main) !important;
-}
-
-/* ─── Mobile responsive nav helper ─── */
+/* ─── Responsive nav helpers (used by Navbar.jsx) ───────────────────────────── */
 @media (max-width: 768px) {
-  .desktop-nav {
-    display: none !important;
-  }
+  .desktop-nav      { display: none !important; }
+  .mobile-menu-btn  { display: block !important; }
+}
 
-  .mobile-menu-btn {
-    display: block !important;
-  }
+/* ─── Global responsive grid helpers ────────────────────────────────────────── */
+
+/* 2-col → 1-col on mobile */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* auto-fit responsive grid */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 1.5rem;
+}
+
+/* ─── Touch / pointer improvements ──────────────────────────────────────────── */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Minimum touch target size */
+button, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ─── Focus styles (accessibility) ──────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Scrollbar styling (non-webkit fallback) ───────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E0 transparent;
+}
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+
+/* ─── Hide scrollbar utility (used by carousels) ────────────────────────────── */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ─── Fluid text helpers ─────────────────────────────────────────────────────── */
+.text-fluid-hero   { font-size: clamp(1.8rem, 4.5vw, 3.4rem); }
+.text-fluid-title  { font-size: clamp(1.4rem, 3vw, 2.25rem); }
+.text-fluid-lead   { font-size: clamp(0.95rem, 1.5vw, 1.05rem); }
+.text-fluid-body   { font-size: clamp(0.85rem, 1.2vw, 0.97rem); }
+.text-fluid-small  { font-size: clamp(0.75rem, 1vw, 0.875rem); }
+
+/* ─── Safe area insets (notch phones) ───────────────────────────────────────── */
+.safe-top    { padding-top: env(safe-area-inset-top, 0); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+/* ─── Print baseline ─────────────────────────────────────────────────────────── */
+@media print {
+  body { font-size: 12pt; color: #000; background: #fff; }
+  header, footer, nav, .no-print { display: none !important; }
+  a { color: #000; text-decoration: underline; }
 }

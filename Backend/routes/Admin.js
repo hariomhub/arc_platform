@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import * as adminController from '../controllers/adminController.js';
-import { getWaitlist, updateWaitlistStatus } from '../controllers/waitlistController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
 
@@ -15,8 +14,8 @@ const validate = (req, res, next) => {
     next();
 };
 
-// All admin routes require authentication AND admin role
-router.use(auth, requireRole('admin'));
+// All admin routes require authentication AND founding_member role
+router.use(auth, requireRole('founding_member'));
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 router.get('/stats', adminController.getStats);
@@ -38,7 +37,7 @@ router.post(
         body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
         body('role')
             .optional()
-            .isIn(['admin', 'free_member', 'paid_member', 'executive', 'university', 'product_company'])
+            .isIn(['founding_member', 'executive', 'professional'])
             .withMessage('Invalid role.'),
         body('status').optional().isIn(['pending', 'approved', 'rejected']).withMessage('Invalid status.'),
         body('organization_name').optional().trim().isLength({ max: 255 }),
@@ -69,7 +68,7 @@ router.patch(
     '/users/:id/role',
     [
         body('role')
-            .isIn(['admin', 'free_member', 'paid_member', 'executive', 'university', 'product_company'])
+            .isIn(['founding_member', 'executive', 'professional'])
             .withMessage('Invalid role.'),
     ],
     validate,
@@ -79,16 +78,24 @@ router.patch(
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', adminController.deleteUser);
 
-// ─── Waitlist ─────────────────────────────────────────────────────────────────
-// GET /api/admin/waitlist
-router.get('/waitlist', getWaitlist);
+// ─── Membership Applications ──────────────────────────────────────────────────
+// GET /api/admin/membership-applications
+router.get('/membership-applications', adminController.getMembershipApplications);
 
-// PATCH /api/admin/waitlist/:id/status
+// PATCH /api/admin/membership-applications/:id/approve
 router.patch(
-    '/waitlist/:id/status',
-    [body('status').isIn(['pending', 'contacted', 'converted']).withMessage('Invalid status.')],
+    '/membership-applications/:id/approve',
+    [body('admin_notes').optional().trim().isLength({ max: 1000 })],
     validate,
-    updateWaitlistStatus
+    adminController.approveMembershipApplication
+);
+
+// PATCH /api/admin/membership-applications/:id/reject
+router.patch(
+    '/membership-applications/:id/reject',
+    [body('admin_notes').optional().trim().isLength({ max: 1000 })],
+    validate,
+    adminController.rejectMembershipApplication
 );
 
 export default router;

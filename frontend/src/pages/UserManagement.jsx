@@ -15,12 +15,9 @@ import {
 } from '../api/admin.js';
 
 const ROLE_STYLES = {
-    admin:           { bg: '#7C3AED', label: 'Admin',       icon: <Crown size={12} /> },
-    executive:       { bg: '#1D4ED8', label: 'Executive',   icon: <Shield size={12} /> },
-    paid_member:     { bg: '#003366', label: 'Paid Member', icon: <Shield size={12} /> },
-    free_member:     { bg: '#64748B', label: 'Free Member', icon: <User size={12} /> },
-    product_company: { bg: '#0F766E', label: 'Product Co.', icon: <Shield size={12} /> },
-    university:      { bg: '#9A3412', label: 'University',  icon: <Shield size={12} /> },
+    founding_member: { bg: '#7C3AED', label: 'Founding Member', icon: <Crown size={12} /> },
+    executive:       { bg: '#1D4ED8', label: 'Executive',       icon: <Shield size={12} /> },
+    professional:    { bg: '#059669', label: 'Professional',    icon: <User size={12} /> },
 };
 
 const STATUS_STYLES = {
@@ -90,7 +87,7 @@ const UserManagement = () => {
     const [toast, setToast]                     = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [confirmDelete, setConfirmDelete]     = useState(null);
-    const [createForm, setCreateForm]           = useState({ name: '', email: '', password: '', role: 'free_member', status: 'approved' });
+    const [createForm, setCreateForm]           = useState({ name: '', email: '', password: '', role: 'professional', status: 'approved' });
     const [createLoading, setCreateLoading]     = useState(false);
 
     useEffect(() => {
@@ -155,7 +152,7 @@ const UserManagement = () => {
             await createAdminUser(createForm);
             showToast(`Account created for ${createForm.name}`);
             setShowCreateModal(false);
-            setCreateForm({ name: '', email: '', password: '', role: 'free_member', status: 'approved' });
+            setCreateForm({ name: '', email: '', password: '', role: 'professional', status: 'approved' });
             fetchUsers();
         } catch (err) {
             showToast(err.response?.data?.message || 'Failed to create user', 'error');
@@ -255,7 +252,7 @@ const UserManagement = () => {
                             <tbody>
                                 {filtered.map((u, i) => {
                                     const isSelf      = u.id === currentUser?.id;
-                                    const roleStyle   = ROLE_STYLES[u.role] || ROLE_STYLES.free_member;
+                                    const roleStyle   = ROLE_STYLES[u.role] || ROLE_STYLES.professional;
                                     const statusStyle = STATUS_STYLES[u.status] || STATUS_STYLES.pending;
                                     return (
                                         <tr key={u.id} style={{
@@ -302,12 +299,9 @@ const UserManagement = () => {
                                                                 fontFamily: 'var(--font-sans)'
                                                             }}
                                                         >
-                                                            <option value="free_member">Free Member</option>
-                                                            <option value="paid_member">Paid Member</option>
+                                                            <option value="professional">Professional</option>
                                                             <option value="executive">Executive</option>
-                                                            <option value="university">University</option>
-                                                            <option value="product_company">Product Co.</option>
-                                                            <option value="admin">Admin</option>
+                                                            <option value="founding_member">Founding Member</option>
                                                         </select>
                                                         <ChevronDown size={10} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: roleStyle.bg }} />
                                                     </div>
@@ -397,12 +391,9 @@ const UserManagement = () => {
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Role</label>
                             <select value={createForm.role} onChange={e => setCreateForm(prev => ({ ...prev, role: e.target.value }))} style={inputStyle}>
-                                <option value="free_member">Free Member</option>
-                                <option value="paid_member">Paid Member</option>
+                                <option value="professional">Professional</option>
                                 <option value="executive">Executive</option>
-                                <option value="university">University</option>
-                                <option value="product_company">Product Company</option>
-                                <option value="admin">Admin</option>
+                                <option value="founding_member">Founding Member</option>
                             </select>
                         </div>
                         <div>

@@ -1,0 +1,11 @@
+{
+  "name": "risk-council",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd Backend && npm install && cd ../frontend && npm install && npm run build",
+    "start": "node Backend/server.js"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

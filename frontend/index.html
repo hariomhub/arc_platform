@@ -6,13 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="AI Risk Council - Governing AI Risk Together" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <link rel="icon" type="image/png" href="/arc_logo.png" />
+  <link id="favicon" rel="icon" type="image/png" href="/ai_logo.png" />
+  <script>
+    (function () {
+      var img = new Image();
+      img.src = '/ai_logo.png';
+      img.onload = function () {
+        var canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 128, 128);
+        ctx.globalCompositeOperation = 'source-in';
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, 128, 128);
+        document.getElementById('favicon').href = canvas.toDataURL('image/png');
+      };
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap"
     rel="stylesheet" />
-  <title>AI Risk Council</title>
+  <title>Risk Council</title>
 </head>
 
 <body>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
-    User, Mail, Building, Lock, Eye, EyeOff, Save,
-    FileText, Trash2, AlertCircle, Loader2, RefreshCw, Upload
+    User, Mail, Building2, Lock, Eye, EyeOff, Save,
+    FileText, Trash2, AlertCircle, Loader2, RefreshCw,
+    Upload, ShieldCheck, ArrowLeft, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -11,33 +12,61 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
-const ROLE_LABELS = {
-    admin: 'Admin', executive: 'Executive', paid_member: 'Paid Member',
-    product_company: 'Product Company', university: 'University', free_member: 'Free Member'
-};
-const ROLE_COLORS = {
-    admin: '#7C3AED', executive: '#0284C7', paid_member: '#059669',
-    product_company: '#D97706', university: '#9333EA', free_member: '#64748B'
-};
+const ROLE_LABELS = { founding_member: 'Founding Member', executive: 'Executive', professional: 'Professional' };
+const ROLE_COLORS = { founding_member: '#7C3AED', executive: '#B45309', professional: '#0369A1' };
+const ROLE_BG    = { founding_member: 'rgba(124,58,237,0.1)', executive: 'rgba(180,83,9,0.1)', professional: 'rgba(3,105,161,0.1)' };
 
-// ─── Shared UI helpers ─────────────────────────────────────────────────────────
-const Field = ({ label, error, children }) => (
-    <div className="mb-5">
-        <label className="block text-xs font-bold text-slate-700 mb-1.5">{label}</label>
+const Field = ({ label, hint, error, children }) => (
+    <div style={{ marginBottom: '1.25rem' }}>
+        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{label}</label>
         {children}
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        {hint  && !error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>{hint}</p>}
+        {error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={11} />{error}</p>}
     </div>
 );
 
-const inputCls = (hasErr) =>
-    `w-full px-3.5 py-2.5 border rounded-lg text-sm outline-none transition-colors font-sans ${hasErr ? 'border-red-400' : 'border-slate-300 focus:border-[#003366]'}`;
+const inputStyle = (hasErr) => ({
+    width: '100%', padding: '0.7rem 0.95rem',
+    border: `1.5px solid ${hasErr ? '#FCA5A5' : '#E2E8F0'}`,
+    borderRadius: '9px', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box',
+    fontFamily: 'var(--font-sans)', color: '#1E293B', background: 'white',
+    transition: 'border-color 0.15s',
+});
 
-// ─── Profile Info section ──────────────────────────────────────────────────────
+const Card = ({ children, style = {} }) => (
+    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: 'clamp(1.25rem,3vw,1.75rem)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', ...style }}>
+        {children}
+    </div>
+);
+
+const SectionHeader = ({ icon: Icon, title, subtitle, accent = '#003366' }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: `${accent}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={17} color={accent} />
+        </div>
+        <div>
+            <p style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#1E293B' }}>{title}</p>
+            {subtitle && <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>{subtitle}</p>}
+        </div>
+    </div>
+);
+
+const SaveBtn = ({ loading, label = 'Save Changes', loadingLabel = 'Saving…', icon: Icon = Save }) => (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+        <button type="submit" disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: loading ? '#94A3B8' : '#003366', color: 'white', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '9px', fontWeight: '700', fontSize: '0.875rem', cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'background 0.15s' }}>
+            {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />{loadingLabel}</> : <><Icon size={14} />{label}</>}
+        </button>
+    </div>
+);
+
+// ─── Profile Info ─────────────────────────────────────────────────────────────
 const ProfileInfoSection = ({ user, showToast }) => {
     const { setUser } = useAuth();
-    const [form, setForm] = useState({ name: user?.name || '', organisation: user?.organisation || '' });
+    const [form, setForm]     = useState({ name: user?.name || '', organisation: user?.organisation || '' });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [saved, setSaved]   = useState(false);
 
     useEffect(() => { setForm({ name: user?.name || '', organisation: user?.organisation || '' }); }, [user]);
 
@@ -57,61 +86,52 @@ const ProfileInfoSection = ({ user, showToast }) => {
             const updated = res.data?.data || res.data;
             if (typeof setUser === 'function') setUser(updated);
             showToast('Profile updated!', 'success');
+            setSaved(true); setTimeout(() => setSaved(false), 2500);
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setLoading(false); }
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 p-7 mb-5">
-            <h2 className="text-lg font-extrabold text-slate-800 mb-5 flex items-center gap-2">
-                <User size={18} color="#003366" /> Profile Information
-            </h2>
+        <Card>
+            <SectionHeader icon={User} title="Profile Information" subtitle="Update your display name and organisation" />
             <form onSubmit={handleSubmit} noValidate>
                 <Field label="Full Name" error={errors.name}>
-                    <input
-                        value={form.name}
-                        onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); if (errors.name) setErrors((p) => ({ ...p, name: null })); }}
-                        className={inputCls(errors.name)}
-                        placeholder="Your full name"
-                    />
+                    <input value={form.name}
+                        onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setErrors(p => ({ ...p, name: null })); }}
+                        style={inputStyle(errors.name)} placeholder="Your full name"
+                        onFocus={e => { if (!errors.name) e.target.style.borderColor = '#003366'; }}
+                        onBlur={e => { if (!errors.name) e.target.style.borderColor = '#E2E8F0'; }} />
                 </Field>
-                <Field label="Email Address">
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500">
-                        <Mail size={14} /> {user?.email}
+                <Field label="Email Address" hint="Email cannot be changed. Contact admin if needed.">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.7rem 0.95rem', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '9px', fontSize: '0.875rem', color: '#64748B' }}>
+                        <Mail size={14} color="#94A3B8" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Email cannot be changed. Contact admin to update.</p>
                 </Field>
                 <Field label="Organisation">
-                    <input
-                        value={form.organisation}
-                        onChange={(e) => setForm((p) => ({ ...p, organisation: e.target.value }))}
-                        className={inputCls(false)}
-                        placeholder="Your organisation or company"
-                    />
+                    <input value={form.organisation}
+                        onChange={e => setForm(p => ({ ...p, organisation: e.target.value }))}
+                        style={inputStyle(false)} placeholder="Your company or organisation"
+                        onFocus={e => { e.target.style.borderColor = '#003366'; }}
+                        onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
                 </Field>
-                <div className="flex justify-end">
-                    <button type="submit" disabled={loading}
-                        className="inline-flex items-center gap-2 text-white border-none px-6 py-2.5 rounded-lg font-bold text-sm cursor-pointer disabled:opacity-60 font-sans"
-                        style={{ background: loading ? '#94A3B8' : '#003366' }}>
-                        {loading ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save Changes</>}
-                    </button>
-                </div>
+                <SaveBtn loading={loading} label={saved ? '✓ Saved!' : 'Save Changes'} loadingLabel="Saving…" icon={saved ? CheckCircle2 : Save} />
             </form>
-        </div>
+        </Card>
     );
 };
 
-// ─── Change Password section ───────────────────────────────────────────────────
+// ─── Change Password ──────────────────────────────────────────────────────────
 const ChangePasswordSection = ({ showToast }) => {
-    const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+    const [form, setForm]     = useState({ current_password: '', new_password: '', confirm_password: '' });
     const [errors, setErrors] = useState({});
-    const [show, setShow] = useState({ current: false, new: false, confirm: false });
+    const [show, setShow]     = useState({ current: false, new: false, confirm: false });
     const [loading, setLoading] = useState(false);
 
     const validate = () => {
         const e = {};
-        if (!form.current_password) e.current_password = 'Current password required.';
-        if (form.new_password.length < 8) e.new_password = 'Password must be at least 8 characters.';
+        if (!form.current_password) e.current_password = 'Current password is required.';
+        if (form.new_password.length < 8) e.new_password = 'New password must be at least 8 characters.';
         if (form.new_password !== form.confirm_password) e.confirm_password = 'Passwords do not match.';
         return e;
     };
@@ -125,21 +145,25 @@ const ChangePasswordSection = ({ showToast }) => {
             await changePassword({ current_password: form.current_password, new_password: form.new_password });
             setForm({ current_password: '', new_password: '', confirm_password: '' });
             setErrors({});
-            showToast('Password changed!', 'success');
+            showToast('Password changed successfully!', 'success');
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setLoading(false); }
     };
 
-    const PasswordInput = ({ field, label, showKey }) => (
+    const PwInput = ({ field, label, showKey }) => (
         <Field label={label} error={errors[field]}>
-            <div className="relative">
-                <input type={show[showKey] ? 'text' : 'password'} value={form[field]}
-                    onChange={(e) => { setForm((p) => ({ ...p, [field]: e.target.value })); if (errors[field]) setErrors((p) => ({ ...p, [field]: null })); }}
-                    className={`${inputCls(errors[field])} pr-10`}
+            <div style={{ position: 'relative' }}>
+                <input
+                    type={show[showKey] ? 'text' : 'password'}
+                    value={form[field]}
+                    onChange={e => { setForm(p => ({ ...p, [field]: e.target.value })); setErrors(p => ({ ...p, [field]: null })); }}
+                    style={{ ...inputStyle(errors[field]), paddingRight: '2.75rem' }}
                     placeholder={`Enter ${label.toLowerCase()}`}
-                    autoComplete="off" />
-                <button type="button" onClick={() => setShow((p) => ({ ...p, [showKey]: !p[showKey] }))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-slate-400 p-0">
+                    autoComplete="off"
+                    onFocus={e => { if (!errors[field]) e.target.style.borderColor = '#003366'; }}
+                    onBlur={e => { if (!errors[field]) e.target.style.borderColor = '#E2E8F0'; }} />
+                <button type="button" onClick={() => setShow(p => ({ ...p, [showKey]: !p[showKey] }))}
+                    style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px', display: 'flex' }}>
                     {show[showKey] ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
             </div>
@@ -147,33 +171,25 @@ const ChangePasswordSection = ({ showToast }) => {
     );
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 p-7 mb-5">
-            <h2 className="text-lg font-extrabold text-slate-800 mb-5 flex items-center gap-2">
-                <Lock size={18} color="#003366" /> Change Password
-            </h2>
+        <Card>
+            <SectionHeader icon={ShieldCheck} title="Change Password" subtitle="Use a strong password of at least 8 characters" accent="#7C3AED" />
             <form onSubmit={handleSubmit} noValidate>
-                <PasswordInput field="current_password" label="Current Password" showKey="current" />
-                <PasswordInput field="new_password" label="New Password" showKey="new" />
-                <PasswordInput field="confirm_password" label="Confirm New Password" showKey="confirm" />
-                <div className="flex justify-end">
-                    <button type="submit" disabled={loading}
-                        className="inline-flex items-center gap-2 text-white border-none px-6 py-2.5 rounded-lg font-bold text-sm cursor-pointer disabled:opacity-60 font-sans"
-                        style={{ background: loading ? '#94A3B8' : '#003366' }}>
-                        {loading ? <><Loader2 size={14} className="animate-spin" /> Changing…</> : <><Lock size={14} /> Change Password</>}
-                    </button>
-                </div>
+                <PwInput field="current_password" label="Current Password" showKey="current" />
+                <PwInput field="new_password"     label="New Password"     showKey="new" />
+                <PwInput field="confirm_password" label="Confirm New Password" showKey="confirm" />
+                <SaveBtn loading={loading} label="Update Password" loadingLabel="Updating…" icon={Lock} />
             </form>
-        </div>
+        </Card>
     );
 };
 
-// ─── My Uploads section ────────────────────────────────────────────────────────
-const MyUploadsSection = ({ showToast }) => {
+// ─── My Uploads ───────────────────────────────────────────────────────────────
+const MyUploadsSection = ({ showToast, navigate }) => {
     const [resources, setResources] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [confirm, setConfirm] = useState(null);
-    const [deleting, setDeleting] = useState({});
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState('');
+    const [confirm, setConfirm]     = useState(null);
+    const [deleting, setDeleting]   = useState({});
 
     const fetchMyResources = useCallback(async () => {
         setLoading(true); setError('');
@@ -189,78 +205,101 @@ const MyUploadsSection = ({ showToast }) => {
 
     const confirmDelete = async () => {
         const { resourceId } = confirm; setConfirm(null);
-        setDeleting((p) => ({ ...p, [resourceId]: true }));
+        setDeleting(p => ({ ...p, [resourceId]: true }));
         try {
             await deleteMyResource(resourceId);
-            setResources((prev) => prev.filter((r) => r.id !== resourceId));
-            showToast('Resource deleted!', 'success');
+            setResources(prev => prev.filter(r => r.id !== resourceId));
+            showToast('Resource deleted.', 'success');
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
-        finally { setDeleting((p) => ({ ...p, [resourceId]: false })); }
+        finally { setDeleting(p => ({ ...p, [resourceId]: false })); }
     };
 
+    const TYPE_COLORS = { pdf: '#DC2626', video: '#7C3AED', link: '#0284C7', doc: '#059669' };
+
     return (
-        <div className="bg-white rounded-xl border border-slate-200 p-7 mb-5">
-            <div className="flex justify-between items-center mb-5">
-                <h2 className="text-lg font-extrabold text-slate-800 m-0 flex items-center gap-2">
-                    <FileText size={18} color="#003366" /> My Uploads
-                </h2>
-                <Link to="/resources" className="inline-flex items-center gap-1.5 bg-[#003366] text-white px-4 py-2 rounded-lg font-bold text-sm no-underline">
+        <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <SectionHeader icon={FileText} title="My Uploads" subtitle={`${resources.length} resource${resources.length !== 1 ? 's' : ''}`} style={{ margin: 0 }} />
+                <button onClick={() => navigate('/resources')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
                     <Upload size={13} /> Upload New
-                </Link>
+                </button>
             </div>
 
-            {loading && <div className="flex flex-col gap-2.5">{[1, 2].map((i) => <div key={i} className="h-14 bg-slate-200 rounded-lg animate-pulse" />)}</div>}
+            {loading && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {[1, 2, 3].map(i => <div key={i} style={{ height: '62px', background: '#F1F5F9', borderRadius: '10px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
+                </div>
+            )}
 
             {error && (
-                <div className="text-center py-8 text-red-500">
-                    <AlertCircle size={28} className="mx-auto mb-2 opacity-70" />
-                    <p className="mb-3 text-sm">{error}</p>
-                    <button onClick={fetchMyResources} className="inline-flex items-center gap-1.5 bg-[#003366] text-white border-none px-4 py-2 rounded-md cursor-pointer font-bold text-xs font-sans">
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#EF4444' }}>
+                    <AlertCircle size={28} style={{ margin: '0 auto 0.5rem', display: 'block', opacity: 0.7 }} />
+                    <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem' }}>{error}</p>
+                    <button onClick={fetchMyResources}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#003366', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontSize: '0.78rem', fontFamily: 'var(--font-sans)' }}>
                         <RefreshCw size={12} /> Retry
                     </button>
                 </div>
             )}
 
             {!loading && !error && resources.length === 0 && (
-                <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                    <FileText size={28} className="mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">No uploads yet.</p>
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: '#F8FAFC', borderRadius: '12px', border: '1.5px dashed #E2E8F0' }}>
+                    <FileText size={28} style={{ margin: '0 auto 0.5rem', display: 'block', color: '#CBD5E1' }} />
+                    <p style={{ margin: '0 0 4px', fontWeight: '700', fontSize: '0.875rem', color: '#94A3B8' }}>No uploads yet</p>
+                    <p style={{ margin: '0 0 1rem', fontSize: '0.78rem', color: '#CBD5E1' }}>Share research, guides, or tools with the community.</p>
+                    <button onClick={() => navigate('/resources')}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'var(--font-sans)' }}>
+                        <Upload size={13} /> Upload a Resource
+                    </button>
                 </div>
             )}
 
             {!loading && !error && resources.length > 0 && (
-                <div className="flex flex-col gap-2.5">
-                    {resources.map((r) => (
-                        <div key={r.id} className="flex justify-between items-center px-4 py-3.5 border border-slate-200 rounded-lg gap-4 flex-wrap">
-                            <div>
-                                <p className="font-bold text-slate-800 m-0 mb-0.5 text-sm">{r.title}</p>
-                                <p className="m-0 text-xs text-slate-400">{formatDate(r.created_at)} · {r.type}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {resources.map(r => {
+                        const typeColor = TYPE_COLORS[r.type?.toLowerCase()] || '#64748B';
+                        return (
+                            <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.875rem 1rem', border: '1px solid #E2E8F0', borderRadius: '10px', background: '#FAFAFA', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: `${typeColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <FileText size={15} color={typeColor} />
+                                    </div>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ margin: '0 0 2px', fontWeight: '700', fontSize: '0.875rem', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</p>
+                                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8' }}>
+                                            {formatDate(r.created_at)}
+                                            {r.type && <> · <span style={{ color: typeColor, fontWeight: '600', textTransform: 'uppercase', fontSize: '0.68rem' }}>{r.type}</span></>}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setConfirm({ resourceId: r.id })} disabled={!!deleting[r.id]}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '0.4rem 0.85rem', borderRadius: '7px', fontWeight: '700', fontSize: '0.78rem', cursor: deleting[r.id] ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', opacity: deleting[r.id] ? 0.5 : 1, flexShrink: 0 }}>
+                                    {deleting[r.id] ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={12} />} Delete
+                                </button>
                             </div>
-                            <button onClick={() => setConfirm({ resourceId: r.id })} disabled={deleting[r.id]}
-                                className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 border-none px-3 py-1.5 rounded-md font-bold text-xs cursor-pointer disabled:opacity-60 font-sans">
-                                {deleting[r.id] ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />} Delete
-                            </button>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
-            <ConfirmDialog isOpen={!!confirm} title="Delete Resource" message="Permanently delete this resource?"
+            <ConfirmDialog isOpen={!!confirm} title="Delete Resource" message="Permanently delete this resource? This action cannot be undone."
                 confirmLabel="Delete" onConfirm={confirmDelete} onClose={() => setConfirm(null)} />
-        </div>
+        </Card>
     );
 };
 
-// ─── Profile Page ──────────────────────────────────────────────────────────────
+// ─── Profile Page ─────────────────────────────────────────────────────────────
 const Profile = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
+    const navigate    = useNavigate();
+    const { user }    = useAuth();
     const { showToast } = useToast();
-    const [profile, setProfile] = useState(null);
+    const [profile, setProfile]               = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
-    const [profileError, setProfileError] = useState('');
+    const [profileError, setProfileError]     = useState('');
+    const [activeTab, setActiveTab]           = useState('info');
 
-    useEffect(() => { document.title = 'My Profile | ARC'; }, []);
+    useEffect(() => { document.title = 'My Profile | AI Risk Council'; }, []);
     useEffect(() => { if (!user) navigate('/login'); }, [user, navigate]);
 
     const fetchProfile = useCallback(async () => {
@@ -275,46 +314,163 @@ const Profile = () => {
     useEffect(() => { if (user) fetchProfile(); }, [user, fetchProfile]);
 
     if (!user) return null;
-    const canUpload = ['university', 'product_company'].includes(user.role);
+
     const roleColor = ROLE_COLORS[user.role] || '#64748B';
+    const roleLabel = ROLE_LABELS[user.role] || user.role;
+    const initial   = user.name?.charAt(0).toUpperCase() || '?';
+
+    const TABS = [
+        { key: 'info',     label: 'Profile Info',    icon: User },
+        { key: 'password', label: 'Password',        icon: ShieldCheck },
+        { key: 'uploads',  label: 'My Uploads',      icon: FileText },
+    ];
 
     return (
-        <div className="bg-slate-50 min-h-screen">
-            {/* Hero */}
-            <div className="bg-gradient-to-br from-[#002244] to-[#003366] py-12 px-8">
-                <div className="max-w-3xl mx-auto flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center shrink-0">
-                        <User size={32} color="white" />
-                    </div>
-                    <div>
-                        <h1 className="text-white font-extrabold text-2xl m-0 mb-1">{user.name}</h1>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-white text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider" style={{ background: roleColor }}>
-                                {ROLE_LABELS[user.role] || user.role}
-                            </span>
-                            {!loadingProfile && profile && (
-                                <span className="text-slate-300 text-xs">Member since {formatDate(profile.created_at || user.created_at)}</span>
-                            )}
+        <>
+            <style>{`
+                @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+                @keyframes adm-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+                /* Tab labels always visible */
+                .profile-tab-label { display: inline; }
+
+                /* Slightly smaller text on very small phones */
+                @media (max-width: 360px) {
+                    .profile-tab-btn { font-size: 0.72rem !important; padding: 0.6rem 0.25rem !important; gap: 4px !important; }
+                }
+
+                /* Hero info row */
+                .profile-hero-meta {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    flex-wrap: wrap;
+                    margin-top: 4px;
+                }
+
+                /* Tab bar */
+                .profile-tabs {
+                    display: flex;
+                    gap: 0.4rem;
+                    background: white;
+                    border: 1px solid #E2E8F0;
+                    border-radius: 12px;
+                    padding: 5px;
+                    margin-bottom: 1.5rem;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                }
+                .profile-tab-btn {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    padding: 0.65rem 0.5rem;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 700;
+                    font-size: 0.82rem;
+                    cursor: pointer;
+                    font-family: var(--font-sans);
+                    transition: all 0.15s;
+                    white-space: nowrap;
+                    min-width: 0;
+                }
+            `}</style>
+
+            <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'var(--font-sans)' }}>
+
+                {/* ── Hero banner ── */}
+                <div style={{
+                    background: 'linear-gradient(135deg,#001a33 0%,#003366 60%,#004d99 100%)',
+                    padding: 'clamp(1.25rem,4vw,2.5rem) clamp(1rem,4vw,2rem) clamp(2.5rem,4.5vw,3rem)',
+                    position: 'relative', overflow: 'hidden',
+                }}>
+                    <div style={{ position:'absolute', top:'-60px', right:'-60px', width:'220px', height:'220px', borderRadius:'50%', background:'rgba(255,255,255,0.04)' }}/>
+                    <div style={{ position:'absolute', bottom:'-40px', left:'10%', width:'160px', height:'160px', borderRadius:'50%', background:'rgba(255,255,255,0.03)' }}/>
+
+                    <div style={{ maxWidth:'800px', margin:'0 auto', position:'relative', zIndex:1 }}>
+                        {/* Back button */}
+                        <button onClick={() => navigate('/dashboard')}
+                            style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)', padding:'0.4rem 0.85rem', borderRadius:'7px', fontSize:'0.78rem', fontWeight:'600', cursor:'pointer', fontFamily:'var(--font-sans)', marginBottom:'1.25rem' }}>
+                            <ArrowLeft size={13}/> Back to Dashboard
+                        </button>
+
+                        {/* Avatar + name row */}
+                        <div style={{ display:'flex', alignItems:'flex-start', gap:'clamp(0.75rem,2vw,1.25rem)' }}>
+                            {/* Avatar */}
+                            <div style={{ width:'clamp(52px,8vw,68px)', height:'clamp(52px,8vw,68px)', borderRadius:'50%', background:'rgba(255,255,255,0.15)', border:'2.5px solid rgba(255,255,255,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'clamp(1.25rem,3vw,1.6rem)', fontWeight:'800', color:'white', flexShrink:0 }}>
+                                {initial}
+                            </div>
+
+                            {/* Name + meta */}
+                            <div style={{ minWidth:0, flex:1 }}>
+                                <h1 style={{ margin:'0 0 8px', fontSize:'clamp(1.1rem,3vw,1.75rem)', fontWeight:'800', color:'white', lineHeight:1.2, wordBreak:'break-word' }}>
+                                    {user.name}
+                                </h1>
+
+                                {/* Meta row — each item on its own line avoids collision */}
+                                <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                                    {/* Role badge */}
+                                    <div>
+                                        <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'800', color:roleColor, background:'rgba(255,255,255,0.95)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                                            {roleLabel}
+                                        </span>
+                                    </div>
+
+                                    {/* Organisation */}
+                                    {user.organisation && (
+                                        <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem', color:'rgba(255,255,255,0.7)' }}>
+                                            <Building2 size={12}/> {user.organisation}
+                                        </span>
+                                    )}
+
+                                    {/* Member since */}
+                                    {!loadingProfile && profile?.created_at && (
+                                        <span style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)' }}>
+                                            Member since {formatDate(profile.created_at)}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Content */}
-            <div className="max-w-3xl mx-auto px-8 py-8 pb-20">
-                {profileError && (
-                    <div className="flex gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5 text-red-600 text-sm items-center">
-                        <AlertCircle size={15} /> {profileError}
-                        <button onClick={fetchProfile} className="ml-auto flex items-center gap-1 text-red-600 border-none bg-transparent cursor-pointer font-bold text-xs font-sans">
-                            <RefreshCw size={11} /> Retry
-                        </button>
+                {/* ── Main content ── */}
+                <div style={{ maxWidth:'800px', margin:'-2rem auto 0', padding:'0 clamp(0.75rem,3vw,1.5rem) 4rem', position:'relative', zIndex:1 }}>
+
+                    {profileError && (
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:'10px', padding:'0.75rem 1rem', marginBottom:'1.25rem', color:'#DC2626', fontSize:'0.875rem', flexWrap:'wrap' }}>
+                            <AlertCircle size={15} style={{ flexShrink:0 }}/> {profileError}
+                            <button onClick={fetchProfile} style={{ marginLeft:'auto', background:'none', border:'none', color:'#DC2626', cursor:'pointer', fontWeight:'700', fontSize:'0.78rem', fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:'4px' }}>
+                                <RefreshCw size={11}/> Retry
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Tab nav */}
+                    <div className="profile-tabs">
+                        {TABS.map(({ key, label, icon: Icon }) => (
+                            <button key={key}
+                                onClick={() => setActiveTab(key)}
+                                className="profile-tab-btn"
+                                style={{
+                                    background: activeTab === key ? '#003366' : 'transparent',
+                                    color:      activeTab === key ? 'white'   : '#64748B',
+                                }}>
+                                <Icon size={15}/>
+                                <span className="profile-tab-label">{label}</span>
+                            </button>
+                        ))}
                     </div>
-                )}
-                <ProfileInfoSection user={profile || user} showToast={showToast} />
-                <ChangePasswordSection showToast={showToast} />
-                {canUpload && <MyUploadsSection showToast={showToast} />}
+
+                    {activeTab === 'info'     && <ProfileInfoSection    user={profile || user} showToast={showToast} />}
+                    {activeTab === 'password' && <ChangePasswordSection showToast={showToast} />}
+                    {activeTab === 'uploads'  && <MyUploadsSection      showToast={showToast} navigate={navigate} />}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

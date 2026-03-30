@@ -1,5 +1,5 @@
-import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import Navbar from './components/layout/Navbar.jsx';
 import Footer from './components/layout/Footer.jsx';
@@ -31,8 +31,31 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const ProductReviews = lazy(() => import('./pages/ProductReviews.jsx'));
 const ProductReviewDetail = lazy(() => import('./pages/ProductReviewDetail.jsx'));
 const AllNominees = lazy(() => import('./pages/AllNominees.jsx'));
+const AllWinners = lazy(() => import('./pages/AllWinners.jsx'));
 const AdminNominees = lazy(() => import('./pages/AdminNominees.jsx'));
 const News = lazy(() => import('./pages/News.jsx'));
+const ExecutiveCheckout = lazy(() => import('./pages/ExecutiveCheckout.jsx'));
+
+// ── OAuth landing: waits for cookie/session restore then routes correctly ──
+const OAuthLanding = () => {
+  const { user, isAuthLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthLoading) return;   // wait for getMe() to finish
+    if (user) {
+      if (user.role === 'founding_member') {
+        navigate('/admin-dashboard', { replace: true });
+      } else {
+        navigate('/user/dashboard', { replace: true });
+      }
+    } else {
+      navigate('/login?error=linkedin_failed', { replace: true });
+    }
+  }, [user, isAuthLoading, navigate]);
+
+  return <LoadingSpinner fullPage />;
+};
 
 // ─── Auth-aware redirector (login / register redirect if already signed in) ──
 const GuestRoute = ({ children }) => {
@@ -61,15 +84,8 @@ function App() {
               <Route path="/ai-research" element={<Navigate to="/community-qna" replace />} />
               <Route path="/certification" element={<Certifications />} />
 
-              {/* ── Admin-only: Research & Resources ── */}
-              <Route
-                path="/resources"
-                element={
-                  <AdminRoute>
-                    <Resources />
-                  </AdminRoute>
-                }
-              />
+              {/* ── Research & Resources — open to all; page handles role-based UI ── */}
+              <Route path="/resources" element={<Resources />} />
               <Route path="/community-qna" element={<CommunityQnA />} />
               <Route path="/community-qna/:id" element={<QnADetail />} />
               <Route path="/news" element={<News />} />
@@ -77,6 +93,7 @@ function App() {
               <Route path="/services/product-reviews" element={<ProductReviews />} />
               <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />
               <Route path="/nominees" element={<AllNominees />} />
+              <Route path="/winners" element={<AllWinners/>} />
 
               {/* ── Guest-only routes ── */}
               <Route path="/membership" element={<Membership />} />
@@ -84,6 +101,14 @@ function App() {
               <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
               {/* ── Protected routes ── */}
+              <Route
+                path="/executive-checkout"
+                element={
+                  <ProtectedRoute>
+                    <ExecutiveCheckout />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/profile"
                 element={
@@ -128,6 +153,9 @@ function App() {
                   </AdminRoute>
                 }
               />
+
+              {/* ── OAuth callback landing (LinkedIn, Google, etc.) ── */}
+              <Route path="/auth/callback" element={<OAuthLanding />} />
 
               {/* ── Catch-all ── */}
               <Route path="*" element={<NotFound />} />

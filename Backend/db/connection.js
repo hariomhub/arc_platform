@@ -12,7 +12,10 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    charset: 'utf8mb4'
+    charset: 'utf8mb4',
+    ssl: {
+        rejectUnauthorized: false   
+    }
 });
 
 // Verify connection on startup

@@ -1,13 +1,14 @@
-CREATE DATABASE IF NOT EXISTS arc_platform;
-USE arc_platform;
+-- CREATE DATABASE IF NOT EXISTS racdatabase;
+-- USE racdatabase;
 
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','free_member','paid_member','executive','university','product_company') DEFAULT 'free_member',
+  role ENUM('founding_member','executive','professional') NOT NULL DEFAULT 'professional',
   status ENUM('pending','approved','rejected') DEFAULT 'pending',
+  membership_expires_at DATETIME NULL DEFAULT NULL COMMENT 'NULL = lifetime. Set on approval: 1yr for professional, 3yr for executive, NULL for founding_member.',
   bio TEXT,
   photo_url VARCHAR(500),
   linkedin_url VARCHAR(500),
@@ -43,7 +44,7 @@ CREATE TABLE resources (
   abstract TEXT,
   file_url VARCHAR(500),
   demo_url VARCHAR(500),
-  type ENUM('framework','whitepaper','product') NOT NULL,
+  type ENUM('framework','whitepaper','product','video','article','tool','news') NOT NULL,
   status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'approved',
   uploader_id INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -106,7 +107,7 @@ CREATE TABLE news (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   summary TEXT,
-  link VARCHAR(500),
+  link VARCHAR(2000),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

@@ -26,10 +26,10 @@ const newsValidation = [
 router.get('/', newsController.getNews);
 router.get('/:id', newsController.getNewsById);
 
-// Admin only
-router.post('/', auth, requireRole('admin'), newsValidation, validate, newsController.createNews);
-router.put('/:id', auth, requireRole('admin'), newsValidation, validate, newsController.updateNews);
-router.patch('/:id/publish', auth, requireRole('admin'), newsController.togglePublishNews);
-router.delete('/:id', auth, requireRole('admin'), newsController.deleteNews);
+// Admin + Executive
+router.post('/', auth, requireRole('founding_member', 'executive'), newsValidation, validate, newsController.createNews);
+router.put('/:id', auth, requireRole('founding_member', 'executive'), newsValidation, validate, newsController.updateNews);
+router.patch('/:id/publish', auth, requireRole('founding_member', 'executive'), newsController.togglePublishNews);
+router.delete('/:id', auth, requireRole('founding_member', 'executive'), newsController.deleteNews);
 
 export default router;

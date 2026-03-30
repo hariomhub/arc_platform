@@ -1,3 +1,23 @@
 node_modules/
+dist/
 .env
+.env.*
+
+# Local uploads (files go to Azure Blob Storage in production)
 uploads/
+
+# SQLite local databases (app uses Azure MySQL in production)
+*.sqlite
+*.sqlite3
+*.db
+
+# Debug / temp files
+*.log
+*.txt
+backend_logs.txt
+db_resources_check.txt
+temp_check.sql
+
+# OS / editor
+.DS_Store
+Thumbs.db

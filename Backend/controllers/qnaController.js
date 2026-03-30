@@ -130,7 +130,7 @@ export const deletePost = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Post not found.' });
         }
 
-        if (rows[0].author_id !== req.user.id && req.user.role !== 'admin') {
+        if (rows[0].author_id !== req.user.id && req.user.role !== 'founding_member') {
             return res.status(403).json({ success: false, message: 'You are not authorised to delete this post.' });
         }
 
@@ -180,7 +180,7 @@ export const deleteAnswer = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Answer not found.' });
         }
 
-        if (rows[0].author_id !== req.user.id && req.user.role !== 'admin') {
+        if (rows[0].author_id !== req.user.id && req.user.role !== 'founding_member') {
             return res.status(403).json({ success: false, message: 'You are not authorised to delete this answer.' });
         }
 

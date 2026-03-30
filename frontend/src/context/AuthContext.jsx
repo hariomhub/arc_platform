@@ -48,17 +48,17 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // ── Role helpers ──────────────────────────────────────────────────────────
-    const isAdmin = () => user?.role === 'admin';
+    const isAdmin = () => user?.role === 'founding_member';
+    const isFoundingMember = () => user?.role === 'founding_member';
     const isExecutive = () => user?.role === 'executive';
-    const isPaidMember = () => user?.role === 'paid_member';
-    const isProductCompany = () => user?.role === 'product_company';
-    const isUniversity = () => user?.role === 'university';    // isMember: any authenticated, approved user
+    const isProfessional = () => user?.role === 'professional';
+    // isMember: any authenticated, approved user
     const isMember = () => !!user;
     const canDownloadFramework = () =>
-        ['admin', 'executive', 'paid_member', 'product_company'].includes(user?.role);
+        ['founding_member', 'executive'].includes(user?.role);
 
-    const canUploadWhitepaper = () => user?.role === 'university';
-    const canUploadProduct = () => user?.role === 'product_company';
+    const canUploadWhitepaper = () => !!user;
+    const canUploadProduct = () => !!user;
 
     // Provide a static API base URL for legacy code
     const API = 'http://localhost:5000/api';
@@ -77,10 +77,9 @@ export const AuthProvider = ({ children }) => {
                 login,
                 logout,
                 isAdmin,
+                isFoundingMember,
                 isExecutive,
-                isPaidMember,
-                isProductCompany,
-                isUniversity,
+                isProfessional,
                 isMember,
                 canDownloadFramework,
                 canUploadWhitepaper,

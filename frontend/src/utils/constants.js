@@ -1,28 +1,20 @@
 // ─── Role constants ───────────────────────────────────────────────────────────
 export const ROLES = {
-    ADMIN: 'admin',
+    FOUNDING_MEMBER: 'founding_member',
     EXECUTIVE: 'executive',
-    PAID_MEMBER: 'paid_member',
-    PRODUCT_COMPANY: 'product_company',
-    UNIVERSITY: 'university',
-    FREE_MEMBER: 'free_member',
+    PROFESSIONAL: 'professional',
 };
 
 export const ROLE_LABELS = {
-    admin: 'Admin',
+    founding_member: 'Founding Member',
     executive: 'Executive',
-    paid_member: 'Paid Member',
-    product_company: 'Product Company',
-    university: 'University',
-    free_member: 'Free Member',
+    professional: 'Professional',
 };
 
-// Roles that can download frameworks
+// Roles that can download frameworks (professional is free tier — no downloads)
 export const FRAMEWORK_DOWNLOAD_ROLES = [
-    ROLES.ADMIN,
+    ROLES.FOUNDING_MEMBER,
     ROLES.EXECUTIVE,
-    ROLES.PAID_MEMBER,
-    ROLES.PRODUCT_COMPANY,
 ];
 
 // ─── Event categories ─────────────────────────────────────────────────────────

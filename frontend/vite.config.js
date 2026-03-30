@@ -22,7 +22,9 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
+    outDir: '../Backend/dist',
+    emptyOutDir: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {

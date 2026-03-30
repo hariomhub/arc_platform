@@ -7,6 +7,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.31.0",
     "axios": "^1.13.6",
     "bcryptjs": "latest",
     "cheerio": "^1.2.0",
@@ -15,6 +16,7 @@
     "dotenv": "latest",
     "express": "latest",
     "express-rate-limit": "latest",
+    "express-session": "^1.19.0",
     "express-validator": "latest",
     "helmet": "latest",
     "jsonwebtoken": "latest",
@@ -22,6 +24,9 @@
     "multer": "latest",
     "mysql2": "latest",
     "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
+    "passport": "^0.7.0",
+    "passport-linkedin-oauth2": "^2.0.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

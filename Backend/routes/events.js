@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import * as eventsController from '../controllers/eventsController.js';
 import * as regController from '../controllers/eventRegistrationsController.js';
 import auth from '../middleware/auth.js';
@@ -10,21 +8,9 @@ import requireRole from '../middleware/requireRole.js';
 
 const router = Router();
 
-// ── Multer: banner image upload ───────────────────────────────────────────────
-const bannerStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = './uploads/events';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `event-${req.params.id}-${Date.now()}${ext}`);
-    },
-});
-
+// ── Multer: banner image upload — memory storage; blob upload in controller ──
 const upload = multer({
-    storage: bannerStorage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) cb(null, true);
@@ -67,14 +53,14 @@ router.get('/:id', eventsController.getEventById);
 router.post('/:id/register', auth, regController.registerForEvent);
 router.delete('/:id/register', auth, regController.cancelRegistration);
 
-// Admin: view all registrations for an event
-router.get('/:id/registrations', auth, requireRole('admin'), regController.getEventRegistrations);
+// Admin + Executive: view all registrations for an event
+router.get('/:id/registrations', auth, requireRole('founding_member', 'executive'), regController.getEventRegistrations);
 
-// Admin only
-router.post('/', auth, requireRole('admin'), eventValidation, validate, eventsController.createEvent);
-router.put('/:id', auth, requireRole('admin'), eventValidation, validate, eventsController.updateEvent);
-router.patch('/:id/publish', auth, requireRole('admin'), eventsController.togglePublishEvent);
-router.post('/:id/upload-banner', auth, requireRole('admin'), upload.single('banner'), eventsController.uploadBanner);
-router.delete('/:id', auth, requireRole('admin'), eventsController.deleteEvent);
+// Admin + Executive
+router.post('/', auth, requireRole('founding_member', 'executive'), eventValidation, validate, eventsController.createEvent);
+router.put('/:id', auth, requireRole('founding_member', 'executive'), eventValidation, validate, eventsController.updateEvent);
+router.patch('/:id/publish', auth, requireRole('founding_member', 'executive'), eventsController.togglePublishEvent);
+router.post('/:id/upload-banner', auth, requireRole('founding_member', 'executive'), upload.single('banner'), eventsController.uploadBanner);
+router.delete('/:id', auth, requireRole('founding_member', 'executive'), eventsController.deleteEvent);
 
 export default router;

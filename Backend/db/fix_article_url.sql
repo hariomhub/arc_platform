@@ -1,0 +1,1 @@
+ALTER TABLE news MODIFY COLUMN article_url VARCHAR(2000);

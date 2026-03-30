@@ -1,6 +1,5 @@
 import pool from '../db/connection.js';
-import path from 'path';
-import fs from 'fs';
+import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 
 // Helper: build pagination meta and LIMIT/OFFSET
 const paginate = (query, total) => {
@@ -18,28 +17,25 @@ export const getEvents = async (req, res, next) => {
         const showAll = req.query.all === 'true';
 
         let countSql = `SELECT COUNT(*) AS total FROM events WHERE ${showAll ? '1=1' : 'is_published = 1'}`;
-        let dataSql  = `SELECT * FROM events WHERE ${showAll ? '1=1' : 'is_published = 1'}`;
+        let dataSql = `SELECT * FROM events WHERE ${showAll ? '1=1' : 'is_published = 1'}`;
         const params = [];
 
         if (category) {
             const clause = ' AND event_category = ?';
             countSql += clause;
-            dataSql  += clause;
+            dataSql += clause;
             params.push(category);
         }
 
-        // Handle tab parameter ('upcoming' or 'past')
         if (tab) {
             const clause = ' AND is_upcoming = ?';
             countSql += clause;
-            dataSql  += clause;
+            dataSql += clause;
             params.push(tab === 'upcoming' ? 1 : 0);
-        } 
-        // Fallback to upcoming parameter for backwards compatibility
-        else if (upcoming !== undefined) {
+        } else if (upcoming !== undefined) {
             const clause = ' AND is_upcoming = ?';
             countSql += clause;
-            dataSql  += clause;
+            dataSql += clause;
             params.push(upcoming === 'true' || upcoming === '1' ? 1 : 0);
         }
 
@@ -135,7 +131,7 @@ export const updateEvent = async (req, res, next) => {
     }
 };
 
-// PATCH /api/events/:id/publish  (admin only) — toggle publish state
+// PATCH /api/events/:id/publish  (admin only)
 export const togglePublishEvent = async (req, res, next) => {
     try {
         const [rows] = await pool.query('SELECT id, is_published FROM events WHERE id = ?', [req.params.id]);
@@ -169,13 +165,17 @@ export const uploadBanner = async (req, res, next) => {
             return res.status(422).json({ success: false, message: 'No image file provided.' });
         }
 
-        // Remove old banner file if it exists
-        if (check[0].banner_image) {
-            const oldPath = path.resolve(`./${check[0].banner_image}`);
-            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-        }
+        // Delete old banner blob if it exists and is a blob URL
+        await deleteFromBlob(check[0].banner_image);
 
-        const banner_image = `uploads/events/${req.file.filename}`;
+        // Upload new banner to Azure Blob Storage
+        const banner_image = await uploadToBlob(
+            'events/banners',
+            req.file.originalname,
+            req.file.buffer,
+            req.file.mimetype
+        );
+
         await pool.query('UPDATE events SET banner_image = ? WHERE id = ?', [banner_image, req.params.id]);
 
         const [rows] = await pool.query('SELECT * FROM events WHERE id = ?', [req.params.id]);
@@ -188,10 +188,13 @@ export const uploadBanner = async (req, res, next) => {
 // DELETE /api/events/:id  (admin only)
 export const deleteEvent = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id FROM events WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, banner_image FROM events WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Event not found.' });
         }
+
+        // Delete banner blob from Azure Storage
+        await deleteFromBlob(check[0].banner_image);
 
         await pool.query('DELETE FROM events WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'Event deleted successfully.' } });

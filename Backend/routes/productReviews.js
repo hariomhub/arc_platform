@@ -1,15 +1,9 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 import * as ctrl from '../controllers/productReviewsController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = Router();
 
@@ -21,23 +15,13 @@ const validate = (req, res, next) => {
     next();
 };
 
-// ─── Multer: Product Media (images + videos) ──────────────────────────────────
-const mediaStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads/products/media');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-    },
-});
+// ─── Multer: Product Media (images + videos) — memory storage ─────────────────
 const ALLOWED_MEDIA = [
     'image/jpeg', 'image/png', 'image/webp', 'image/gif',
     'video/mp4', 'video/webm', 'video/quicktime',
 ];
 const mediaUpload = multer({
-    storage: mediaStorage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
     fileFilter: (req, file, cb) => {
         if (ALLOWED_MEDIA.includes(file.mimetype)) cb(null, true);
@@ -45,17 +29,7 @@ const mediaUpload = multer({
     },
 });
 
-// ─── Multer: Evidence Files ────────────────────────────────────────────────────
-const evidenceStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads/products/evidences');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-    },
-});
+// ─── Multer: Evidence Files — memory storage ──────────────────────────────────
 const ALLOWED_EVIDENCE = [
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -66,7 +40,7 @@ const ALLOWED_EVIDENCE = [
     'video/mp4', 'video/webm', 'video/quicktime',
 ];
 const evidenceUpload = multer({
-    storage: evidenceStorage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
     fileFilter: (req, file, cb) => {
         if (ALLOWED_EVIDENCE.includes(file.mimetype)) cb(null, true);
@@ -100,22 +74,22 @@ router.get('/', ctrl.getProducts);
 router.get('/:id(\\d+)', ctrl.getProductById);
 
 // ─── Admin Routes ──────────────────────────────────────────────────────────────
-router.post('/', auth, requireRole('admin'), productValidation, validate, ctrl.createProduct);
-router.put('/:id(\\d+)', auth, requireRole('admin'), productValidation, validate, ctrl.updateProduct);
-router.delete('/:id(\\d+)', auth, requireRole('admin'), ctrl.deleteProduct);
+router.post('/', auth, requireRole('founding_member'), productValidation, validate, ctrl.createProduct);
+router.put('/:id(\\d+)', auth, requireRole('founding_member'), productValidation, validate, ctrl.updateProduct);
+router.delete('/:id(\\d+)', auth, requireRole('founding_member'), ctrl.deleteProduct);
 
 // Feature tests
-router.post('/:id(\\d+)/feature-tests', auth, requireRole('admin'), featureTestValidation, validate, ctrl.addFeatureTest);
-router.put('/:productId(\\d+)/feature-tests/:testId(\\d+)', auth, requireRole('admin'), featureTestValidation, validate, ctrl.updateFeatureTest);
-router.delete('/:productId(\\d+)/feature-tests/:testId(\\d+)', auth, requireRole('admin'), ctrl.deleteFeatureTest);
+router.post('/:id(\\d+)/feature-tests', auth, requireRole('founding_member'), featureTestValidation, validate, ctrl.addFeatureTest);
+router.put('/:productId(\\d+)/feature-tests/:testId(\\d+)', auth, requireRole('founding_member'), featureTestValidation, validate, ctrl.updateFeatureTest);
+router.delete('/:productId(\\d+)/feature-tests/:testId(\\d+)', auth, requireRole('founding_member'), ctrl.deleteFeatureTest);
 
 // Media uploads
-router.post('/:id(\\d+)/media', auth, requireRole('admin'), mediaUpload.array('files', 20), ctrl.uploadMedia);
-router.delete('/:productId(\\d+)/media/:mediaId(\\d+)', auth, requireRole('admin'), ctrl.deleteMedia);
+router.post('/:id(\\d+)/media', auth, requireRole('founding_member'), mediaUpload.array('files', 20), ctrl.uploadMedia);
+router.delete('/:productId(\\d+)/media/:mediaId(\\d+)', auth, requireRole('founding_member'), ctrl.deleteMedia);
 
 // Evidence uploads
-router.post('/:id(\\d+)/evidences', auth, requireRole('admin'), evidenceUpload.array('files', 20), ctrl.uploadEvidence);
-router.delete('/:productId(\\d+)/evidences/:evidenceId(\\d+)', auth, requireRole('admin'), ctrl.deleteEvidence);
+router.post('/:id(\\d+)/evidences', auth, requireRole('founding_member'), evidenceUpload.array('files', 20), ctrl.uploadEvidence);
+router.delete('/:productId(\\d+)/evidences/:evidenceId(\\d+)', auth, requireRole('founding_member'), ctrl.deleteEvidence);
 
 // ─── Auth Routes (any logged-in user) ─────────────────────────────────────────
 router.post('/:id(\\d+)/user-reviews', auth, userReviewValidation, validate, ctrl.submitUserReview);

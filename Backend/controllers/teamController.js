@@ -1,4 +1,5 @@
 import pool from '../db/connection.js';
+import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -42,7 +43,17 @@ export const getTeamMemberById = async (req, res, next) => {
 export const createTeamMember = async (req, res, next) => {
     try {
         const { name, role, bio, linkedin_url } = req.body;
-        const photo_url = req.file ? `/uploads/${req.file.filename}` : null;
+
+        let photo_url = null;
+        if (req.file) {
+            // Upload to Azure Blob Storage under team/photos/
+            photo_url = await uploadToBlob(
+                'team/photos',
+                req.file.originalname,
+                req.file.buffer,
+                req.file.mimetype
+            );
+        }
 
         const [result] = await pool.query(
             'INSERT INTO team_members (name, role, bio, linkedin_url, photo_url) VALUES (?, ?, ?, ?, ?)',
@@ -66,7 +77,18 @@ export const updateTeamMember = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Team member not found.' });
         }
 
-        const photo_url = req.file ? `/uploads/${req.file.filename}` : check[0].photo_url;
+        let photo_url = check[0].photo_url;
+        if (req.file) {
+            // Delete old photo blob
+            await deleteFromBlob(photo_url);
+            // Upload new photo
+            photo_url = await uploadToBlob(
+                'team/photos',
+                req.file.originalname,
+                req.file.buffer,
+                req.file.mimetype
+            );
+        }
 
         await pool.query(
             'UPDATE team_members SET name=?, role=?, bio=?, linkedin_url=?, photo_url=? WHERE id=?',
@@ -83,10 +105,13 @@ export const updateTeamMember = async (req, res, next) => {
 // DELETE /api/team/:id  (admin only)
 export const deleteTeamMember = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id FROM team_members WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, photo_url FROM team_members WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Team member not found.' });
         }
+
+        // Delete photo blob from Azure Storage
+        await deleteFromBlob(check[0].photo_url);
 
         await pool.query('DELETE FROM team_members WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'Team member deleted successfully.' } });
