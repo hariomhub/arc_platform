@@ -6,15 +6,19 @@ const INQUIRY_TYPES = ['Membership Inquiry', 'Assessment Request', 'Press / Medi
 const OFFICES = [
     {
         region: 'USA',
-        address: 'Kmicro — 3525 Hyland Ave Ste 265,\nCosta Mesa, CA 92626, United States',
+        address: 'Costa Mesa, California (CA) 92626',
+    },
+    {
+        region: 'UAE',
+        address: 'Villa 43, Street 2, Springs 3, Dubai',
     },
     {
         region: 'India',
-        address: '902a Arcadia Mall, Gurugram Sector 49',
+        address: '902, Unitech Arcadia, Sector 49, Gurugram, Haryana',
     },
     {
-        region: 'Dubai',
-        address: 'Dubai Internet City, Dubai, UAE',
+        region: 'Canada',
+        address: '3105, 50 Charles street East M4Y 0C3, Toronto ON',
     },
 ];
 
@@ -254,7 +258,7 @@ const Contact = () => {
                                         </div>
                                         <div>
                                             <p style={{ margin:'0 0 3px', fontSize:'0.72rem', fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Phone</p>
-                                            <a href="tel:+12125550199" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600 }}>+1 (212) 555-0199</a>
+                                            <a href="tel:+16477688767" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600 }}>+1 (647) 7688767</a>
                                             <p style={{ margin:'2px 0 0', color:'rgba(255,255,255,0.45)', fontSize:'0.78rem' }}>Mon–Fri, 9am–5pm EST</p>
                                         </div>
                                     </div>
@@ -266,7 +270,7 @@ const Contact = () => {
                                         </div>
                                         <div>
                                             <p style={{ margin:'0 0 3px', fontSize:'0.72rem', fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Email</p>
-                                            <a href="mailto:contact@airiskcouncil.org" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600, wordBreak:'break-all' }}>contact@airiskcouncil.org</a>
+                                            <a href="mailto:support@riskaicouncil.com" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600, wordBreak:'break-all' }}>support@riskaicouncil.com</a>
                                         </div>
                                     </div>
                                 </div>
@@ -289,7 +293,7 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h3 style={{ margin:0, fontSize:'0.95rem', fontWeight:800, color:'#1E293B' }}>Global Offices</h3>
-                                    <p style={{ margin:0, fontSize:'0.75rem', color:'#94A3B8' }}>3 locations worldwide</p>
+                                    <p style={{ margin:0, fontSize:'0.75rem', color:'#94A3B8' }}>4 locations worldwide</p>
                                 </div>
                             </div>
 

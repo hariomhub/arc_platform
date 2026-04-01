@@ -42,7 +42,7 @@ export const getTeamMemberById = async (req, res, next) => {
 // POST /api/team  (admin only)
 export const createTeamMember = async (req, res, next) => {
     try {
-        const { name, role, bio, linkedin_url } = req.body;
+        const { name, role, bio, linkedin_url, email } = req.body;
 
         let photo_url = null;
         if (req.file) {
@@ -56,8 +56,8 @@ export const createTeamMember = async (req, res, next) => {
         }
 
         const [result] = await pool.query(
-            'INSERT INTO team_members (name, role, bio, linkedin_url, photo_url) VALUES (?, ?, ?, ?, ?)',
-            [name.trim(), role.trim(), bio ? bio.trim() : null, linkedin_url ? linkedin_url.trim() : null, photo_url]
+            'INSERT INTO team_members (name, role, bio, linkedin_url, email, photo_url) VALUES (?, ?, ?, ?, ?, ?)',
+            [name.trim(), role.trim(), bio ? bio.trim() : null, linkedin_url ? linkedin_url.trim() : null, email ? email.trim() : null, photo_url]
         );
 
         const [rows] = await pool.query('SELECT * FROM team_members WHERE id = ?', [result.insertId]);
@@ -70,7 +70,7 @@ export const createTeamMember = async (req, res, next) => {
 // PUT /api/team/:id  (admin only)
 export const updateTeamMember = async (req, res, next) => {
     try {
-        const { name, role, bio, linkedin_url } = req.body;
+        const { name, role, bio, linkedin_url, email } = req.body;
 
         const [check] = await pool.query('SELECT id, photo_url FROM team_members WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
@@ -91,8 +91,8 @@ export const updateTeamMember = async (req, res, next) => {
         }
 
         await pool.query(
-            'UPDATE team_members SET name=?, role=?, bio=?, linkedin_url=?, photo_url=? WHERE id=?',
-            [name.trim(), role.trim(), bio ? bio.trim() : null, linkedin_url ? linkedin_url.trim() : null, photo_url, req.params.id]
+            'UPDATE team_members SET name=?, role=?, bio=?, linkedin_url=?, email=?, photo_url=? WHERE id=?',
+            [name.trim(), role.trim(), bio ? bio.trim() : null, linkedin_url ? linkedin_url.trim() : null, email ? email.trim() : null, photo_url, req.params.id]
         );
 
         const [rows] = await pool.query('SELECT * FROM team_members WHERE id = ?', [req.params.id]);

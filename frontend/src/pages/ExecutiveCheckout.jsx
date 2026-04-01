@@ -167,7 +167,7 @@ export default function ExecutiveCheckout() {
                             <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-gray-100">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-900">Executive Membership</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">3-year term · AI Risk Council</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">3-year term · Risk AI Council (RAC)</p>
                                 </div>
                                 <p className="text-sm font-semibold text-gray-500 line-through whitespace-nowrap">$299 / qtr</p>
                             </div>

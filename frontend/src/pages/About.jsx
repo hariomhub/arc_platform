@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Award, Users, BookOpen, Target, Linkedin, X, User, AlertCircle, RefreshCw } from 'lucide-react';
+import { Shield, Award, Users, BookOpen, Target, Linkedin, X, User, AlertCircle, RefreshCw, Mail } from 'lucide-react';
 import { getTeam } from '../api/team.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
@@ -25,13 +25,15 @@ const TeamCard = ({ member, onSelect }) => {
                 ) : <User size={40} color="#CBD5E1" />}
             </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1A202C', marginBottom: '0.35rem' }}>{member.name}</h3>
-            <p style={{ color: '#4A5568', fontSize: '0.85rem', fontWeight: '500', marginBottom: '1rem' }}>{member.role}</p>
+            <p style={{ color: '#4A5568', fontSize: '0.85rem', fontWeight: '500', marginBottom: member.bio ? '0.75rem' : '1rem' }}>{member.role}</p>
+            {member.bio && (
+                <p style={{ color: '#64748B', fontSize: '0.8rem', lineHeight: '1.5', margin: '0 auto 1.25rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {member.bio}
+                </p>
+            )}
             {member.linkedin_url && (
-                <div onClick={(e) => e.stopPropagation()}>
-                    <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer"
-                        style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontWeight: '600', fontSize: '0.82rem' }}>
-                        <Linkedin size={15} /> LinkedIn
-                    </a>
+                <div style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.82rem' }}>
+                    <Linkedin size={15} /> LinkedIn
                 </div>
             )}
         </div>
@@ -72,12 +74,20 @@ const BioModal = ({ member, onClose }) => {
                 ) : (
                     <p style={{ color: '#94A3B8', textAlign: 'center', fontStyle: 'italic' }}>No biography available.</p>
                 )}
-                {member.linkedin_url && (
-                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-                        <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer"
-                            style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.95rem' }}>
-                            <Linkedin size={18} /> Connect on LinkedIn
-                        </a>
+                {(member.linkedin_url || member.email) && (
+                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                        {member.email && (
+                            <a href={`mailto:${member.email}`}
+                                style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.95rem' }}>
+                                <Mail size={18} /> Email Contact
+                            </a>
+                        )}
+                        {member.linkedin_url && (
+                            <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer"
+                                style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.95rem' }}>
+                                <Linkedin size={18} /> Connect on LinkedIn
+                            </a>
+                        )}
                     </div>
                 )}
             </div>
@@ -137,14 +147,14 @@ const About = () => {
                                 To empower organisations to deploy Artificial Intelligence technology safely, ethically, and responsibly. We provide comprehensive insight reports and security assessments to help you align with global frameworks.
                             </p>
                             <p style={{ fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', color: '#4A5568', lineHeight: '1.8' }}>
-                                As an independent service provider, we operate free from vendor influence, focusing strictly on delivering actionable insights tailored to your framework dependencies.
+                                As an independent service provider, we focus strictly on delivering actionable insights tailored to your framework dependencies.
                             </p>
                         </div>
                         <div style={{ display: 'grid', gap: '2rem' }}>
                             {[
-                                { icon: Shield,  title: 'Independence', desc: 'Unbiased research and standards not tied to any specific tech platform or lobby.' },
-                                { icon: Award,   title: 'Excellence',   desc: 'Rigorous, peer-reviewed methodologies developed by world-class risk professionals.' },
-                                { icon: Users,   title: 'Collaboration', desc: 'A global network of regulators, academics, and industry leaders.' },
+                                { icon: Shield, title: 'Independence', desc: 'Unbiased research and standards not tied to any specific tech platform or lobby.' },
+                                { icon: Award, title: 'Excellence', desc: 'Rigorous, peer-reviewed methodologies developed by world-class risk professionals.' },
+                                { icon: Users, title: 'Collaboration', desc: 'A global network of regulators, academics, and industry leaders.' },
                             ].map(({ icon: Icon, title, desc }) => (
                                 <div key={title} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
                                     <div style={{ background: '#F0F4F8', padding: '0.85rem', borderRadius: '50%', flexShrink: 0 }}>
@@ -164,15 +174,15 @@ const About = () => {
                         <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>What Defines Us</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: '1.25rem' }}>
                             {[
-                                { icon: Shield,   title: 'Independent',       desc: 'Zero vendor affiliation — unbiased advice you can trust and cite in board-level reporting.' },
-                                { icon: BookOpen, title: 'Research-Backed',   desc: 'Peer-reviewed publications, open datasets, and audit-ready templates you can deploy immediately.' },
-                                { icon: Award,    title: 'Globally Recognised', desc: 'Cited by OECD, EU AI Office, NIST, and national ministries across six continents.' },
-                                { icon: Target,   title: 'Actionable',        desc: 'Practical frameworks digestible in hours — not weeks of consultant time or opaque recommendations.' },
+                                { icon: Shield, title: 'Independent', desc: 'Zero vendor affiliation - providing unbiased advice you can trust and confidently cite in board-level reporting.' },
+                                { icon: BookOpen, title: 'Research-Backed', desc: 'Peer-reviewed publications, open datasets, and audit-ready templates you can deploy immediately.' },
+                                { icon: Award, title: 'Aligned with Global Standards', desc: 'Following frameworks and guidance from OECD, EU AI Office, NIST, and national ministries across six continents.' },
+                                { icon: Target, title: 'Actionable', desc: 'Practical frameworks digestible in hours - not weeks of consultant time or opaque recommendations.' },
                             ].map(({ icon: Icon, title, desc }) => (
                                 <div key={title}
                                     style={{ background: '#F8FAFC', borderRadius: '12px', padding: 'clamp(1.1rem,2.5vw,1.5rem)', border: '1px solid #E2E8F0', transition: 'box-shadow 0.15s,transform 0.15s' }}
-                                    onMouseOver={e => { e.currentTarget.style.boxShadow='0 6px 20px rgba(0,51,102,0.1)'; e.currentTarget.style.transform='translateY(-3px)'; }}
-                                    onMouseOut={e => { e.currentTarget.style.boxShadow='none'; e.currentTarget.style.transform='none'; }}>
+                                    onMouseOver={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,51,102,0.1)'; e.currentTarget.style.transform = 'translateY(-3px)'; }}
+                                    onMouseOut={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
                                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.85rem' }}>
                                         <Icon size={20} color="#003366" />
                                     </div>
@@ -187,16 +197,16 @@ const About = () => {
 
             {/* Council Components */}
             <div style={{ background: '#F0F4F8', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
-                <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Council Components</h2>
-                        <p style={{ color: '#64748B', fontSize: '1rem' }}>The three pillars of the AI Risk Council</p>
+                        <p style={{ color: '#64748B', fontSize: '1rem' }}>The three pillars of the Risk AI Council (RAC)</p>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(280px,100%),1fr))', gap: '1.5rem' }}>
                         {[
-                            { title: 'Risk Advisory',        desc: 'Providing specialised insight reports for organisations dependent on distinct AI frameworks to ensure robust security and compliance.',  accent: '#003366' },
-                            { title: 'Research Institute',   desc: 'Dedicated team publishing quarterly risk assessments and emerging threat analyses across all major AI risk domains.',                    accent: '#0055A4' },
-                            { title: 'Assessment Committee', desc: 'Oversees the certification of external auditors and validates compliance reports against global standards.',                             accent: '#4A5568' },
+                            { title: 'Events & Community', desc: 'Hosting webinars, seminars, workshops, and podcasts that bring together AI risk professionals, security officers, and governance experts. Members receive priority registration, access to session recordings, and can participate in live Q&A and community discussions.', accent: '#003366' },
+                            { title: 'AI Product Reviews', desc: 'Independent, evidence-based assessments of AI and governance products. Our review committee tests tools against established frameworks and publishes findings including feature test scores, methodology notes, and supporting evidence so organisations can make informed procurement decisions without vendor bias.', accent: '#0055A4' },
+                            { title: 'AI Risk Guidance & Resources', desc: 'Practical, framework-aligned guidance to help organisations navigate the evolving AI regulatory landscape. We publish whitepapers, risk assessment templates, and research aligned with EU AI Act, NIST AI RMF, and ISO 42001 -  giving security leaders, compliance officers, and executives the structured knowledge they need to make responsible AI decisions with confidence.', accent: '#4A5568' },
                         ].map(({ title, desc, accent }) => (
                             <div key={title} style={{ background: 'white', padding: 'clamp(1.25rem,3vw,2rem)', borderRadius: '12px', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1A202C', marginBottom: '0.75rem' }}>{title}</h3>
@@ -217,7 +227,7 @@ const About = () => {
 
                     {teamLoading && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(240px,100%),1fr))', gap: '1.5rem' }} aria-busy="true">
-                            {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}
+                            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
                         </div>
                     )}
 

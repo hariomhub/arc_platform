@@ -5,7 +5,7 @@ import { ShieldCheck, Users, ArrowRight, CheckCircle, Award, BookOpen, Globe } f
 const WHY_ITEMS = [
     { icon: Award,       title: 'Independent Reviews',   desc: 'Our product assessments are unbiased and written by vetted industry practitioners, not vendors.' },
     { icon: BookOpen,    title: 'Self-Service Playbooks', desc: 'We provide ready-to-use governance templates and guides. No expensive consultants needed.' },
-    { icon: Users,       title: 'Expert Network',        desc: 'Access to a global council of 500+ AI risk professionals across 40 countries.' },
+    { icon: Users,       title: 'Expert Network',        desc: 'Access to a global council of 100+ AI risk professionals across 3+ countries.' },
     { icon: ShieldCheck, title: 'Framework Aligned',     desc: 'All our resources are mapped to EU AI Act, NIST AI RMF, ISO 42001, and sector-specific requirements.' },
 ];
 
@@ -96,7 +96,7 @@ const Services = () => {
                         AI Governance, Tested &amp; Trusted
                     </h1>
                     <p style={{ fontSize:'clamp(0.95rem,1.5vw,1.15rem)', color:'#CBD5E1', lineHeight:'1.7', margin:0 }}>
-                        Independent AI product reviews and expert-led workshops designed to accelerate your governance programme — trusted by 500+ organisations globally.
+                        Independent AI product reviews and expert-led workshops designed to accelerate your governance programme - trusted by 25+ organisations globally.
                     </p>
                 </div>
             </div>
@@ -156,13 +156,13 @@ const Services = () => {
                                     Half-day and full-day immersive sessions for Board Directors and C-Suite leaders to build AI risk literacy and fulfil their fiduciary oversight responsibilities.
                                 </p>
                                 <ul style={{ listStyle:'none', padding:0, margin:'0 0 2rem', display:'flex', flexDirection:'column', gap:'0.6rem', flex:1 }}>
-                                    {['Governance fundamentals and risk appetite design','AI crisis tabletop simulation exercises','RAI controls, testing and validation deep dive','Regulatory horizon scanning and briefings'].map(f => (
+                                    {['Governing AI for Innovation Across Industries', 'AI Governance fundamentals and risk appetite design','RAI controls, testing and validation deep dive','Regulatory horizon scanning and briefings'].map(f => (
                                         <li key={f} style={{ display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'0.875rem', color:'#475569' }}>
                                             <CheckCircle size={15} color="#7C3AED" style={{ flexShrink:0, marginTop:'2px' }}/>{f}
                                         </li>
                                     ))}
                                 </ul>
-                                <button onClick={() => navigate('/contact')}
+                                <button onClick={() => navigate('/executive-workshops')}
                                     style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'#7C3AED', color:'white', border:'none', padding:'0.8rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)', transition:'background 0.15s', alignSelf:'flex-start' }}
                                     onMouseOver={e => e.currentTarget.style.background='#6D28D9'}
                                     onMouseOut={e => e.currentTarget.style.background='#7C3AED'}>

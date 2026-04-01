@@ -66,27 +66,39 @@ const SkeletonEventCard = () => (
     </div>
 );
 
-// ─── Hero Video Carousel ──────────────────────────────────────────────────────
-const HeroVideoCarousel = ({ videos }) => {
-    const [activeIdx, setActiveIdx] = useState(0);
-    const [playingUrl, setPlayingUrl] = useState(null);
-    const [playingTitle, setPlayingTitle] = useState('');
-    const [isHovered, setIsHovered] = useState(false);
-    const [direction, setDirection] = useState(1);
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const [isMuted, setIsMuted] = useState(true);
-    const [previewPlaying, setPreviewPlaying] = useState(false);
-    const [dragStart, setDragStart] = useState(null);
-    const [videoReady, setVideoReady] = useState(false);
-    const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+// ─── Dynamic Video Carousel ───────────────────────────────────────────────────
+const GLOW_COLORS = [
+    { from: '#1e40af', to: '#3b82f6' },
+    { from: '#7c3aed', to: '#a78bfa' },
+    { from: '#065f46', to: '#34d399' },
+    { from: '#92400e', to: '#f59e0b' },
+    { from: '#831843', to: '#f472b6' },
+];
 
-    const mainVideoRef = useRef(null);
-    const autoTimer = useRef(null);
-    const progressRef = useRef(null);
-    const progressAnim = useRef(null);
-    const thumbsRef = useRef(null);
-    const AUTOPLAY_MS = 3000;
-    const isMobile = windowWidth < 640;
+const HeroVideoCarousel = ({ videos, viewAllHref }) => {
+    const [activeIdx, setActiveIdx]         = useState(() => Math.floor(Math.random() * Math.max(videos.length, 1)));
+    const [prevIdx,   setPrevIdx]           = useState(null);
+    const [direction, setDirection]         = useState('next');   // 'next' | 'prev'
+    const [transitioning, setTransitioning] = useState(false);
+    const [playingUrl, setPlayingUrl]       = useState(null);
+    const [playingTitle, setPlayingTitle]   = useState('');
+    const [isHovered, setIsHovered]         = useState(false);
+    const [isMuted, setIsMuted]             = useState(true);
+    const [videoReady, setVideoReady]       = useState(false);
+    const [isPlaying, setIsPlaying]         = useState(false);
+    const [dragStart, setDragStart]         = useState(null);
+    const [glowColor, setGlowColor]         = useState(() => GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)]);
+    const [windowWidth, setWindowWidth]     = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+    const mainVideoRef   = useRef(null);
+    const progressRef    = useRef(null);
+    const progressAnim   = useRef(null);
+    const autoTimer      = useRef(null);
+    const thumbsRef      = useRef(null);
+    const transTimer     = useRef(null);
+    const AUTOPLAY_MS    = 6000;
+    const TRANSITION_MS  = 320;
+    const isMobile       = windowWidth < 640;
 
     useEffect(() => {
         const fn = () => setWindowWidth(window.innerWidth);
@@ -101,30 +113,34 @@ const HeroVideoCarousel = ({ videos }) => {
     }, []);
 
     const goTo = useCallback((target) => {
-        if (isTransitioning) return;
-        setIsTransitioning(true);
-        setPreviewPlaying(false);
-        setVideoReady(false);
+        const len = videos.length;
         let nextIdx;
-        if (target === 'next') { nextIdx = (activeIdx + 1) % videos.length; setDirection(1); }
-        else if (target === 'prev') { nextIdx = (activeIdx - 1 + videos.length) % videos.length; setDirection(-1); }
-        else { nextIdx = target; setDirection(target > activeIdx ? 1 : -1); }
+        let dir = 'next';
+        if (target === 'next')      { nextIdx = (activeIdx + 1) % len; dir = 'next'; }
+        else if (target === 'prev') { nextIdx = (activeIdx - 1 + len) % len; dir = 'prev'; }
+        else { nextIdx = target; dir = target > activeIdx ? 'next' : 'prev'; }
+        if (nextIdx === activeIdx) return;
+        // Start transition
+        setPrevIdx(activeIdx);
+        setDirection(dir);
+        setTransitioning(true);
+        setVideoReady(false);
+        setIsPlaying(false);
         setActiveIdx(nextIdx);
-        setTimeout(() => setIsTransitioning(false), 500);
+        setGlowColor(GLOW_COLORS[nextIdx % GLOW_COLORS.length]);
+        clearTimeout(transTimer.current);
+        transTimer.current = setTimeout(() => setTransitioning(false), TRANSITION_MS);
         if (thumbsRef.current) {
             const el = thumbsRef.current.children[nextIdx];
-            if (el) {
-                const container = thumbsRef.current;
-                container.scrollLeft = el.offsetLeft - (container.offsetWidth / 2) + (el.offsetWidth / 2);
-            }
+            if (el) thumbsRef.current.scrollLeft = el.offsetLeft - thumbsRef.current.offsetWidth / 2 + el.offsetWidth / 2;
         }
-    }, [activeIdx, isTransitioning, videos.length]);
+    }, [activeIdx, videos.length]);
 
     const startAutoplay = useCallback(() => {
         if (isHovered || playingUrl || videos.length <= 1) return;
         resetAutoplay();
         let start = null;
-        const animate = (ts) => {
+        const animate = ts => {
             if (!start) start = ts;
             const pct = Math.min(((ts - start) / AUTOPLAY_MS) * 100, 100);
             if (progressRef.current) progressRef.current.style.width = `${pct}%`;
@@ -136,17 +152,9 @@ const HeroVideoCarousel = ({ videos }) => {
 
     useEffect(() => { startAutoplay(); return resetAutoplay; }, [startAutoplay, resetAutoplay, activeIdx]);
 
-    const togglePreview = useCallback((e) => {
-        e.stopPropagation();
-        if (!mainVideoRef.current) return;
-        if (previewPlaying) { mainVideoRef.current.pause(); setPreviewPlaying(false); }
-        else { mainVideoRef.current.play().catch(() => {}); setPreviewPlaying(true); }
-    }, [previewPlaying]);
-
     const openModal = useCallback(async (vid) => {
         setPlayingTitle(vid.title || '');
         if (mainVideoRef.current) mainVideoRef.current.pause();
-        setPreviewPlaying(false);
         resetAutoplay();
         try {
             const res = await getVideoStreamUrl(vid.id);
@@ -156,8 +164,8 @@ const HeroVideoCarousel = ({ videos }) => {
         }
     }, [resetAutoplay]);
 
-    const handlePointerDown = (e) => setDragStart(e.clientX ?? e.touches?.[0]?.clientX);
-    const handlePointerUp = (e) => {
+    const handlePointerDown = e => setDragStart(e.clientX ?? e.touches?.[0]?.clientX);
+    const handlePointerUp   = e => {
         if (dragStart === null) return;
         const endX = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragStart;
         if (Math.abs(dragStart - endX) > 40) goTo(dragStart - endX > 0 ? 'next' : 'prev');
@@ -165,10 +173,10 @@ const HeroVideoCarousel = ({ videos }) => {
     };
 
     useEffect(() => {
-        const onKey = (e) => {
+        const onKey = e => {
             if (playingUrl) { if (e.key === 'Escape') setPlayingUrl(null); return; }
             if (e.key === 'ArrowRight') goTo('next');
-            if (e.key === 'ArrowLeft') goTo('prev');
+            if (e.key === 'ArrowLeft')  goTo('prev');
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -180,134 +188,245 @@ const HeroVideoCarousel = ({ videos }) => {
     return (
         <>
             <style>{`
-                @keyframes hvc-right { from{opacity:0;transform:translateX(4%) scale(0.98)} to{opacity:1;transform:translateX(0) scale(1)} }
-                @keyframes hvc-left  { from{opacity:0;transform:translateX(-4%) scale(0.98)} to{opacity:1;transform:translateX(0) scale(1)} }
-                @keyframes hvc-glow  { 0%,100%{opacity:1} 50%{opacity:0.35} }
-                @keyframes hvc-ripple{ 0%{transform:scale(0.8);opacity:0.6} 100%{transform:scale(2.4);opacity:0} }
-                @keyframes hvc-fadein{ from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-                @keyframes hvc-modal { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
-                .hvc-nav:hover  { background:rgba(255,255,255,0.22)!important; border-color:rgba(255,255,255,0.55)!important; }
-                .hvc-icon-btn:hover { background:rgba(255,255,255,0.2)!important; }
-                .hvc-watch:hover { background:rgba(255,255,255,0.22)!important; }
+                /* ── Slide + zoom combo ── */
+                @keyframes hvc-slide-in-next  { from{transform:translateX(100%) scale(0.96);opacity:0} to{transform:translateX(0) scale(1);opacity:1} }
+                @keyframes hvc-slide-out-next { from{transform:translateX(0) scale(1);opacity:1}  to{transform:translateX(-55%) scale(0.94);opacity:0} }
+                @keyframes hvc-slide-in-prev  { from{transform:translateX(-100%) scale(0.96);opacity:0} to{transform:translateX(0) scale(1);opacity:1} }
+                @keyframes hvc-slide-out-prev { from{transform:translateX(0) scale(1);opacity:1}  to{transform:translateX(55%) scale(0.94);opacity:0} }
+                /* ── Scan-line wipe on cut ── */
+                @keyframes hvc-scan  { 0%{transform:translateX(-100%) skewX(-8deg);opacity:0} 8%{opacity:1} 92%{opacity:1} 100%{transform:translateX(200%) skewX(-8deg);opacity:0} }
+                @keyframes hvc-flash { 0%{opacity:0.55} 100%{opacity:0} }
+                /* ── Other animations ── */
+                @keyframes hvc-fadein   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes hvc-slidein  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes hvc-pulsedot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }
+                @keyframes hvc-ripple   { 0%{transform:scale(0.8);opacity:0.7} 100%{transform:scale(2.8);opacity:0} }
+                @keyframes hvc-glow     { 0%,100%{opacity:0.5} 50%{opacity:0.9} }
+                @keyframes hvc-glow2    { 0%,100%{opacity:0.2;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.08)} }
+                @keyframes hvc-modal    { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+                @keyframes hvc-eq1 { 0%,100%{height:4px}  50%{height:14px} }
+                @keyframes hvc-eq2 { 0%,100%{height:10px} 30%{height:4px}  70%{height:16px} }
+                @keyframes hvc-eq3 { 0%,100%{height:6px}  40%{height:18px} 80%{height:4px} }
+                @keyframes hvc-eq4 { 0%,100%{height:12px} 20%{height:4px}  60%{height:8px} }
+                @keyframes hvc-shine  { from{transform:translateX(-120%) skewX(-15deg)} to{transform:translateX(250%) skewX(-15deg)} }
+                @keyframes hvc-corner { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+                @keyframes hvc-progress-dot { 0%,100%{box-shadow:0 0 6px 2px currentColor} 50%{box-shadow:0 0 14px 5px currentColor} }
+                /* ── Interactive states ── */
+                .hvc-stage { transition: box-shadow 0.9s ease, transform 0.3s ease; }
+                .hvc-stage:hover { transform: scale(1.005); }
+                .hvc-nav   { transition: opacity 0.25s, background 0.18s, transform 0.18s !important; }
+                .hvc-nav:hover   { background:rgba(255,255,255,0.22)!important; border-color:rgba(255,255,255,0.5)!important; transform:scale(1.12) translateY(-50%) !important; }
+                .hvc-iconbtn:hover { background:rgba(255,255,255,0.2)!important; transform:scale(1.1); }
+                .hvc-watch { transition: background 0.18s, transform 0.18s, box-shadow 0.18s !important; }
+                .hvc-watch:hover { background:rgba(255,255,255,0.25)!important; transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,0.35)!important; }
                 .hvc-close:hover { background:rgba(255,255,255,0.18)!important; }
                 .hvc-mnav:hover  { background:rgba(255,255,255,0.14)!important; }
-                .hvc-thumb:hover { border-color:rgba(255,255,255,0.55)!important; }
-                .hvc-thumb:hover .hvc-tdim { opacity:0!important; }
-                .hvc-play:hover  { background:rgba(255,255,255,0.22)!important; }
+                .hvc-thumb-wrap  { transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s, box-shadow 0.3s !important; }
+                .hvc-thumb-wrap:hover { transform: scale(1.1) translateY(-2px) !important; }
+                .hvc-thumb-wrap:hover .hvc-tdim { opacity:0!important; }
+                .hvc-play-btn { transition: background 0.2s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1) !important; }
+                .hvc-play-btn:hover { background:rgba(255,255,255,0.25)!important; transform:scale(1.12); }
+                .hvc-dotbtn { width:6px; height:6px; border-radius:3px; background:rgba(255,255,255,0.3); border:none; padding:0; cursor:pointer; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); outline:none; min-width:0; }
+                .hvc-dotbtn.active { width:22px; background:white; }
+                .hvc-dotbtn:hover { transform:scaleY(1.5); }
             `}</style>
 
+            {/* Ambient glow — double layer for depth */}
+            <div style={{ position:'absolute', inset:'-30px', borderRadius:'32px', zIndex:0,
+                background:`radial-gradient(ellipse at 50% 90%, ${glowColor.from}66 0%, transparent 65%)`,
+                transition:'background 0.9s ease', animation:'hvc-glow 2.8s ease-in-out infinite', pointerEvents:'none' }} />
+            <div style={{ position:'absolute', inset:'10px', borderRadius:'24px', zIndex:0,
+                background:`radial-gradient(ellipse at 50% 100%, ${glowColor.to}33 0%, transparent 70%)`,
+                transition:'background 0.9s ease', animation:'hvc-glow2 4s 0.5s ease-in-out infinite', pointerEvents:'none' }} />
+
             <div
-                style={{ position: 'relative', width: '100%', maxWidth: '100%', overflow: 'hidden' }}
+                style={{ position: 'relative', width: '100%', maxWidth: '100%', overflow: 'visible', zIndex: 1 }}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Main Stage */}
-                <div
+                {/* ── Main Stage ── */}
+                <div className="hvc-stage"
                     style={{
                         position: 'relative', width: '100%', aspectRatio: '16/9',
-                        borderRadius: isMobile ? '10px' : '14px',
-                        overflow: 'hidden', background: '#050c1a',
-                        boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
+                        borderRadius: isMobile ? '10px' : '16px', overflow: 'hidden',
+                        background: '#050c1a',
+                        boxShadow: `0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09), 0 0 80px ${glowColor.from}44`,
                         cursor: dragStart !== null ? 'grabbing' : 'grab',
                         touchAction: 'pan-y',
                     }}
-                    onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
-                    onTouchStart={handlePointerDown} onTouchEnd={handlePointerUp}
+                    onMouseDown={handlePointerDown}   onMouseUp={handlePointerUp}
+                    onTouchStart={handlePointerDown}  onTouchEnd={handlePointerUp}
                 >
+                    {/* Neon corner brackets — appear on hover via CSS */}
+                    {[['0px','0px','borderTop','borderLeft'],['0px','0px','borderTop','borderRight'],['0px','0px','borderBottom','borderLeft'],['0px','0px','borderBottom','borderRight']].map((_,ci) => {
+                        const c = [[{top:'8px',left:'8px'},{borderTop:`2px solid ${glowColor.to}`,borderLeft:`2px solid ${glowColor.to}`}],[{top:'8px',right:'8px'},{borderTop:`2px solid ${glowColor.to}`,borderRight:`2px solid ${glowColor.to}`}],[{bottom:'8px',left:'8px'},{borderBottom:`2px solid ${glowColor.to}`,borderLeft:`2px solid ${glowColor.to}`}],[{bottom:'8px',right:'8px'},{borderBottom:`2px solid ${glowColor.to}`,borderRight:`2px solid ${glowColor.to}`}]][ci];
+                        return <div key={ci} style={{ position:'absolute',...c[0],...c[1], width:'18px', height:'18px', zIndex:20, opacity: isHovered ? 0.8 : 0, transition:'opacity 0.3s ease', pointerEvents:'none', borderRadius:'2px', animation: isHovered ? `hvc-corner 0.3s ${ci*0.05}s ease both` : 'none' }} />;
+                    })}
+                    {/* ── Slide transition layer: exiting video ── */}
+                    {transitioning && prevIdx !== null && (
+                        <video
+                            key={`prev-${prevIdx}`}
+                            src={videos[prevIdx]?.video_url}
+                            autoPlay muted loop playsInline
+                            style={{
+                                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                                objectFit: 'cover', zIndex: 3,
+                                animation: `hvc-slide-out-${direction} ${TRANSITION_MS}ms cubic-bezier(0.4,0,0.2,1) forwards`,
+                            }}
+                        />
+                    )}
+
+                    {/* ── Entering (active) video ── */}
                     <video
-                        key={activeIdx} ref={mainVideoRef}
-                        src={active.video_url + '#t=0.001'}
-                        preload="auto" muted={isMuted} loop playsInline
-                        onCanPlay={() => setVideoReady(true)}
+                        key={`active-${activeIdx}`}
+                        ref={mainVideoRef}
+                        src={active.video_url}
+                        preload="auto"
+                        autoPlay
+                        muted={isMuted}
+                        loop
+                        playsInline
+                        onCanPlay={() => {
+                            setVideoReady(true);
+                            const v = mainVideoRef.current;
+                            if (v) {
+                                v.muted = isMuted;
+                                v.playbackRate = 1.25;
+                                v.play()
+                                    .then(() => setIsPlaying(true))
+                                    .catch(() => {
+                                        // Browser blocked autoplay with sound — retry muted
+                                        v.muted = true;
+                                        setIsMuted(true);
+                                        v.play().then(() => setIsPlaying(true)).catch(() => {});
+                                    });
+                            }
+                        }}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
                         style={{
                             position: 'absolute', inset: 0, width: '100%', height: '100%',
                             objectFit: 'cover', zIndex: 2,
-                            opacity: videoReady ? 1 : 0, transition: 'opacity 0.4s ease',
-                            animation: videoReady ? `${direction > 0 ? 'hvc-right' : 'hvc-left'} 0.5s cubic-bezier(0.25,0.8,0.25,1) forwards` : 'none',
+                            animation: transitioning
+                                ? `hvc-slide-in-${direction} ${TRANSITION_MS}ms cubic-bezier(0.4,0,0.2,1) forwards`
+                                : 'none',
+                            opacity: (!transitioning && !videoReady) ? 0 : 1,
+                            transition: (!transitioning && !videoReady) ? 'none' : 'opacity 0.4s ease',
                         }}
                     />
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'linear-gradient(180deg,rgba(0,0,0,0.22) 0%,transparent 35%,rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'linear-gradient(90deg,rgba(0,14,40,0.25) 0%,transparent 55%)', pointerEvents: 'none' }} />
+
+                    {/* Flash + scan-line wipe overlay on transition */}
+                    {transitioning && (
+                        <>
+                            <div style={{ position:'absolute', inset:0, zIndex:6, background:'rgba(255,255,255,0.05)', animation:`hvc-flash ${TRANSITION_MS}ms ease-out forwards`, pointerEvents:'none' }} />
+                            <div style={{ position:'absolute', inset:0, zIndex:6, overflow:'hidden', pointerEvents:'none' }}>
+                                <div style={{ position:'absolute', top:0, bottom:0, width:'60px', background:`linear-gradient(90deg,transparent,${glowColor.to}55,transparent)`, animation:`hvc-scan ${TRANSITION_MS}ms ease-in-out forwards` }} />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Gradient overlays */}
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'linear-gradient(180deg,rgba(0,0,0,0.25) 0%,transparent 30%,rgba(0,0,0,0.85) 100%)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'linear-gradient(90deg,rgba(0,8,28,0.3) 0%,transparent 60%)', pointerEvents: 'none' }} />
+
+                    {/* Progress bar with glowing trailing dot */}
                     {videos.length > 1 && (
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.07)', zIndex: 20 }}>
-                            <div ref={progressRef} style={{ height: '100%', width: '0%', background: 'linear-gradient(90deg,#3B82F6,#93C5FD)', borderRadius: '0 2px 2px 0', transition: 'none' }} />
+                        <div style={{ position:'absolute', top:0, left:0, right:0, height:'3px', background:'rgba(255,255,255,0.08)', zIndex:20 }}>
+                            <div ref={progressRef} style={{ position:'relative', height:'100%', width:'0%', background:`linear-gradient(90deg, ${glowColor.from}, ${glowColor.to})`, borderRadius:'0 2px 2px 0', transition:'background 0.8s ease' }}>
+                                <div style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', width:'7px', height:'7px', borderRadius:'50%', background:glowColor.to, marginRight:'-3px', animation:'hvc-progress-dot 1.4s ease-in-out infinite', color:glowColor.to }} />
+                            </div>
                         </div>
                     )}
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '10px 12px' : '12px 14px', zIndex: 15 }}>
-                        <span style={{ background: 'rgba(0,8,24,0.65)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.9)', fontSize: '0.58rem', fontWeight: '700', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 5px #4ade80', animation: 'hvc-glow 1.8s ease-in-out infinite', flexShrink: 0 }} />
+
+                    {/* Top bar: badge + controls */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '10px 12px' : '12px 16px', zIndex: 15 }}>
+                        {/* LIVE badge */}
+                        <span style={{ background: 'rgba(0,8,24,0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.92)', fontSize: '0.58rem', fontWeight: '800', letterSpacing: '0.16em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80', animation: 'hvc-pulsedot 1.6s ease-in-out infinite', flexShrink: 0 }} />
                             Featured
                         </span>
-                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                            <button className="hvc-icon-btn"
-                                onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m); if (mainVideoRef.current) mainVideoRef.current.muted = !isMuted; }}
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,8,24,0.6)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button className="hvc-iconbtn"
+                                onClick={e => { e.stopPropagation(); setIsMuted(m => !m); if (mainVideoRef.current) mainVideoRef.current.muted = !isMuted; }}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,8,24,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
                                 aria-label={isMuted ? 'Unmute' : 'Mute'}
                             >
                                 {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
                             </button>
-                            <button className="hvc-icon-btn"
-                                onClick={(e) => { e.stopPropagation(); openModal(active); }}
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,8,24,0.6)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                                aria-label="Fullscreen"
+                            <button className="hvc-iconbtn"
+                                onClick={e => { e.stopPropagation(); openModal(active); }}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,8,24,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                aria-label="Expand"
                             >
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></svg>
                             </button>
                             {videos.length > 1 && (
-                                <span style={{ background: 'rgba(0,8,24,0.6)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '100px', padding: '4px 9px', fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontWeight: '600' }}>
+                                <span style={{ background: 'rgba(0,8,24,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '100px', padding: '4px 9px', fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontWeight: '600' }}>
                                     <span style={{ color: 'white', fontWeight: '800' }}>{activeIdx + 1}</span>
                                     <span style={{ margin: '0 2px', opacity: 0.4 }}>/</span>{videos.length}
                                 </span>
                             )}
                         </div>
                     </div>
+
+                    {/* Arrow nav — softly visible always, brighter on hover */}
                     {videos.length > 1 && !isMobile && (<>
-                        <button className="hvc-nav"
-                            onClick={(e) => { e.stopPropagation(); goTo('prev'); }}
-                            aria-label="Previous video"
-                            style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,8,24,0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 12, opacity: isHovered ? 1 : 0, transition: 'opacity 0.3s,background 0.2s,border-color 0.2s', outline: 'none' }}>
+                        <button className="hvc-nav" onClick={e => { e.stopPropagation(); goTo('prev'); resetAutoplay(); }} aria-label="Previous"
+                            style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', width:'40px', height:'40px', borderRadius:'50%', background:'rgba(0,8,24,0.5)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.2)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:12, opacity: isHovered ? 1 : 0.4, outline:'none' }}>
                             <ChevronLeft size={18} />
                         </button>
-                        <button className="hvc-nav"
-                            onClick={(e) => { e.stopPropagation(); goTo('next'); }}
-                            aria-label="Next video"
-                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,8,24,0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 12, opacity: isHovered ? 1 : 0, transition: 'opacity 0.3s,background 0.2s,border-color 0.2s', outline: 'none' }}>
+                        <button className="hvc-nav" onClick={e => { e.stopPropagation(); goTo('next'); resetAutoplay(); }} aria-label="Next"
+                            style={{ position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)', width:'40px', height:'40px', borderRadius:'50%', background:'rgba(0,8,24,0.5)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.2)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:12, opacity: isHovered ? 1 : 0.4, outline:'none' }}>
                             <ChevronRight size={18} />
                         </button>
                     </>)}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11, pointerEvents: 'none' }}>
-                        <button className="hvc-play" onClick={togglePreview}
-                            aria-label={previewPlaying ? 'Pause preview' : 'Play preview'}
-                            style={{ position: 'relative', width: isMobile ? '52px' : '62px', height: isMobile ? '52px' : '62px', borderRadius: '50%', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(16px)', border: '1.5px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.25s', outline: 'none', pointerEvents: 'all' }}>
-                            {!previewPlaying && (<>
-                                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)', animation: 'hvc-ripple 2s ease-out infinite' }} />
-                                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', animation: 'hvc-ripple 2s 0.75s ease-out infinite' }} />
-                            </>)}
-                            {previewPlaying
-                                ? <Pause size={isMobile ? 20 : 24} fill="white" color="white" />
-                                : <Play  size={isMobile ? 20 : 24} fill="white" color="white" style={{ marginLeft: '3px' }} />
-                            }
+
+                    {/* Centre play/pause button — toggles the background video */}
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11, pointerEvents: 'none', transition: 'opacity 0.5s ease', opacity: isPlaying ? 0.25 : 1 }}>
+                        <button className="hvc-play-btn"
+                            onClick={e => {
+                                e.stopPropagation();
+                                const v = mainVideoRef.current;
+                                if (!v) return;
+                                if (isPlaying) { v.pause(); setIsPlaying(false); resetAutoplay(); }
+                                else { v.play().then(() => setIsPlaying(true)).catch(() => {}); startAutoplay(); }
+                            }}
+                            style={{ position: 'relative', width: isMobile ? '52px' : '62px', height: isMobile ? '52px' : '62px', borderRadius: '50%', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(16px)', border: '1.5px solid rgba(255,255,255,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.25s', outline: 'none', pointerEvents: 'all' }}>
+                            {!isPlaying && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.35)', animation: 'hvc-ripple 2.2s ease-out infinite' }} />}
+                            {!isPlaying && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', animation: 'hvc-ripple 2.2s 0.8s ease-out infinite' }} />}
+                            {isPlaying
+                                ? <Pause size={isMobile ? 18 : 22} fill="white" color="white" />
+                                : <Play  size={isMobile ? 20 : 24} fill="white" color="white" style={{ marginLeft: '3px' }} />}
                         </button>
                     </div>
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: isMobile ? '10px 12px' : '12px 14px', zIndex: 10, boxSizing: 'border-box' }}>
+
+                    {/* Bottom info — slides up fresh on each video */}
+                    <div key={activeIdx} style={{ position:'absolute', bottom:0, left:0, right:0, padding: isMobile ? '10px 12px' : '14px 16px', zIndex:10, boxSizing:'border-box', animation:'hvc-slidein 0.4s cubic-bezier(0.25,1,0.5,1)' }}>
                         {active.title && (
-                            <p key={activeIdx} style={{ margin: '0 0 8px', color: 'white', fontSize: isMobile ? '0.78rem' : '0.9rem', fontWeight: '700', lineHeight: '1.4', textShadow: '0 1px 6px rgba(0,0,0,0.5)', maxWidth: '80%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', animation: 'hvc-fadein 0.4s ease' }}>
-                                {active.title}
+                            <p style={{ margin:'0 0 10px', color:'white', fontSize: isMobile?'0.82rem':'0.95rem', fontWeight:'700', lineHeight:'1.4', textShadow:'0 2px 12px rgba(0,0,0,0.7)', maxWidth:'82%', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+                                <span style={{ background:`linear-gradient(90deg, white 0%, ${glowColor.to} 100%)`, backgroundClip:'text', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', transition:'background 0.8s ease' }}>{active.title}</span>
                             </p>
                         )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                            <button className="hvc-watch" onClick={(e) => { e.stopPropagation(); openModal(active); }}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.13)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px 12px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer', transition: 'background 0.2s', outline: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+                            {isPlaying && (
+                                <div style={{ display:'flex', alignItems:'flex-end', gap:'2px', height:'18px', marginRight:'2px' }}>
+                                    {[['hvc-eq1','0.4s'],['hvc-eq2','0.2s'],['hvc-eq3','0.5s'],['hvc-eq4','0.3s']].map(([anim,delay],i) => (
+                                        <div key={i} style={{ width:'3px', borderRadius:'2px', background:glowColor.to, boxShadow:`0 0 4px ${glowColor.to}`, animation:`${anim} 0.75s ${delay} ease-in-out infinite` }} />
+                                    ))}
+                                </div>
+                            )}
+                            <button className="hvc-watch" onClick={e => { e.stopPropagation(); openModal(active); }}
+                                style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:'rgba(255,255,255,0.12)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', color:'white', padding:'6px 14px', borderRadius:'100px', fontSize:'0.7rem', fontWeight:'700', cursor:'pointer', outline:'none', whiteSpace:'nowrap', boxShadow:'0 2px 12px rgba(0,0,0,0.3)' }}>
                                 <Play size={10} fill="white" color="white" /> Watch Full Video
                             </button>
                             {videos.length > 1 && (
-                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginLeft: 'auto', flexShrink: 0 }}>
-                                    {videos.map((_, idx) => (
-                                        <button key={idx}
-                                            onClick={(e) => { e.stopPropagation(); goTo(idx); }}
-                                            aria-label={`Go to video ${idx + 1}`}
-                                            style={{ width: idx === activeIdx ? '18px' : '5px', height: '5px', borderRadius: '3px', background: idx === activeIdx ? 'white' : 'rgba(255,255,255,0.35)', border: 'none', padding: 0, cursor: 'pointer', transition: 'all 0.3s ease', outline: 'none', minWidth: 0 }}
-                                        />
+                                <div style={{ display:'flex', gap:'5px', alignItems:'center', marginLeft:'auto' }}>
+                                    {videos.map((_,idx) => (
+                                        <button key={idx} className={`hvc-dotbtn${idx===activeIdx?' active':''}`}
+                                            onClick={e => { e.stopPropagation(); goTo(idx); resetAutoplay(); }}
+                                            aria-label={`Go to video ${idx+1}`}
+                                            style={{ background: idx===activeIdx ? glowColor.to : undefined,
+                                                     boxShadow: idx===activeIdx ? `0 0 8px ${glowColor.to}` : 'none' }} />
                                     ))}
                                 </div>
                             )}
@@ -315,83 +434,95 @@ const HeroVideoCarousel = ({ videos }) => {
                     </div>
                 </div>
 
-                {/* Thumbnails */}
+                {/* ── Filmstrip Thumbnails ── */}
                 {videos.length > 1 && (
-                    <div style={{ width: '100%', overflow: 'hidden', marginTop: '8px' }}>
-                        <div
-                            ref={thumbsRef}
-                            style={{ display: 'flex', gap: '7px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '3px 1px 4px', WebkitOverflowScrolling: 'touch' }}
-                        >
+                    <div style={{ width:'100%', overflow:'hidden', marginTop:'10px' }}>
+                        <div ref={thumbsRef} style={{ display:'flex', gap:'8px', overflowX:'auto', scrollbarWidth:'none', msOverflowStyle:'none', padding:'4px 2px 8px', WebkitOverflowScrolling:'touch', alignItems:'center' }}>
                             {videos.map((vid, idx) => {
                                 const isActive = idx === activeIdx;
+                                const gc = GLOW_COLORS[idx % GLOW_COLORS.length];
                                 return (
-                                    <div key={idx} className="hvc-thumb"
-                                        onClick={() => goTo(idx)}
-                                        role="button" aria-label={`Select video ${idx + 1}`} tabIndex={0}
+                                    <div key={idx} className="hvc-thumb-wrap"
+                                        onClick={() => { goTo(idx); resetAutoplay(); }}
+                                        role="button" tabIndex={0}
                                         onKeyDown={e => e.key === 'Enter' && goTo(idx)}
-                                        style={{ position: 'relative', flexShrink: 0, width: isMobile ? '60px' : '88px', aspectRatio: '16/9', borderRadius: '7px', overflow: 'hidden', cursor: 'pointer', border: isActive ? '2px solid #93C5FD' : '2px solid rgba(255,255,255,0.08)', transition: 'all 0.25s ease', boxShadow: isActive ? '0 0 0 1px rgba(147,197,253,0.25),0 4px 14px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.3)', transform: isActive ? 'scale(1.05)' : 'scale(1)', background: '#050c1a' }}>
-                                        <video src={vid.video_url + '#t=0.001'} preload="metadata" muted playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none', zIndex: 1 }} />
-                                        <div className="hvc-tdim" style={{ position: 'absolute', inset: 0, zIndex: 2, background: isActive ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.5)', transition: 'opacity 0.25s' }} />
-                                        {isActive && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,#3B82F6,#93C5FD)', zIndex: 3 }} />}
+                                        style={{ position:'relative', flexShrink:0, width: isMobile?'62px':'90px', aspectRatio:'16/9', borderRadius:'8px', overflow:'hidden', cursor:'pointer',
+                                            border: isActive ? `2px solid ${gc.to}` : '2px solid rgba(255,255,255,0.08)',
+                                            boxShadow: isActive ? `0 0 0 2px ${gc.from}66, 0 8px 22px rgba(0,0,0,0.6)` : '0 2px 8px rgba(0,0,0,0.3)',
+                                            transform: isActive ? 'scale(1.08)' : 'scale(1)',
+                                            background:'#050c1a' }}>
+                                        <video src={vid.video_url+'#t=0.001'} preload="metadata" muted playsInline style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block',pointerEvents:'none',zIndex:1 }} />
+                                        <div className="hvc-tdim" style={{ position:'absolute',inset:0,zIndex:2,background: isActive?'rgba(0,0,0,0)':'rgba(0,0,0,0.5)',transition:'opacity 0.3s' }} />
+                                        {isActive && (
+                                            <div style={{ position:'absolute',inset:0,zIndex:4,overflow:'hidden',pointerEvents:'none' }}>
+                                                <div style={{ position:'absolute',top:0,bottom:0,width:'40px',background:`linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)`, animation:'hvc-shine 1.4s 0.2s ease both' }} />
+                                            </div>
+                                        )}
+                                        {isActive && <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'3px',background:`linear-gradient(90deg,${gc.from},${gc.to})`,zIndex:3 }} />}
                                         {!isActive && (
-                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
-                                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.25)' }}>
-                                                    <Play size={8} fill="white" color="white" style={{ marginLeft: '1px' }} />
+                                            <div style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',zIndex:3 }}>
+                                                <div style={{ width:'22px',height:'22px',borderRadius:'50%',background:'rgba(255,255,255,0.18)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.28)' }}>
+                                                    <Play size={9} fill="white" color="white" style={{ marginLeft:'1px' }} />
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
+                            {/* View all — sits inline at the right end of the filmstrip row */}
+                            {viewAllHref && (
+                                <Link to={viewAllHref}
+                                    style={{ flexShrink:0, marginLeft:'auto', display:'inline-flex', alignItems:'center', gap:'3px', color:'#93C5FD', fontSize:'0.65rem', fontWeight:'700', textDecoration:'none', letterSpacing:'0.05em', whiteSpace:'nowrap', padding:'4px 12px', borderRadius:'100px', border:'1px solid #93C5FD88', boxShadow:'0 0 8px #3b82f644, inset 0 0 8px rgba(147,197,253,0.06)', backdropFilter:'blur(8px)', background:'rgba(147,197,253,0.06)', transition:'all 0.2s ease' }}
+                                    onMouseOver={e => { e.currentTarget.style.background='rgba(147,197,253,0.14)'; e.currentTarget.style.borderColor='#93C5FD'; e.currentTarget.style.boxShadow='0 0 14px #3b82f688, inset 0 0 10px rgba(147,197,253,0.1)'; e.currentTarget.style.color='white'; }}
+                                    onMouseOut={e => { e.currentTarget.style.background='rgba(147,197,253,0.06)'; e.currentTarget.style.borderColor='#93C5FD88'; e.currentTarget.style.boxShadow='0 0 8px #3b82f644, inset 0 0 8px rgba(147,197,253,0.06)'; e.currentTarget.style.color='#93C5FD'; }}>
+                                    View all <ChevronRight size={11} />
+                                </Link>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Fullscreen Modal */}
+            {/* ── Cinematic Modal ── */}
             {playingUrl && (
-                <div
-                    role="dialog" aria-modal="true" aria-label="Video player"
-                    style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.97)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => setPlayingUrl(null)}
-                >
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 1.5rem)', borderBottom: '1px solid rgba(255,255,255,0.06)', zIndex: 10 }}>
+                <div role="dialog" aria-modal="true" aria-label="Video player"
+                    style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.97)', backdropFilter: 'blur(22px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => setPlayingUrl(null)}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(0.75rem,2vw,1rem) clamp(1rem,3vw,1.5rem)', borderBottom: '1px solid rgba(255,255,255,0.06)', zIndex: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80', flexShrink: 0 }} />
-                            {playingTitle && <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 'clamp(0.75rem, 2vw, 0.82rem)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playingTitle}</span>}
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80', animation: 'hvc-pulsedot 1.6s ease-in-out infinite', flexShrink: 0 }} />
+                            {playingTitle && <span style={{ color: 'rgba(255,255,255,0.78)', fontSize: 'clamp(0.75rem,2vw,0.85rem)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playingTitle}</span>}
                         </div>
-                        <button className="hvc-close" onClick={() => setPlayingUrl(null)}
-                            aria-label="Close video"
+                        <button className="hvc-close" onClick={() => setPlayingUrl(null)} aria-label="Close"
                             style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s', outline: 'none', flexShrink: 0 }}>
                             <X size={17} />
                         </button>
                     </div>
-                    <div
-                        style={{ width: '90%', maxWidth: '1080px', aspectRatio: '16/9', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 40px 120px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.07)', animation: 'hvc-modal 0.35s cubic-bezier(0.25,0.8,0.25,1) forwards' }}
-                        onClick={e => e.stopPropagation()}
-                    >
+                    <div style={{ width: '90%', maxWidth: '1080px', aspectRatio: '16/9', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 40px 120px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.07)', animation: 'hvc-modal 0.35s cubic-bezier(0.25,0.8,0.25,1) forwards' }}
+                        onClick={e => e.stopPropagation()}>
                         <video src={playingUrl} controls autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', display: 'block' }} />
                     </div>
                     {videos.length > 1 && (
                         <div style={{ display: 'flex', gap: '10px', marginTop: '18px', zIndex: 10 }}>
                             <button className="hvc-mnav"
-                                onClick={(e) => { e.stopPropagation(); const p = (activeIdx - 1 + videos.length) % videos.length; setActiveIdx(p); setPlayingUrl(videos[p].video_url); setPlayingTitle(videos[p].title || ''); }}
+                                onClick={e => { e.stopPropagation(); const p = (activeIdx - 1 + videos.length) % videos.length; goTo(p); setPlayingUrl(videos[p].video_url); setPlayingTitle(videos[p].title || ''); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'background 0.2s', outline: 'none' }}>
                                 <ChevronLeft size={14} /> Previous
                             </button>
                             <button className="hvc-mnav"
-                                onClick={(e) => { e.stopPropagation(); const n = (activeIdx + 1) % videos.length; setActiveIdx(n); setPlayingUrl(videos[n].video_url); setPlayingTitle(videos[n].title || ''); }}
+                                onClick={e => { e.stopPropagation(); const n = (activeIdx + 1) % videos.length; goTo(n); setPlayingUrl(videos[n].video_url); setPlayingTitle(videos[n].title || ''); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'background 0.2s', outline: 'none' }}>
                                 Next <ChevronRight size={14} />
                             </button>
                         </div>
                     )}
-                    <p style={{ marginTop: '12px', fontSize: '0.62rem', color: 'rgba(255,255,255,0.18)', letterSpacing: '0.06em' }}>Press ESC or tap outside to close</p>
+                    <p style={{ marginTop: '12px', fontSize: '0.62rem', color: 'rgba(255,255,255,0.18)', letterSpacing: '0.06em' }}>Press ESC or click outside to close</p>
                 </div>
             )}
         </>
     );
 };
+
 
 // ─── Shared section label ─────────────────────────────────────────────────────
 const SectionLabel = ({ children }) => (
@@ -800,13 +931,10 @@ const Home = () => {
                             {!videosLoading && recentVideos.length > 0 ? (
                                 /* CHANGE 3: framed video panel with label strip */
                                 <div style={{ width: '100%' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <span style={{ fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Featured Videos</span>
-                                        <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.28)', fontVariantNumeric: 'tabular-nums' }}>{recentVideos.length} video{recentVideos.length !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    <div style={{ border: '1px solid rgba(255,255,255,0.10)', borderRadius: '16px', overflow: 'hidden', padding: '10px', background: 'rgba(0,0,0,0.18)' }}>
-                                        <HeroVideoCarousel videos={recentVideos} />
-                                    </div>
+                                    {/* <div style={{ marginBottom: '8px' }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Featured Media</span>
+                                    </div> */}
+                                    <HeroVideoCarousel videos={recentVideos} viewAllHref="/media-hub" />
                                 </div>
                             ) : !videosLoading ? (
                                 /* CHANGE 4: compact fallback — stacked trust rows + stat grid */
@@ -881,8 +1009,8 @@ const Home = () => {
                     </div>
                     <div className="mission-grid">
                         {[
-                            { accent: '#003366', label: 'Our Mission', body: 'To empower organisations and professionals to deploy AI technology safely, ethically, and responsibly — providing comprehensive insight reports and security assessments to align with global frameworks.' },
-                            { accent: '#f9a825', label: 'Our Vision',  body: 'A world where artificial intelligence systems are governed with the same rigour and accountability as financial markets — transparent, auditable, and aligned with societal values.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
+                            { accent: '#003366', label: 'Our Mission', body: 'To empower organisations and professionals to deploy AI technology safely, ethically, and responsibly - providing comprehensive insight reports and security assessments to align with global frameworks.' },
+                            { accent: '#f9a825', label: 'Our Vision',  body: 'A world where artificial intelligence systems are governed with the same rigour and accountability as financial markets - transparent, auditable, and aligned with societal values.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
                         ].map(({ accent, label, body, sub }) => (
                             <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #E2E8F0', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 12px rgba(0,51,102,0.06)' }}>
                                 <h3 style={{ fontSize: 'clamp(1rem,2vw,1.25rem)', color: '#003366', marginBottom: '0.85rem', fontWeight: '800' }}>{label}</h3>
@@ -900,9 +1028,9 @@ const Home = () => {
             <section style={{ background: 'white', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
                 <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <SectionLabel>Who We Are</SectionLabel>
-                    <h2 style={{ fontSize: 'clamp(1.3rem,3vw,2rem)', color: '#1E293B', fontWeight: '800', marginBottom: '1rem', lineHeight: 1.3 }}>About the AI Risk Council</h2>
+                    <h2 style={{ fontSize: 'clamp(1.3rem,3vw,2rem)', color: '#1E293B', fontWeight: '800', marginBottom: '1rem', lineHeight: 1.3 }}>About the Risk AI Council (RAC)</h2>
                     <p style={{ color: '#4A5568', lineHeight: '1.8', fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', marginBottom: '2rem' }}>
-                        An independent, peer members' authority comprising governance experts, legal scholars, and AI researchers across countries — operating without vendor affiliation to deliver unbiased, actionable guidance.
+                        An independent group of peer members, including executives, governance and risk experts, legal scholars, and AI researchers across countries, delivering unbiased and actionable guidance.
                     </p>
                     <Link to="/about"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#003366', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem', textDecoration: 'none', transition: 'background 0.15s' }}
@@ -927,7 +1055,7 @@ const Home = () => {
                         {[
                             { icon: BookOpen, color: '#003366', title: 'Exclusive Research',  desc: 'Access 120+ peer-reviewed reports, audit templates, and risk frameworks. New publications added monthly.' },
                             { icon: Users,    color: '#7C3AED', title: 'Peer Network',         desc: 'Connect with 500+ risk professionals, legal experts, and AI leaders across countries via forums and roundtables.' },
-                            { icon: Zap,      color: '#D97706', title: 'Stay Ahead',           desc: 'Receive early-access briefings on upcoming regulations — EU AI Act enforcement, NIST AI RMF revisions, and more.' },
+                            { icon: Zap,      color: '#D97706', title: 'Stay Ahead',           desc: 'Receive early-access briefings on upcoming regulations - EU AI Act enforcement, NIST AI RMF revisions, and more.' },
                             { icon: Star,     color: '#0369A1', title: 'Priority Access',      desc: 'Skip the waitlist for workshops, advisory sessions, and annual summit seats. Members get first-look at every resource.' },
                         ].map(({ icon: Icon, color, title, desc }) => (
                             <div key={title}

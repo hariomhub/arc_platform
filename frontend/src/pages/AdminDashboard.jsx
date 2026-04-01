@@ -6,6 +6,7 @@ import {
     Search, Loader2, UserX, UserCheck, ChevronDown,
     Plus, Trash2, FileText, Edit2, Save, ShieldCheck,
     Image, Video, Eye, Upload, Star, Trophy, Newspaper,
+    BookOpen, Mic2, MapPin, Linkedin,
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
@@ -14,8 +15,9 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
+import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
-import { getTeam, createTeamMember, deleteTeamMember } from '../api/team.js';
+import { getTeam, createTeamMember, updateTeamMember, deleteTeamMember } from '../api/team.js';
 import { getResources, deleteResource, getPendingResources, approveResource, rejectResource } from '../api/resources.js';
 import { getFetchStats } from '../api/autoNews.js';
 import { getProducts, getProductById as getProductByIdAPI, createProduct, updateProduct, deleteProduct, addFeatureTest, updateFeatureTest, deleteFeatureTest, uploadProductMedia, deleteProductMedia, uploadEvidence, deleteEvidence, submitUserReview, deleteUserReview } from '../api/productReviews.js';
@@ -26,16 +28,17 @@ import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = [
-    { key: 'pending',           label: 'Member Approvals',  icon: Clock },
-    { key: 'pending_resources', label: 'Pending Resources', icon: FileText },
-    { key: 'news',              label: 'Manage News',       icon: FileText },
-    { key: 'auto_news',         label: 'Automated News',    icon: Newspaper },
-    { key: 'events',            label: 'Manage Events',     icon: CalendarDays },
-    { key: 'team',              label: 'Manage Team',       icon: Users },
-    { key: 'resources',         label: 'Manage Resources',  icon: FileText },
-    { key: 'product_reviews',   label: 'Product Reviews',   icon: ShieldCheck },
-    { key: 'nominations',       label: 'Nominations',       icon: Trophy },
-    { key: 'framework',         label: 'Framework Content', icon: Shield },
+    { key: 'pending',           label: 'Member Approvals',    icon: Clock },
+    { key: 'pending_resources', label: 'Pending Resources',   icon: FileText },
+    { key: 'news',              label: 'Manage News',         icon: FileText },
+    { key: 'auto_news',         label: 'Automated News',      icon: Newspaper },
+    { key: 'events',            label: 'Manage Events',       icon: CalendarDays },
+    { key: 'workshops',         label: 'Exec Workshops',      icon: BookOpen },
+    { key: 'team',              label: 'Manage Team',         icon: Users },
+    { key: 'resources',         label: 'Manage Resources',    icon: FileText },
+    { key: 'product_reviews',   label: 'Product Reviews',     icon: ShieldCheck },
+    { key: 'nominations',       label: 'Nominations',         icon: Trophy },
+    { key: 'framework',         label: 'Framework Content',   icon: Shield },
 ];
 
 const ROLE_OPTIONS = ['founding_member', 'executive', 'professional'];
@@ -155,24 +158,33 @@ const PendingTab = ({ showToast, onApproved }) => {
     const [rejectNotes, setRejectNotes] = useState('');
     const [expanded, setExpanded] = useState(null);
 
+    const [userFilter, setUserFilter] = useState('pending');
+    const [userPage, setUserPage] = useState(1);
+    const [userTotalPages, setUserTotalPages] = useState(1);
+
+    const [appPage, setAppPage] = useState(1);
+    const [appTotalPages, setAppTotalPages] = useState(1);
+
     const fetch = useCallback(async () => {
         setLoading(true); setError('');
         try {
-            const res = await getPendingUsers();
+            const res = await getAllUsers({ status: userFilter, limit: 20, page: userPage });
             const payload = res.data?.data;
             setUsers(Array.isArray(payload) ? payload : []);
+            setUserTotalPages(res.data?.totalPages || 1);
         } catch (err) { setError(getErrorMessage(err)); }
         finally { setLoading(false); }
-    }, []);
+    }, [userFilter, userPage]);
 
     const loadApps = useCallback(async () => {
         setAppsLoading(true); setAppsError('');
         try {
-            const res = await getMembershipApplications({ status: appFilter });
+            const res = await getMembershipApplications({ status: appFilter, limit: 20, page: appPage });
             setApps(Array.isArray(res.data?.data) ? res.data.data : []);
+            setAppTotalPages(res.data?.totalPages || 1);
         } catch (err) { setAppsError(getErrorMessage(err) || 'Failed to load applications.'); }
         finally { setAppsLoading(false); }
-    }, [appFilter]);
+    }, [appFilter, appPage]);
 
     useEffect(() => { fetch(); }, [fetch]);
     useEffect(() => { loadApps(); }, [loadApps]);
@@ -227,13 +239,21 @@ const PendingTab = ({ showToast, onApproved }) => {
 
     return (
         <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ width: '36px', height: '36px', background: '#001f3f', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Users size={16} color='#60A5FA' />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: '36px', height: '36px', background: '#001f3f', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Users size={16} color='#60A5FA' />
+                    </div>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>New Member Registrations</h3>
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>{userFilter === 'pending' ? 'Pending account approvals' : `Viewing ${userFilter} accounts`}</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>New Member Registrations</h3>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Pending account approvals</p>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {['pending', 'approved', 'rejected'].map(s => (
+                        <button key={s} onClick={() => setUserFilter(s)} style={{ padding: '0.4rem 0.85rem', border: `1.5px solid ${userFilter === s ? '#003366' : '#E2E8F0'}`, borderRadius: '7px', background: userFilter === s ? '#003366' : 'white', color: userFilter === s ? 'white' : '#64748B', fontWeight: '600', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{s}</button>
+                    ))}
+                    <button onClick={fetch} style={{ padding: '0.4rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '7px', background: 'white', cursor: 'pointer', color: '#64748B', fontFamily: 'inherit' }}><RefreshCw size={13} /></button>
                 </div>
             </div>
 
@@ -245,7 +265,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                         <UserCheck size={20} color="#16A34A" style={{ display: 'block' }} />
                     </div>
                     <p style={{ color: '#15803D', fontWeight: '700', margin: '0 0 3px', fontSize: '0.9rem' }}>All caught up!</p>
-                    <p style={{ color: '#86EFAC', margin: 0, fontSize: '0.78rem' }}>No pending registrations.</p>
+                    <p style={{ color: '#86EFAC', margin: 0, fontSize: '0.78rem' }}>No {userFilter} registrations.</p>
                 </div>
             )}
             {!loading && users.length > 0 && (
@@ -262,15 +282,25 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px', alignSelf: 'flex-start', marginTop: '2px' }}>Registered: {formatDate(u.created_at)}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                                <button onClick={() => handleApprove(u.id)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
-                                    {actioning[u.id] === 'approve' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />} Approve
-                                </button>
-                                <button onClick={() => setConfirm({ userId: u.id })} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#DC2626', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
-                                    {actioning[u.id] === 'reject' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={14} />} Reject
-                                </button>
+                                {u.status === 'pending' && (
+                                    <>
+                                        <button onClick={() => handleApprove(u.id)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
+                                            {actioning[u.id] === 'approve' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />} Approve
+                                        </button>
+                                        <button onClick={() => setConfirm({ userId: u.id })} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#DC2626', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
+                                            {actioning[u.id] === 'reject' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={14} />} Reject
+                                        </button>
+                                    </>
+                                )}
+                                {u.status !== 'pending' && (
+                                    <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', background: STATUS_BADGE[u.status]?.bg || '#f1f5f9', color: STATUS_BADGE[u.status]?.color || '#64748b', textTransform: 'uppercase' }}>
+                                        {u.status}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     ))}
+                    <Pagination page={userPage} totalPages={userTotalPages} onPageChange={setUserPage} />
                 </div>
             )}
             <ConfirmDialog isOpen={!!confirm} title="Reject Application" message="Are you sure you want to reject this application?" confirmLabel="Reject" onConfirm={confirmReject} onClose={() => setConfirm(null)} />
@@ -289,7 +319,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         {['pending', 'approved', 'rejected'].map(s => (
-                            <button key={s} onClick={() => setAppFilter(s)} style={{ padding: '0.4rem 0.85rem', border: `1.5px solid ${appFilter === s ? '#003366' : '#E2E8F0'}`, borderRadius: '7px', background: appFilter === s ? '#003366' : 'white', color: appFilter === s ? 'white' : '#64748B', fontWeight: '600', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{s}</button>
+                            <button key={s} onClick={() => { setAppFilter(s); setAppPage(1); }} style={{ padding: '0.4rem 0.85rem', border: `1.5px solid ${appFilter === s ? '#003366' : '#E2E8F0'}`, borderRadius: '7px', background: appFilter === s ? '#003366' : 'white', color: appFilter === s ? 'white' : '#64748B', fontWeight: '600', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{s}</button>
                         ))}
                         <button onClick={loadApps} style={{ padding: '0.4rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '7px', background: 'white', cursor: 'pointer', color: '#64748B', fontFamily: 'inherit' }}><RefreshCw size={13} /></button>
                     </div>
@@ -379,6 +409,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 </div>
                             );
                         })}
+                        <Pagination page={appPage} totalPages={appTotalPages} onPageChange={setAppPage} />
                     </div>
                 )}
             </div>
@@ -405,6 +436,8 @@ const PendingTab = ({ showToast, onApproved }) => {
 const PendingResourcesTab = ({ showToast, onCountChange }) => {
     const [resources, setResources] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [error, setError] = useState('');
     const [actioning, setActioning] = useState({});
     const [confirm, setConfirm] = useState(null);
@@ -412,14 +445,15 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
     const fetchPending = useCallback(async () => {
         setLoading(true); setError('');
         try {
-            const res = await getPendingResources();
+            const res = await getPendingResources({ page, limit: 20 });
             const payload = res.data?.data;
             const list = Array.isArray(payload) ? payload : [];
             setResources(list);
-            onCountChange?.(list.length);
+            setTotalPages(res.data?.totalPages || 1);
+            onCountChange?.(res.data?.total || list.length);
         } catch (err) { setError(getErrorMessage(err)); }
         finally { setLoading(false); }
-    }, []);
+    }, [page]);
 
     useEffect(() => { fetchPending(); }, [fetchPending]);
 
@@ -485,6 +519,7 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
                         </div>
                     </div>
                 ))}
+                <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
             <ConfirmDialog isOpen={!!confirm} title="Reject Resource" message="Are you sure you want to reject this resource? It will not be visible to users." confirmLabel="Reject" onConfirm={confirmReject} onClose={() => setConfirm(null)} />
         </>
@@ -804,15 +839,17 @@ const NewsTab = ({ showToast }) => {
 
 // ─── 5. Manage Team Tab ───────────────────────────────────────────────────────
 const TeamTab = ({ showToast }) => {
-    const EMPTY_FORM = { name: '', role: '', bio: '', image: null };
+    const EMPTY_FORM = { name: '', role: '', bio: '', linkedin_url: '', email: '', image: null };
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [form, setForm] = useState(EMPTY_FORM);
+    const [editingId, setEditingId] = useState(null);
     const [formErrors, setFormErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [confirm, setConfirm] = useState(null);
+    const [viewMemberDetails, setViewMemberDetails] = useState(null);
     const [deleting, setDeleting] = useState({});
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -839,9 +876,20 @@ const TeamTab = ({ showToast }) => {
         setSubmitting(true);
         try {
             const fd = new FormData();
-            fd.append('name', form.name); fd.append('role', form.role); fd.append('bio', form.bio);
-            if (form.image) fd.append('image', form.image);
-            await createTeamMember(fd); showToast('Team member added!', 'success'); setForm(EMPTY_FORM); setShowForm(false); fetchTeam();
+            fd.append('name', form.name); fd.append('role', form.role); fd.append('bio', form.bio || '');
+            if (form.linkedin_url) fd.append('linkedin_url', form.linkedin_url);
+            else fd.append('linkedin_url', '');
+            if (form.email) fd.append('email', form.email);
+            else fd.append('email', '');
+            if (form.image) fd.append('photo', form.image);
+            if (editingId) {
+                await updateTeamMember(editingId, fd);
+                showToast('Team member updated!', 'success');
+            } else {
+                await createTeamMember(fd);
+                showToast('Team member added!', 'success');
+            }
+            setForm(EMPTY_FORM); setEditingId(null); setShowForm(false); fetchTeam();
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setSubmitting(false); }
     };
@@ -856,43 +904,78 @@ const TeamTab = ({ showToast }) => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <SectionHeader icon={Users} title="Manage Team" subtitle={`${members.length} member${members.length !== 1 ? 's' : ''}`}
-                action={<button onClick={() => setShowForm((p) => !p)} style={showForm ? BTN_CANCEL : BTN_PRIMARY}><Plus size={14} /> {showForm ? 'Cancel' : 'Add Member'}</button>} />
+                action={<button onClick={() => { setShowForm((p) => !p); if (!showForm) { setForm(EMPTY_FORM); setEditingId(null); } }} style={showForm ? BTN_CANCEL : BTN_PRIMARY}><Plus size={14} /> {showForm ? 'Cancel' : 'Add Member'}</button>} />
 
             {showForm && (
                 <form onSubmit={handleSubmit} noValidate className="adm-form-panel">
-                    <p style={{ margin: '0 0 1rem', fontWeight: '700', fontSize: '0.9rem', color: '#0F172A' }}>New Team Member</p>
+                    <p style={{ margin: '0 0 1rem', fontWeight: '700', fontSize: '0.9rem', color: '#0F172A' }}>{editingId ? 'Edit Team Member' : 'New Team Member'}</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px,100%), 1fr))', gap: '14px' }}>
                         <FormField label="Full Name" required error={formErrors.name}><input value={form.name} onChange={field('name')} className={`adm-input${formErrors.name ? ' adm-input-err' : ''}`} placeholder="Dr. Jane Smith" /></FormField>
                         <FormField label="Role / Title" required error={formErrors.role}><input value={form.role} onChange={field('role')} className={`adm-input${formErrors.role ? ' adm-input-err' : ''}`} placeholder="Director of Research" /></FormField>
-                        <div style={{ gridColumn: '1 / -1' }}><FormField label="Bio"><textarea value={form.bio} onChange={field('bio')} rows={3} className="adm-input" style={{ resize: 'vertical' }} placeholder="Short biography…" /></FormField></div>
-                        <div style={{ gridColumn: '1 / -1' }}><FormField label="Profile Photo"><input type="file" accept="image/*" onChange={(e) => setForm((p) => ({ ...p, image: e.target.files?.[0] || null }))} style={{ fontSize: '0.8rem', color: '#64748B', cursor: 'pointer' }} /></FormField></div>
+                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                            <FormField label="Email ID (Optional)"><input type="email" value={form.email || ''} onChange={field('email')} className="adm-input" placeholder="member@example.com" /></FormField>
+                            <FormField label="LinkedIn URL (Optional)"><input type="url" value={form.linkedin_url || ''} onChange={field('linkedin_url')} className="adm-input" placeholder="https://linkedin.com/in/..." /></FormField>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}><FormField label="Bio"><textarea value={form.bio || ''} onChange={field('bio')} rows={3} className="adm-input" style={{ resize: 'vertical' }} placeholder="Short biography…" /></FormField></div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <FormField label="Profile Photo">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.75rem 1.25rem', background: '#F8FAFC', border: '1px dashed #CBD5E1', borderRadius: '8px', cursor: 'pointer', color: '#475569', fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s', width: '100%', boxSizing: 'border-box' }} onMouseOver={(e) => { e.currentTarget.style.borderColor = '#94A3B8'; e.currentTarget.style.background = '#F1F5F9'; }} onMouseOut={(e) => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.background = '#F8FAFC'; }}>
+                                    <Upload size={18} color="#64748B" />
+                                    {form.image ? <span style={{ color: '#0F172A', fontWeight: '600' }}>{form.image.name}</span> : <span>Click to browse or drop an image file</span>}
+                                    <input type="file" accept="image/*" onChange={(e) => setForm((p) => ({ ...p, image: e.target.files?.[0] || null }))} style={{ display: 'none' }} />
+                                </label>
+                            </FormField>
+                        </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setFormErrors({}); }} style={BTN_CANCEL}>Cancel</button>
+                        <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setEditingId(null); setFormErrors({}); }} style={BTN_CANCEL}>Cancel</button>
                         <button type="submit" disabled={submitting} style={{ ...BTN_PRIMARY, opacity: submitting ? 0.6 : 1 }}>
-                            {submitting ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Adding…</> : <><Save size={13} /> Add Member</>}
+                            {submitting ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={13} /> {editingId ? 'Save Changes' : 'Add Member'}</>}
                         </button>
                     </div>
                 </form>
             )}
 
-            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Added', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={4} />)}</TableWrapper>
+            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Details', 'Added', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={5} />)}</TableWrapper>
             : error ? <ErrorState message={error} onRetry={fetchTeam} /> : members.length === 0 ? <EmptyState icon={Users} message="No team members yet." /> : (
-                <TableWrapper headers={['Member', 'Role / Title', 'Added', '']}>
+                <TableWrapper headers={['Member', 'Role / Title', 'Details', 'Added', '']}>
                     {members.map((m) => (
                         <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
                             <td style={{ padding: '0.85rem 1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {m.image_url ? <img src={m.image_url} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #E2E8F0' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#001f3f', border: '1px solid #003060', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#60A5FA', fontSize: '0.75rem', fontWeight: '800' }}>{m.name?.charAt(0)?.toUpperCase()}</div>}
+                                    {m.photo_url ? <img src={m.photo_url} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #E2E8F0' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#001f3f', border: '1px solid #003060', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#60A5FA', fontSize: '0.75rem', fontWeight: '800' }}>{m.name?.charAt(0)?.toUpperCase()}</div>}
                                     <span style={{ fontWeight: '600', color: '#1E293B', fontSize: '0.875rem' }}>{m.name}</span>
                                 </div>
                             </td>
                             <td style={{ padding: '0.85rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{m.role || m.title || '—'}</td>
+                            <td style={{ padding: '0.85rem 1rem', maxWidth: '200px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                                    {m.linkedin_url && (
+                                        <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }} title="View LinkedIn Profile">
+                                            <Linkedin size={12} /> LinkedIn Profile
+                                        </a>
+                                    )}
+                                    <button onClick={() => setViewMemberDetails(m)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', border: '1px solid #E2E8F0', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#475569', cursor: 'pointer', fontWeight: '600', transition: 'all 0.15s' }} onMouseOver={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#CBD5E1'; }} onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E2E8F0'; }}>
+                                        <Eye size={12} /> View Full Details
+                                    </button>
+                                </div>
+                            </td>
                             <td style={{ padding: '0.85rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(m.created_at)}</td>
                             <td style={{ padding: '0.85rem 1rem' }}>
-                                <button onClick={() => setConfirm({ id: m.id, name: m.name })} disabled={deleting[m.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[m.id] ? 0.5 : 1 }}>
-                                    {deleting[m.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />} Remove
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={() => {
+                                        setForm({ name: m.name, role: m.role || m.title || '', bio: m.bio || '', linkedin_url: m.linkedin_url || '', email: m.email || '', image: null });
+                                        setEditingId(m.id);
+                                        setFormErrors({});
+                                        setShowForm(true);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }} style={IBTN('#0284C7', '#F0F9FF')}>
+                                        <Edit2 size={11} /> Edit
+                                    </button>
+                                    <button onClick={() => setConfirm({ id: m.id, name: m.name })} disabled={deleting[m.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[m.id] ? 0.5 : 1 }}>
+                                        {deleting[m.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />} Remove
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -900,6 +983,43 @@ const TeamTab = ({ showToast }) => {
             )}
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             <ConfirmDialog isOpen={!!confirm} title="Remove Team Member" message={`Remove "${confirm?.name}" from the team?`} confirmLabel="Remove" onConfirm={handleDelete} onClose={() => setConfirm(null)} />
+            
+            {viewMemberDetails && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setViewMemberDetails(null)}>
+                    <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', padding: '1.5rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setViewMemberDetails(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+                        
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '1rem' }}>
+                            {viewMemberDetails.photo_url ? <img src={viewMemberDetails.photo_url} alt={viewMemberDetails.name} style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #E2E8F0' }} /> : <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#001f3f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60A5FA', fontSize: '1.5rem', fontWeight: '800' }}>{viewMemberDetails.name?.charAt(0)?.toUpperCase()}</div>}
+                            <div>
+                                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.25rem', color: '#0F172A', fontWeight: '800' }}>{viewMemberDetails.name}</h3>
+                                <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem', fontWeight: '500' }}>{viewMemberDetails.role}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700' }}>Biography</h4>
+                            {viewMemberDetails.bio ? (
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#334155', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{viewMemberDetails.bio}</p>
+                            ) : (
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#94A3B8', fontStyle: 'italic' }}>No biography provided.</p>
+                            )}
+                        </div>
+
+                        {viewMemberDetails.linkedin_url && (
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <a href={viewMemberDetails.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem', background: '#F0F9FF', color: '#0369A1', borderRadius: '6px', textDecoration: 'none', fontWeight: '600', fontSize: '0.85rem', border: '1px solid #BAE6FD', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#E0F2FE'} onMouseOut={e => e.currentTarget.style.background = '#F0F9FF'}>
+                                    <Linkedin size={14} /> Open LinkedIn Profile
+                                </a>
+                            </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid #E2E8F0', marginTop: '0.5rem' }}>
+                            <button onClick={() => setViewMemberDetails(null)} style={{ padding: '0.5rem 1.25rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1437,6 +1557,227 @@ const ProductReviewsTab = ({ showToast }) => {
     );
 };
 
+// ─── WorkshopsTab ────────────────────────────────────────────────────────────
+const BLANK_WS = { title: '', date: '', location: '', description: '', speaker: '', agenda: '', recording_url: '', is_upcoming: true, is_published: true };
+
+const WorkshopsTab = ({ showToast }) => {
+    const [workshops, setWorkshops]     = useState([]);
+    const [loading, setLoading]         = useState(true);
+    const [error, setError]             = useState('');
+    const [page, setPage]               = useState(1);
+    const [totalPages, setTotalPages]   = useState(1);
+    const [showForm, setShowForm]       = useState(false);
+    const [editing, setEditing]         = useState(null); // null = create mode, obj = edit mode
+    const [form, setForm]               = useState(BLANK_WS);
+    const [saving, setSaving]           = useState(false);
+    const [formErrors, setFormErrors]   = useState({});
+    const [confirm, setConfirm]         = useState(null);
+    const [deleting, setDeleting]       = useState({});
+    const [toggling, setToggling]       = useState({});
+
+    const LIMIT = 20;
+
+    const load = useCallback(async () => {
+        setLoading(true); setError('');
+        try {
+            const res = await getWorkshops({ all: 'true', page, limit: LIMIT });
+            const p = res.data;
+            setWorkshops(Array.isArray(p.data) ? p.data : []);
+            setTotalPages(p.totalPages || 1);
+        } catch (err) { setError(getErrorMessage(err) || 'Failed to load workshops.'); }
+        finally { setLoading(false); }
+    }, [page]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const openCreate = () => { setEditing(null); setForm(BLANK_WS); setFormErrors({}); setShowForm(true); };
+    const openEdit   = (ws) => {
+        setEditing(ws);
+        setForm({
+            title:         ws.title         || '',
+            date:          ws.date          ? ws.date.slice(0, 16) : '',
+            location:      ws.location      || '',
+            description:   ws.description   || '',
+            speaker:       ws.speaker       || '',
+            agenda:        ws.agenda        || '',
+            recording_url: ws.recording_url || '',
+            is_upcoming:   !!ws.is_upcoming,
+            is_published:  !!ws.is_published,
+        });
+        setFormErrors({});
+        setShowForm(true);
+    };
+    const closeForm = () => { setShowForm(false); setEditing(null); };
+
+    const validate = () => {
+        const errs = {};
+        if (!form.title.trim())  errs.title = 'Title is required.';
+        if (!form.date)          errs.date  = 'Date is required.';
+        if (form.recording_url && !/^https?:\/\//.test(form.recording_url)) errs.recording_url = 'Must be a valid URL.';
+        setFormErrors(errs);
+        return Object.keys(errs).length === 0;
+    };
+
+    const handleSave = async () => {
+        if (!validate()) return;
+        setSaving(true);
+        try {
+            const payload = { ...form };
+            if (editing) { await updateWorkshop(editing.id, payload); showToast('Workshop updated!', 'success'); }
+            else         { await createWorkshop(payload);             showToast('Workshop created!', 'success'); }
+            closeForm();
+            load();
+        } catch (err) { showToast(getErrorMessage(err) || 'Save failed.', 'error'); }
+        finally { setSaving(false); }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm) return;
+        const id = confirm.id;
+        setConfirm(null);
+        setDeleting(p => ({ ...p, [id]: true }));
+        try {
+            await deleteWorkshop(id);
+            showToast('Workshop deleted.', 'success');
+            load();
+        } catch (err) { showToast(getErrorMessage(err) || 'Delete failed.', 'error'); }
+        finally { setDeleting(p => ({ ...p, [id]: false })); }
+    };
+
+    const handleToggle = async (ws) => {
+        setToggling(p => ({ ...p, [ws.id]: true }));
+        try {
+            await togglePublishWorkshop(ws.id);
+            showToast(ws.is_published ? 'Unpublished.' : 'Published!', 'success');
+            load();
+        } catch (err) { showToast(getErrorMessage(err) || 'Toggle failed.', 'error'); }
+        finally { setToggling(p => ({ ...p, [ws.id]: false })); }
+    };
+
+    const F = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })) });
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <SectionHeader
+                icon={BookOpen}
+                title="Executive Workshops"
+                subtitle="Admin-only. Visible to Executive & Founding Members. No public registration."
+                action={
+                    <button onClick={openCreate} style={{ ...BTN_PRIMARY, gap: '6px' }}>
+                        <Plus size={14} /> Add Workshop
+                    </button>
+                }
+            />
+
+            {/* ── Create / Edit Form ── */}
+            {showForm && (
+                <div className="adm-form-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#0F172A', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.75rem' }}>
+                        {editing ? '✏️ Edit Workshop' : '➕ New Executive Workshop'}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px,100%),1fr))', gap: '0.9rem' }}>
+                        <FormField label="Title" required error={formErrors.title}>
+                            <input className={`adm-input${formErrors.title ? ' adm-input-err' : ''}`} placeholder="Workshop title" {...F('title')} />
+                        </FormField>
+                        <FormField label="Date & Time" required error={formErrors.date}>
+                            <input type="datetime-local" className={`adm-input${formErrors.date ? ' adm-input-err' : ''}`} {...F('date')} />
+                        </FormField>
+                        <FormField label="Location / Platform">
+                            <input className="adm-input" placeholder="e.g. Virtual — Zoom, London HQ..." {...F('location')} />
+                        </FormField>
+                        <FormField label="Speaker">
+                            <input className="adm-input" placeholder="Speaker name & title" {...F('speaker')} />
+                        </FormField>
+                    </div>
+                    <FormField label="Description">
+                        <textarea className="adm-input" rows={3} placeholder="Brief overview of the workshop..." {...F('description')} style={{ resize: 'vertical' }} />
+                    </FormField>
+                    <FormField label="Agenda">
+                        <textarea className="adm-input" rows={3} placeholder="Workshop agenda or key topics..." {...F('agenda')} style={{ resize: 'vertical' }} />
+                    </FormField>
+                    <FormField label="Recording URL" error={formErrors.recording_url}>
+                        <input className={`adm-input${formErrors.recording_url ? ' adm-input-err' : ''}`} placeholder="https://... (leave blank if not yet recorded)" {...F('recording_url')} />
+                    </FormField>
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                            <input type="checkbox" checked={form.is_upcoming}  onChange={e => setForm(p => ({ ...p, is_upcoming:  e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
+                            Mark as Upcoming
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                            <input type="checkbox" checked={form.is_published} onChange={e => setForm(p => ({ ...p, is_published: e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
+                            Published (visible to Executive members)
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9' }}>
+                        <button onClick={handleSave} disabled={saving} style={{ ...BTN_PRIMARY, opacity: saving ? 0.7 : 1 }}>
+                            {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+                            {saving ? 'Saving…' : (editing ? 'Save Changes' : 'Create Workshop')}
+                        </button>
+                        <button onClick={closeForm} style={BTN_CANCEL}>Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Error ── */}
+            {error && <ErrorState message={error} onRetry={load} />}
+
+            {/* ── List ── */}
+            {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {[1,2,3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
+                </div>
+            ) : !error && workshops.length === 0 ? (
+                <EmptyState icon={BookOpen} message="No executive workshops yet. Click 'Add Workshop' to create one." />
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {workshops.map(ws => (
+                        <div key={ws.id} className="adm-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                            <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#0F172A' }}>{ws.title}</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: ws.is_published ? '#DCFCE7' : '#FEF3C7', color: ws.is_published ? '#15803D' : '#B45309' }}>
+                                        {ws.is_published ? 'Published' : 'Draft'}
+                                    </span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: ws.is_upcoming ? '#EFF6FF' : '#F1F5F9', color: ws.is_upcoming ? '#1D4ED8' : '#64748B' }}>
+                                        {ws.is_upcoming ? 'Upcoming' : 'Past'}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <CalendarDays size={11} color="#0284C7" />
+                                        {new Date(ws.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {ws.speaker && <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}><Mic2 size={11} color="#7C3AED" /> {ws.speaker}</span>}
+                                    {ws.location && <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={11} color="#0284C7" /> {ws.location}</span>}
+                                </div>
+                                {ws.description && <p style={{ margin: 0, fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ws.description}</p>}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button onClick={() => handleToggle(ws)} disabled={!!toggling[ws.id]} style={{ ...BTN_WARN, opacity: toggling[ws.id] ? 0.6 : 1 }}>
+                                    {toggling[ws.id] ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Eye size={12} />}
+                                    {ws.is_published ? 'Unpublish' : 'Publish'}
+                                </button>
+                                <button onClick={() => openEdit(ws)} style={BTN_SUCCESS}><Edit2 size={12} /> Edit</button>
+                                <button onClick={() => setConfirm({ id: ws.id, title: ws.title })} style={BTN_DANGER}><Trash2 size={12} /> Delete</button>
+                            </div>
+                        </div>
+                    ))}
+                    <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+                </div>
+            )}
+
+            <ConfirmDialog
+                isOpen={!!confirm}
+                title="Delete Workshop"
+                message={`Permanently delete "${confirm?.title}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                onConfirm={handleDelete}
+                onClose={() => setConfirm(null)}
+            />
+        </div>
+    );
+};
+
 // ─── AdminDashboard ───────────────────────────────────────────────────────────
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -1486,6 +1827,7 @@ const AdminDashboard = () => {
 
     const isFoundingMember = user.role === 'founding_member';
     const EXECUTIVE_TABS = ['pending_resources', 'news', 'auto_news', 'events', 'resources'];
+    // workshops tab is founding_member only — not in EXECUTIVE_TABS
     const visibleTabs = isFoundingMember ? TABS : TABS.filter(t => EXECUTIVE_TABS.includes(t.key));
     const activeTabInfo = TABS.find(t => t.key === tab);
     const ActiveTabIcon = activeTabInfo?.icon;
@@ -1504,7 +1846,7 @@ const AdminDashboard = () => {
                             </div>
                             <div>
                                 <h1 style={{ margin: 0, color: '#F8FAFC', fontSize: 'clamp(1rem,2vw,1.25rem)', fontWeight: '700', letterSpacing: '-0.01em', lineHeight: 1.2 }}>Admin Dashboard</h1>
-                                <p style={{ margin: '2px 0 0', color: '#64748B', fontSize: '0.78rem', fontWeight: '400' }}>AI Risk Council — Control Centre</p>
+                                <p style={{ margin: '2px 0 0', color: '#64748B', fontSize: '0.78rem', fontWeight: '400' }}>Risk AI Council (RAC) - Control Centre</p>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1572,8 +1914,8 @@ const AdminDashboard = () => {
             {/* ── Tab Navigation — horizontal scroll on mobile ── */}
             <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 40 }}>
                 <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 clamp(0.5rem,2vw,2rem)' }}>
-                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                        <div style={{ display: 'flex', minWidth: 'max-content' }}>
+                    <div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                             {visibleTabs.map(({ key, label, icon: Icon }) => {
                                 const active = tab === key;
                                 return (
@@ -1601,6 +1943,7 @@ const AdminDashboard = () => {
                 {tab === 'team'              && <TeamTab showToast={showToast} />}
                 {tab === 'resources'         && <ResourcesTab showToast={showToast} />}
                 {tab === 'product_reviews'   && <ProductReviewsTab showToast={showToast} />}
+                {tab === 'workshops'         && <WorkshopsTab showToast={showToast} />}
                 {tab === 'nominations'       && <AdminNominees embedded />}
                 {tab === 'framework'         && <FrameworkManagement />}
             </div>

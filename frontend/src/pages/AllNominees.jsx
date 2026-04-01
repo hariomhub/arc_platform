@@ -351,7 +351,7 @@ const AllNominees = () => {
 
     const searchRef = useRef(null);
 
-    useEffect(() => { document.title = 'All Nominees | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'All Nominees | Risk AI Council (RAC)'; }, []);
 
     const fetchAll = useCallback(async () => {
         setLoading(true); setError('');

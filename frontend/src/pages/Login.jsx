@@ -62,6 +62,7 @@ const Login = () => {
             expired: 'Your membership has expired. Please renew to continue.',
             no_email: 'LinkedIn did not share your email. Please use email/password login.',
             linkedin_failed: 'LinkedIn sign-in failed. Please try again.',
+            linkedin_registered: 'Registration successful via LinkedIn. Your account is pending admin approval — you will be notified once approved.',
         };
         setServerError(messages[error] || 'Sign-in failed. Please try again.');
     }, [location.search]);

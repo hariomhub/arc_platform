@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, CheckCircle, Loader2, ShieldCheck, BookOpen, Users, TrendingUp } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
-import { registerUser } from '../api/auth.js';
+import { registerUser, sendEmailOtp, verifyEmailOtp } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
 const getPwStrength = (pw) => {
@@ -60,6 +60,7 @@ const inputStyle = (hasError, disabled) => ({
 
 const Register = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, isAuthLoading } = useAuth();
 
     const [form, setForm] = useState({ name:'', email:'', password:'', confirmPassword:'', role:'professional', organization_name:'' });
@@ -69,12 +70,20 @@ const Register = () => {
     const [serverError,   setServerError]   = useState('');
     const [submitting,    setSubmitting]    = useState(false);
     const [success,       setSuccess]       = useState(false);
+    const [otp,           setOtp]           = useState('');
+    const [emailVerificationPhase, setEmailVerificationPhase] = useState('idle');
 
     const pwStrength   = getPwStrength(form.password);
     const showOrgField = ORG_ROLES.includes(form.role);
 
     useEffect(() => { document.title = 'Create Account | AI Risk Council'; }, []);
     useEffect(() => { if (!isAuthLoading && user) navigate('/', { replace:true }); }, [user, isAuthLoading, navigate]);
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('success') === 'linkedin') {
+            setSuccess(true);
+        }
+    }, [location.search]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -83,10 +92,48 @@ const Register = () => {
         setServerError('');
     };
 
+    const validateEmailOnly = () => {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Enter a valid email address.';
+        return null;
+    };
+
+    const handleSendOtp = async () => {
+        const err = validateEmailOnly();
+        if (err) { setFieldErrors(p => ({ ...p, email: err })); return; }
+        
+        setSubmitting(true);
+        setServerError('');
+        try {
+            await sendEmailOtp({ email: form.email.trim().toLowerCase() });
+            setEmailVerificationPhase('sent');
+        } catch (err) {
+            setServerError(getErrorMessage(err));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!otp || otp.length !== 6) { setFieldErrors(p => ({ ...p, otp: 'Enter 6-digit OTP' })); return; }
+
+        setSubmitting(true);
+        setServerError('');
+        try {
+            await verifyEmailOtp({ email: form.email.trim().toLowerCase(), otp });
+            setEmailVerificationPhase('verified');
+            setFieldErrors(p => ({ ...p, otp: '', email: '' }));
+        } catch (err) {
+            setServerError(getErrorMessage(err));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const validate = () => {
         const e = {};
         if (!form.name.trim() || form.name.trim().length < 2) e.name = 'Full name must be at least 2 characters.';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = 'Enter a valid email address.';
+        else if (emailVerificationPhase !== 'verified') e.email = 'Please verify your email address.';
         if (!form.password) e.password = 'Password is required.';
         else if (form.password.length < 8) e.password = 'Password must be at least 8 characters.';
         if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.';
@@ -303,8 +350,36 @@ const Register = () => {
                                         className={`ra-input${fieldErrors.name?' ra-input-err':''}`} style={inputStyle(fieldErrors.name,submitting)}/>
                                 </Field>
                                 <Field id="ra-email" label="Email Address" required error={fieldErrors.email}>
-                                    <input id="ra-email" type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@company.com" disabled={submitting} autoComplete="email"
-                                        className={`ra-input${fieldErrors.email?' ra-input-err':''}`} style={inputStyle(fieldErrors.email,submitting)}/>
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <input id="ra-email" type="email" name="email" value={form.email} onChange={(e) => { handleChange(e); if (emailVerificationPhase !== 'idle') setEmailVerificationPhase('idle'); }} placeholder="name@company.com" disabled={submitting || emailVerificationPhase === 'verified'} autoComplete="email"
+                                                className={`ra-input${fieldErrors.email?' ra-input-err':''}`} style={inputStyle(fieldErrors.email, submitting || emailVerificationPhase === 'verified')}/>
+                                        </div>
+                                        {emailVerificationPhase === 'idle' && (
+                                            <button type="button" onClick={handleSendOtp} disabled={submitting || !form.email} className="ra-btn"
+                                                style={{ padding: '0.7rem 1rem', background: (submitting || !form.email) ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: '0.8rem', cursor: (submitting || !form.email) ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
+                                                Verify
+                                            </button>
+                                        )}
+                                        {emailVerificationPhase === 'verified' && (
+                                            <div style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 0.5rem' }}>
+                                                <CheckCircle size={24} color="#10B981" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    {emailVerificationPhase === 'sent' && (
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <input type="text" value={otp} onChange={e => { setOtp(e.target.value); setFieldErrors(p => ({...p, otp: ''})) }} placeholder="6-digit OTP" maxLength={6} disabled={submitting} 
+                                                    className={`ra-input${fieldErrors.otp?' ra-input-err':''}`} style={inputStyle(fieldErrors.otp, submitting)} />
+                                                {fieldErrors.otp && <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.74rem', color:'#DC2626', marginTop: '0.3rem' }}><AlertCircle size={11}/>{fieldErrors.otp}</span>}
+                                            </div>
+                                            <button type="button" onClick={handleVerifyOtp} disabled={submitting || otp.length !== 6} className="ra-btn"
+                                                style={{ padding: '0.7rem 1rem', background: (submitting || otp.length !== 6) ? '#94A3B8' : '#10B981', color: 'white', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: '0.8rem', cursor: (submitting || otp.length !== 6) ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
+                                                Submit
+                                            </button>
+                                        </div>
+                                    )}
                                 </Field>
                             </div>
 
@@ -366,11 +441,35 @@ const Register = () => {
                                 <a href="#" style={{ color:'#003366', fontWeight:600, textDecoration:'none' }}>Privacy Policy</a>.
                             </p>
 
-                            <button type="submit" disabled={submitting} className="ra-btn"
-                                style={{ width:'100%', padding:'0.88rem', background:submitting?'#94A3B8':'linear-gradient(135deg,#003366,#005099)', color:'white', border:'none', borderRadius:10, fontWeight:700, fontSize:'0.92rem', cursor:submitting?'not-allowed':'pointer', fontFamily:'var(--font-sans)', transition:'all 0.18s ease', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:submitting?'none':'0 4px 14px rgba(0,51,102,0.28)' }}>
+                            <button type="submit" disabled={submitting || emailVerificationPhase !== 'verified'} className="ra-btn"
+                                style={{ width:'100%', padding:'0.88rem', background:(submitting || emailVerificationPhase !== 'verified')?'#94A3B8':'linear-gradient(135deg,#003366,#005099)', color:'white', border:'none', borderRadius:10, fontWeight:700, fontSize:'0.92rem', cursor:(submitting || emailVerificationPhase !== 'verified')?'not-allowed':'pointer', fontFamily:'var(--font-sans)', transition:'all 0.18s ease', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:(submitting || emailVerificationPhase !== 'verified')?'none':'0 4px 14px rgba(0,51,102,0.28)' }}>
                                 {submitting ? <><Loader2 size={16} style={{ animation:'spin 1s linear infinite' }}/> Creating account…</> : 'Create Account →'}
                             </button>
                         </form>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.5rem 0' }}>
+                            <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} /><span style={{ fontSize: '0.72rem', color: '#CBD5E1', fontWeight: 600, letterSpacing: '0.06em' }}>OR</span><div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />
+                        </div>
+
+                        {/* ── LinkedIn OAuth button ── */}
+                        <a href="/api/auth/linkedin"
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
+                                width: '100%', padding: '0.8rem',
+                                border: '1.5px solid #0077B5', borderRadius: 10,
+                                fontSize: '0.875rem', fontWeight: 600, color: '#0077B5',
+                                textDecoration: 'none', background: '#fff',
+                                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                boxSizing: 'border-box',
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.background = '#0077B5'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#0077B5'; }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg>
+                            Continue with LinkedIn
+                        </a>
                     </div>
                 </div>
             </div>

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
  * @param {{ page: number, totalPages: number, onPageChange: (p:number)=>void }} props
  */
 const Pagination = ({ page, totalPages, onPageChange }) => {
-    if (!totalPages || totalPages <= 1) return null;
+    if (!totalPages || totalPages < 1) return null;
 
     const btnBase = {
         display: 'inline-flex',

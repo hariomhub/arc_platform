@@ -23,7 +23,8 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 const TIERS = [
     {
         id: 'professional', name: 'Professional', icon: Shield, iconColor: '#059669',
-        price: 'Free', priceDetail: 'Free — 1-year membership',
+        price: <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}><div style={{ display: 'flex', alignItems: 'baseline' }}><span style={{ textDecoration: 'line-through', color: '#475569', fontSize: '2.8rem' }}>$49</span><span style={{ fontSize: '1.05rem', fontWeight: '700', color: '#64748B', marginLeft: '4px' }}>/yr</span></div><span style={{ fontSize: '1.6rem', color: '#16a34a', marginLeft: '4px' }}>$0</span></div>,
+        priceDetail: '1-year membership',
         description: 'For individuals exploring AI governance fundamentals. Free access with a 1-year membership.',
         features: [
             { label: 'Public news & resources', included: true },
@@ -38,7 +39,8 @@ const TIERS = [
     },
     {
         id: 'executive', name: 'Executive', icon: Zap, iconColor: '#003366',
-        price: '$0.00', priceDetail: '3-year membership · FOUNDING-LAUNCH promo',
+        price: <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}><div style={{ display: 'flex', alignItems: 'baseline' }}><span style={{ textDecoration: 'line-through', color: '#475569', fontSize: '2.8rem' }}>$99</span><span style={{ fontSize: '1.05rem', fontWeight: '700', color: '#64748B', marginLeft: '4px' }}>/yr</span></div><span style={{ fontSize: '1.6rem', color: '#16a34a', marginLeft: '4px' }}>$0</span></div>,
+        priceDetail: '3-year membership',
         description: 'For senior risk professionals, compliance leads, and AI governance practitioners.',
         features: [
             { label: 'Everything in Professional', included: true },
@@ -53,18 +55,19 @@ const TIERS = [
     },
     {
         id: 'founding_member', name: 'Founding Member', icon: Building2, iconColor: '#7C3AED',
-        price: 'Lifetime', priceDetail: 'Limited founding seats',
+        price: <span style={{ fontSize: '1.45rem', fontWeight: '800', letterSpacing: '0.02em', background: 'linear-gradient(135deg, #7C3AED 0%, #4c1d95 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>By Invitation</span>, 
+        priceDetail: '5-year membership',
         description: 'For founding contributors and organizational leaders shaping the future of AI governance.',
         features: [
             { label: 'Everything in Executive', included: true },
-            { label: 'Lifetime membership', included: true },
+            { label: '5-year membership', included: true },
             { label: 'Full platform administration', included: true },
             { label: 'Co-branded research', included: true },
             { label: 'Private advisory sessions', included: true },
             { label: 'Dedicated account manager', included: true },
             { label: 'Custom integrations', included: true },
         ],
-        highlighted: false, cta: 'Invite Me for Founding Member', badge: 'Founding',
+        highlighted: false, cta: 'Nominate Me for Founding Member', badge: 'Founding',
     },
 ];
 
@@ -78,7 +81,7 @@ const COMPARISON_ROWS = [
     { feature: 'Member-only research',            professional: false, executive: true,  founding_member: true  },
     { feature: 'Priority event registration',     professional: false, executive: true,  founding_member: true  },
     { feature: 'Peer benchmarking data',          professional: false, executive: true,  founding_member: true  },
-    { feature: 'Lifetime membership',             professional: false, executive: false, founding_member: true  },
+    { feature: '5-year membership',               professional: false, executive: false, founding_member: true  },
     { feature: 'Private advisory sessions',       professional: false, executive: false, founding_member: true  },
     { feature: 'Co-branded research',             professional: false, executive: false, founding_member: true  },
 ];
@@ -168,7 +171,7 @@ const Membership = () => {
                         Council Membership
                     </span>
                     <h1 style={{ color: 'white', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: '800', margin: '0 0 1rem', lineHeight: 1.2 }}>
-                        Join the AI Risk Council
+                        Join the Risk AI Council (RAC)
                     </h1>
                     <p style={{ color: '#CBD5E1', fontSize: '1.15rem', lineHeight: '1.75', margin: '0 auto 2rem', maxWidth: '580px' }}>
                         A global community of AI risk professionals, researchers, and governance leaders building safer AI systems.
@@ -236,16 +239,17 @@ const Membership = () => {
                                         ? <span style={{ position: 'absolute', top: 0, right: 0, background: '#059669', color: 'white', fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em', padding: '0.3rem 1rem', borderBottomLeftRadius: '10px', textTransform: 'uppercase' }}>Your Plan</span>
                                         : tier.badge && <span style={{ position: 'absolute', top: 0, right: 0, background: tier.highlighted ? '#003366' : '#7C3AED', color: 'white', fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em', padding: '0.3rem 1rem', borderBottomLeftRadius: '10px', textTransform: 'uppercase' }}>{tier.badge}</span>
                                     }
-                                    {tier.id === 'executive' && !isCurrentPlan && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1rem' }}><Zap size={13} color='#003366' /><span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#003366', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Founding Launch — Now Open</span></div>}
-                                    {tier.id === 'founding_member' && !isCurrentPlan && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1rem' }}><Star size={13} color='#7C3AED' fill='#7C3AED' /><span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Limited Seats</span></div>}
+
                                     {isCurrentPlan && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1rem' }}><CheckCircle2 size={13} color='#059669' /><span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active Membership</span></div>}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
                                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${tier.iconColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} color={tier.iconColor} /></div>
                                         <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#1E293B', fontWeight: '700' }}>{tier.name}</h3>
                                     </div>
                                     <div style={{ marginBottom: '1rem' }}>
-                                        <span style={{ fontSize: '2rem', fontWeight: '800', color: isCurrentPlan ? '#059669' : tier.highlighted ? '#003366' : '#1E293B' }}>{tier.price}</span>
-                                        <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>{tier.priceDetail}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', minHeight: '3.5rem' }}>
+                                            <span style={{ fontSize: '2rem', fontWeight: '800', color: isCurrentPlan ? '#059669' : tier.highlighted ? '#003366' : '#1E293B' }}>{tier.price}</span>
+                                        </div>
+                                        <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#475569', fontWeight: '600' }}>{tier.priceDetail}</p>
                                     </div>
                                     <p style={{ color: '#64748B', fontSize: '0.875rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>{tier.description}</p>
                                     <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.75rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
@@ -263,9 +267,9 @@ const Membership = () => {
                                     ) : tier.id === 'professional' ? (
                                         <button onClick={() => navigate('/register')} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'transparent', border: '1.5px solid #059669', color: '#059669', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>{tier.cta}</button>
                                     ) : tier.id === 'executive' ? (
-                                        <button onClick={() => isLoggedIn ? setShowExecutiveModal(true) : navigate('/register')} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#003366', border: 'none', color: 'white', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Zap size={15} />{tier.cta}</button>
+                                        <button onClick={() => isLoggedIn ? setShowExecutiveModal(true) : navigate('/register')} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#003366', border: 'none', color: 'white', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Zap size={15} style={{ flexShrink: 0 }} />{tier.cta}</button>
                                     ) : (
-                                        <button onClick={() => isLoggedIn ? setShowFoundingModal(true) : navigate('/register')} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#7C3AED', border: 'none', color: 'white', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Star size={15} />{tier.cta}</button>
+                                        <button onClick={() => isLoggedIn ? setShowFoundingModal(true) : navigate('/register')} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#7C3AED', border: 'none', color: 'white', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', textAlign: 'center', lineHeight: '1.2' }}><Star size={15} style={{ flexShrink: 0 }} />{tier.cta}</button>
                                     )}
                                 </div>
                             );
@@ -310,7 +314,7 @@ const Membership = () => {
                     <div style={{ background: 'white', borderRadius: '24px', width: '100%', maxWidth: '880px', boxShadow: '0 32px 100px rgba(0,0,0,0.35)', position: 'relative', margin: 'auto', overflow: 'hidden' }}>
                         
                         {/* Modal header stripe */}
-                        <div style={{ background: 'linear-gradient(135deg, #001a33 0%, #003366 60%, #0055a5 100%)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ background: '#003366', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                                 <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Zap size={22} color='white' fill='white' />
@@ -390,7 +394,7 @@ const Membership = () => {
                                         )}
 
                                         <button type='submit' disabled={execLoading}
-                                            style={{ width: '100%', padding: '0.95rem', background: execLoading ? '#4d7ab5' : 'linear-gradient(135deg, #003366 0%, #0055a5 100%)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '0.95rem', cursor: execLoading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '0.25rem', boxShadow: execLoading ? 'none' : '0 6px 20px rgba(0,51,102,0.35)', transition: 'all 0.2s' }}>
+                                            style={{ width: '100%', padding: '0.95rem', background: execLoading ? '#4d7ab5' : '#003366', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '0.95rem', cursor: execLoading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '0.25rem', boxShadow: execLoading ? 'none' : '0 6px 20px rgba(0,51,102,0.35)', transition: 'all 0.2s' }}>
                                             {execLoading ? <><Loader2 size={18} className='spin' />Submitting…</> : <><Zap size={17} fill='white' />Submit Application — $0.00</>}
                                         </button>
                                         <p style={{ margin: 0, textAlign: 'center', fontSize: '0.72rem', color: '#94a3b8' }}>
@@ -410,18 +414,18 @@ const Membership = () => {
                                                 <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: '700', color: '#1e293b' }}>Executive Membership</p>
                                                 <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#94a3b8' }}>3-year term · AI Risk Council</p>
                                             </div>
-                                            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '600', color: '#94a3b8', textDecoration: 'line-through', whiteSpace: 'nowrap' }}>$299 / qtr</p>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '600', color: '#94a3b8', textDecoration: 'line-through', whiteSpace: 'nowrap' }}>$99 / yr</p>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
-                                            <span style={{ color: '#64748b' }}>Subtotal</span>
-                                            <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>$299.00</span>
+                                            <span style={{ color: '#64748b' }}>Subtotal (3 years)</span>
+                                            <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>$297.00</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.65rem', fontWeight: '800', padding: '2px 8px', borderRadius: '100px' }}>FOUNDING-LAUNCH</span>
+                                                <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.65rem', fontWeight: '800', padding: '2px 8px', borderRadius: '100px' }}>PROMO DISCOUNT</span>
                                                 <span style={{ color: '#16a34a', fontWeight: '600' }}>100% off</span>
                                             </span>
-                                            <span style={{ color: '#16a34a', fontWeight: '700' }}>− $299.00</span>
+                                            <span style={{ color: '#16a34a', fontWeight: '700' }}>− $297.00</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
                                             <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e293b' }}>Total Today</span>
@@ -465,13 +469,13 @@ const Membership = () => {
                     <div style={{ background: 'white', borderRadius: '24px', width: '100%', maxWidth: '700px', boxShadow: '0 32px 100px rgba(0,0,0,0.35)', position: 'relative', margin: 'auto', overflow: 'hidden' }}>
 
                         {/* Header stripe */}
-                        <div style={{ background: 'linear-gradient(135deg, #2e1065 0%, #5b21b6 60%, #7C3AED 100%)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ background: '#4c1d95', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                                 <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Star size={22} color='white' fill='white' />
                                 </div>
                                 <div>
-                                    <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '700', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Limited Seats · Application</p>
+                                    <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '700', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>By Invitation · Application</p>
                                     <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: 'white' }}>Founding Member Invitation</h2>
                                 </div>
                             </div>
@@ -492,7 +496,7 @@ const Membership = () => {
                                 </p>
                                 <div style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)', border: '1.5px solid #e9d5ff', borderRadius: '14px', padding: '1.25rem 1.5rem', textAlign: 'left', marginBottom: '2rem' }}>
                                     <p style={{ margin: '0 0 0.75rem', fontSize: '0.72rem', fontWeight: '800', color: '#6b21a8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>What to Expect</p>
-                                    {['Your Professional membership stays fully active','Our team reviews applications individually','You will hear from us within 7–14 business days','Founding seats are extremely limited'].map((s, i) => (
+                                    {['Your Professional membership stays fully active','Our team reviews applications individually','You will hear from us within 7–14 business days','Founding seats are by invitation only'].map((s, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: i < 3 ? '0.5rem' : 0 }}>
                                             <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e9d5ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}><Check size={11} color='#7C3AED' /></div>
                                             <span style={{ fontSize: '0.85rem', color: '#4c1d95', lineHeight: '1.5' }}>{s}</span>
@@ -508,7 +512,7 @@ const Membership = () => {
                                 <div style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.75rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                                     <Star size={16} color='#7C3AED' fill='#7C3AED' style={{ flexShrink: 0, marginTop: '2px' }} />
                                     <p style={{ margin: 0, fontSize: '0.845rem', color: '#4c1d95', lineHeight: '1.65' }}>
-                                        Founding seats are <strong>extremely limited</strong> and reviewed individually. Tell us about yourself and your vision for AI governance.
+                                        Founding seats are <strong>by invitation only</strong> and reviewed individually. Tell us about yourself and your vision for AI governance.
                                     </p>
                                 </div>
 
@@ -586,7 +590,7 @@ const Membership = () => {
                                     )}
 
                                     <button type='submit' disabled={foundingLoading}
-                                        style={{ width: '100%', padding: '0.95rem', background: foundingLoading ? '#8b5cf6' : 'linear-gradient(135deg, #5b21b6 0%, #7C3AED 100%)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '0.95rem', cursor: foundingLoading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: foundingLoading ? 'none' : '0 6px 20px rgba(124,58,237,0.35)', transition: 'all 0.2s' }}>
+                                        style={{ width: '100%', padding: '0.95rem', background: foundingLoading ? '#8b5cf6' : '#5b21b6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '0.95rem', cursor: foundingLoading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: foundingLoading ? 'none' : '0 6px 20px rgba(124,58,237,0.35)', transition: 'all 0.2s' }}>
                                         {foundingLoading ? <><Loader2 size={18} className='spin' />Submitting…</> : <><Star size={16} fill='white' />Submit Founding Member Application</>}
                                     </button>
                                     <p style={{ margin: 0, textAlign: 'center', fontSize: '0.72rem', color: '#94a3b8' }}>Your Professional membership remains active throughout the review process.</p>

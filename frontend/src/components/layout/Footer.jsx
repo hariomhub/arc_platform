@@ -123,7 +123,7 @@ const Footer = () => (
                             <Link to="/resources"     className="ft-col-link">Research &amp; Whitepapers</Link>
                             <Link to="/events"        className="ft-col-link">Events &amp; Webinars</Link>
                             <Link to="/membership"    className="ft-col-link">Member Portal</Link>
-                            <Link to="/certifications" className="ft-col-link">Council Careers</Link>
+                            <Link to="/certification" className="ft-col-link">Council Careers</Link>
                         </nav>
                     </div>
 
@@ -141,20 +141,21 @@ const Footer = () => (
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                 <MapPin size={15} style={{ marginTop: '3px', flexShrink: 0, opacity: 0.7 }} aria-hidden="true" />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', lineHeight: '1.55' }}>
-                                    <span><strong style={{ color: '#e2e8f0' }}>USA:</strong> Kmicro — 3525 Hyland Ave Ste 265, Costa Mesa, CA 92626</span>
-                                    <span><strong style={{ color: '#e2e8f0' }}>India:</strong> 902a Arcadia Mall, Gurugram Sector 49</span>
-                                    <span><strong style={{ color: '#e2e8f0' }}>Dubai:</strong> Dubai Internet City, Dubai, UAE</span>
+                                    <span><strong style={{ color: '#e2e8f0' }}>USA:</strong> Costa Mesa, California (CA) 92626</span>
+                                    <span><strong style={{ color: '#e2e8f0' }}>UAE:</strong> Villa 43, Street 2, Springs 3, Dubai</span>
+                                    <span><strong style={{ color: '#e2e8f0' }}>India:</strong> 902, Unitech Arcadia, Sector 49, Gurugram, Haryana</span>
+                                    <span><strong style={{ color: '#e2e8f0' }}>Canada:</strong> 3105, 50 Charles street East M4Y 0C3, Toronto ON</span>
                                 </div>
                             </div>
                             <a href="tel:+12125550199" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}>
                                 <Phone size={15} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }} />
-                                <span>+1 (212) 555-0199</span>
+                                <span>+1 (647) 7688767</span>
                             </a>
                             <a href="mailto:contact@airiskcouncil.org" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}
                                 onMouseOver={e => e.currentTarget.style.color = 'white'}
                                 onMouseOut={e => e.currentTarget.style.color = '#CBD5E0'}>
                                 <Mail size={15} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }} />
-                                <span>contact@airiskcouncil.org</span>
+                                <span>support@riskaicouncil.com</span>
                             </a>
                         </address>
                     </div>

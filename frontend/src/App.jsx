@@ -35,6 +35,8 @@ const AllWinners = lazy(() => import('./pages/AllWinners.jsx'));
 const AdminNominees = lazy(() => import('./pages/AdminNominees.jsx'));
 const News = lazy(() => import('./pages/News.jsx'));
 const ExecutiveCheckout = lazy(() => import('./pages/ExecutiveCheckout.jsx'));
+const ExecutiveWorkshops = lazy(() => import('./pages/ExecutiveWorkshops.jsx'));
+const MediaHub = lazy(() => import('./pages/MediaHub.jsx'));
 
 // ── OAuth landing: waits for cookie/session restore then routes correctly ──
 const OAuthLanding = () => {
@@ -89,6 +91,7 @@ function App() {
               <Route path="/community-qna" element={<CommunityQnA />} />
               <Route path="/community-qna/:id" element={<QnADetail />} />
               <Route path="/news" element={<News />} />
+              <Route path="/media-hub" element={<MediaHub />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/services/product-reviews" element={<ProductReviews />} />
               <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />
@@ -109,6 +112,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/executive-workshops" element={<ExecutiveWorkshops />} />
               <Route
                 path="/profile"
                 element={

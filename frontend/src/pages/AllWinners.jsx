@@ -229,7 +229,7 @@ const AllWinners = () => {
 
     const searchRef = useRef(null);
 
-    useEffect(() => { document.title = 'Award Winners | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Award Winners | Risk AI Council (RAC)'; }, []);
 
     const fetchData = useCallback(async () => {
         setLoading(true); setError('');

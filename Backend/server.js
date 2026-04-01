@@ -42,6 +42,7 @@ import nominationsRoutes from './routes/nominations.js';
 import frameworkRoutes from './routes/framework.js';
 import autoNewsRoutes from './routes/autoNews.js';
 import membershipRoutes from './routes/membership.js';
+import workshopsRoutes from './routes/workshops.js';
 
 // ─── Automated News Cron Job ──────────────────────────────────────────────────
 import { initNewsFetchCron } from './jobs/newsFetchJob.js';
@@ -160,6 +161,7 @@ app.use('/api/product-reviews', productReviewsRoutes);
 app.use('/api/nominations', nominationsRoutes);
 app.use('/api/framework', frameworkRoutes);
 app.use('/api/membership', membershipRoutes);
+app.use('/api/workshops', workshopsRoutes);
 
 // All file assets are now served directly from Azure Blob Storage URLs stored in the DB.
 // No static /uploads/* routes needed.

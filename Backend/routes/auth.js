@@ -16,6 +16,27 @@ const validate = (req, res, next) => {
     next();
 };
 
+// POST /api/auth/send-otp
+router.post(
+    '/send-otp',
+    [
+        body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
+    ],
+    validate,
+    authController.sendVerificationOtp
+);
+
+// POST /api/auth/verify-otp
+router.post(
+    '/verify-otp',
+    [
+        body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
+        body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits.'),
+    ],
+    validate,
+    authController.verifyOtp
+);
+
 // POST /api/auth/register
 router.post(
     '/register',

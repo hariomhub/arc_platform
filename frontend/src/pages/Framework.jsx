@@ -402,7 +402,7 @@ const Framework = () => {
         load();
     }, []);
 
-    useEffect(() => { document.title = 'AI Risk Framework | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'AI Risk Framework | Risk AI Council (RAC)'; }, []);
 
     return (
         <>
@@ -466,7 +466,7 @@ const Framework = () => {
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '2rem', flexWrap: 'wrap' }}>
                         <div style={{ minWidth: 0 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(249,168,37,0.15)', border: '1px solid rgba(249,168,37,0.3)', color: '#f9a825', fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', borderRadius: '5px', marginBottom: '16px' }}>
-                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f9a825' }} />AI Risk Council · Framework v2.1
+                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f9a825' }} />Risk AI Council (RAC) · Framework v2.1
                             </span>
                             <h1 style={{ color: 'white', fontSize: 'clamp(1.5rem,4vw,2.6rem)', fontWeight: '800', lineHeight: '1.1', margin: '0 0 12px', fontFamily: 'var(--font-serif,Georgia,serif)', letterSpacing: '-0.02em' }}>AI Risk Governance Framework</h1>
                             <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.875rem,1.5vw,1rem)', lineHeight: '1.7', margin: 0, maxWidth: '540px' }}>A structured approach to identifying, measuring, and mitigating artificial intelligence risks — aligned to EU AI Act, NIST AI RMF, and ISO 42001.</p>

@@ -14,7 +14,7 @@ const paginate = (query, total) => {
 // GET /api/admin/users
 export const getUsers = async (req, res, next) => {
     try {
-        const { role, status } = req.query;
+        const { role, status, search } = req.query;
 
         let countSql = 'SELECT COUNT(*) AS total FROM users WHERE 1=1';
         let dataSql = 'SELECT id, name, email, role, status, organization_name, linkedin_url, created_at FROM users WHERE 1=1';
@@ -32,6 +32,13 @@ export const getUsers = async (req, res, next) => {
             countSql += clause;
             dataSql += clause;
             params.push(status);
+        }
+
+        if (search) {
+            const clause = ' AND (name LIKE ? OR email LIKE ?)';
+            countSql += clause;
+            dataSql += clause;
+            params.push(`%${search}%`, `%${search}%`);
         }
 
         const [[{ total }]] = await pool.query(countSql, params);
@@ -68,9 +75,9 @@ export const approveUser = async (req, res, next) => {
         }
         const { role } = rows[0];
         // Set membership_expires_at based on role
-        const expiresAt = role === 'founding_member' ? null
-            : role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
-            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000); // professional: 1 year
+        const expiresAt = role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000) // 5 years
+            : role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000) // 3 years
+            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000); // 1 year
 
         await pool.query(
             "UPDATE users SET status = 'approved', membership_expires_at = ? WHERE id = ?",
@@ -118,7 +125,7 @@ export const updateUserStatus = async (req, res, next) => {
 
         // When approving, also set membership_expires_at based on role
         if (status === 'approved') {
-            const expiresAt = rows[0].role === 'founding_member' ? null
+            const expiresAt = rows[0].role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
                 : rows[0].role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
                 : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
             await pool.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [expiresAt, req.params.id]);
@@ -147,7 +154,7 @@ export const updateUserRole = async (req, res, next) => {
 
         // Recalculate membership_expires_at when role changes (only for approved users)
         const expiresAt = check[0].status === 'approved'
-            ? (role === 'founding_member' ? null
+            ? (role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
                 : role === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
                 : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
             : null;
@@ -195,7 +202,7 @@ export const createUser = async (req, res, next) => {
 
         // Compute membership expiry for approved users
         const expiresAt = assignedStatus === 'approved'
-            ? (assignedRole === 'founding_member' ? null
+            ? (assignedRole === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
                 : assignedRole === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
                 : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
             : null;
@@ -253,19 +260,32 @@ export const getStats = async (req, res, next) => {
 export const getMembershipApplications = async (req, res, next) => {
     try {
         const { status, role } = req.query;
-        let sql = `
+        let countSql = `SELECT COUNT(*) AS total FROM membership_applications ma JOIN users u ON u.id = ma.user_id WHERE 1=1`;
+        let dataSql = `
             SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status
             FROM membership_applications ma
             JOIN users u ON u.id = ma.user_id
             WHERE 1=1
         `;
         const params = [];
-        if (status) { sql += ' AND ma.status = ?'; params.push(status); }
-        if (role)   { sql += ' AND ma.requested_role = ?'; params.push(role); }
-        sql += ' ORDER BY ma.created_at DESC';
+        
+        if (status) { 
+            const clause = ' AND ma.status = ?'; 
+            countSql += clause; dataSql += clause; 
+            params.push(status); 
+        }
+        if (role) { 
+            const clause = ' AND ma.requested_role = ?'; 
+            countSql += clause; dataSql += clause; 
+            params.push(role); 
+        }
 
-        const [rows] = await pool.query(sql, params);
-        return res.json({ success: true, data: rows });
+        const [[{ total }]] = await pool.query(countSql, params);
+        const { page, limit, offset, totalPages } = paginate(req.query, total);
+
+        dataSql += ' ORDER BY ma.created_at DESC LIMIT ? OFFSET ?';
+        const [rows] = await pool.query(dataSql, [...params, limit, offset]);
+        return res.json({ success: true, data: rows, total, page, limit, totalPages });
     } catch (err) {
         next(err);
     }
@@ -286,7 +306,7 @@ export const approveMembershipApplication = async (req, res, next) => {
         }
 
         const requestedRole = app.requested_role;
-        const expiresAt = requestedRole === 'founding_member' ? null
+        const expiresAt = requestedRole === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
             : requestedRole === 'executive' ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000)
             : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
 

@@ -33,6 +33,7 @@ const teamValidation = [
     body('role').trim().notEmpty().withMessage('Role/title is required.').isLength({ max: 255 }).withMessage('Role must be 255 characters or fewer.'),
     body('bio').optional().trim(),
     body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
+    body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Email must be a valid email address.'),
 ];
 
 // Public

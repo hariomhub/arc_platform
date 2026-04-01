@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, registerForEvent, cancelEventRegistration } from '../api/events.js';
 import { getNominees, getMyVotes, castVote } from '../api/nominations.js';
+import { getWorkshops } from '../api/workshops.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import Pagination from '../components/common/Pagination.jsx';
@@ -649,6 +650,125 @@ const ConfirmDeleteDialog = ({ ev, onConfirm, onCancel, deleting }) => (
     </div>
 );
 
+// ─── Infinite Workshop Marquee Track ──────────────────────────────────────────
+const WorkshopMarqueeTrack = ({ items, speed = 0.45 }) => {
+    const trackRef = useRef(null);
+    const rafRef = useRef(null);
+    const paused = useRef(false);
+    const resumeTimer = useRef(null);
+    const [btnHover, setBtnHover] = useState(null);
+    const loopItems = items.length < 4 ? [...items, ...items, ...items] : [...items, ...items];
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!items.length) return;
+        const animate = () => {
+            const el = trackRef.current;
+            if (el && !paused.current) {
+                el.scrollLeft += speed;
+                const half = Math.floor(el.scrollWidth / 2);
+                if (el.scrollLeft >= half) el.scrollLeft -= half;
+            }
+            rafRef.current = requestAnimationFrame(animate);
+        };
+        rafRef.current = requestAnimationFrame(animate);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [items, speed]);
+
+    const scrollBy = (dir) => {
+        const el = trackRef.current;
+        if (!el) return;
+        paused.current = true;
+        clearTimeout(resumeTimer.current);
+        const STEP = 320, start = el.scrollLeft, target = start + dir * STEP, duration = 380, t0 = performance.now();
+        const run = (now) => {
+            const p = Math.min((now - t0) / duration, 1);
+            const eased = 1 - Math.pow(1 - p, 3);
+            let next = start + (target - start) * eased;
+            const half = Math.floor(el.scrollWidth / 2);
+            if (next >= half) next -= half;
+            else if (next < 0) next += half;
+            el.scrollLeft = next;
+            if (p < 1) requestAnimationFrame(run);
+            else resumeTimer.current = setTimeout(() => { paused.current = false; }, 1800);
+        };
+        requestAnimationFrame(run);
+    };
+
+    const btnBase = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #E2E8F0', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', transition: 'box-shadow 0.15s, background 0.15s', color: '#374151' };
+    if (!items.length) return null;
+
+    return (
+        <div style={{ position: 'relative', padding: '10px 0', margin: '-10px 0' }}>
+            <button onClick={() => scrollBy(-1)} onMouseEnter={() => setBtnHover('left')} onMouseLeave={() => setBtnHover(null)} style={{ ...btnBase, left: '4px', background: btnHover === 'left' ? '#F9FAFB' : 'white', boxShadow: btnHover === 'left' ? '0 4px 14px rgba(0,0,0,0.14)' : '0 2px 8px rgba(0,0,0,0.10)' }}><ChevronLeft size={16} /></button>
+            <button onClick={() => scrollBy(1)} onMouseEnter={() => setBtnHover('right')} onMouseLeave={() => setBtnHover(null)} style={{ ...btnBase, right: '4px', background: btnHover === 'right' ? '#F9FAFB' : 'white', boxShadow: btnHover === 'right' ? '0 4px 14px rgba(0,0,0,0.14)' : '0 2px 8px rgba(0,0,0,0.10)' }}><ChevronRight size={16} /></button>
+            <div style={{ overflow: 'hidden', margin: '0 38px' }} onMouseEnter={() => { paused.current = true; }} onMouseLeave={() => { paused.current = false; }}>
+                <div style={{ position: 'absolute', left: '38px', top: 0, bottom: 0, width: '48px', background: 'linear-gradient(90deg,#F8FAFC 0%,transparent 100%)', zIndex: 2, pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', right: '38px', top: 0, bottom: 0, width: '48px', background: 'linear-gradient(270deg,#F8FAFC 0%,transparent 100%)', zIndex: 2, pointerEvents: 'none' }} />
+                <div ref={trackRef} style={{ display: 'flex', gap: '18px', overflowX: 'hidden', padding: '10px 0' }}>
+                    {loopItems.map((ws, i) => (
+                        <div key={`${ws.id}-${i}`} onClick={() => navigate('/executive-workshops')} style={{ flexShrink: 0, width: 'clamp(280px, 80vw, 320px)', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.25rem', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', position: 'relative', overflow: 'hidden' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor = '#CBD5E1'; }} onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}>
+                            <div style={{ height: '3px', background: 'linear-gradient(90deg, #7C3AED, #3B82F6)', position: 'absolute', top: 0, left: 0, right: 0 }} />
+                            <p style={{ fontSize: '0.7rem', color: '#1D4ED8', fontWeight: '700', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <Calendar size={12} /> {formatDate(ws.date)}
+                            </p>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#1E293B', margin: '0 0 0.5rem', lineHeight: '1.3' }}>{ws.title}</h3>
+                            {ws.location && <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '5px' }}><MapPin size={12} color="#059669" /> {ws.location}</p>}
+                            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '5px', color: '#0F172A', fontSize: '0.75rem', fontWeight: '700' }}>
+                                View Details <ArrowRight size={12} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─── Featured Executive Workshops ─────────────────────────────────────────────
+const FeaturedWorkshopsSection = () => {
+    const [workshops, setWorkshops] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        let isM = true;
+        // Fetch up to 10 for the carousel
+        getWorkshops({ limit: 10, upcoming: 'true' })
+            .then(res => { if (isM) setWorkshops(res.data?.data || []); })
+            .catch(() => {}) // silently fail
+            .finally(() => { if (isM) setLoading(false); });
+        return () => { isM = false; };
+    }, [navigate]);
+
+    if (loading || workshops.length === 0) return null;
+
+    return (
+        <section id="featured-workshops" style={{ padding: 'clamp(2rem,4vw,3.5rem) clamp(1rem,4vw,3rem)', background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)', borderBottom: '1px solid #E2E8F0' }}>
+            <div style={{ maxWidth: '1100px', margin: '0 auto', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F5F3FF', border: '1px solid #EDE9FE', borderRadius: '20px', padding: '4px 12px', marginBottom: '0.75rem', color: '#7C3AED', fontSize: '0.65rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            <BookOpen size={10} /> Executive Programme
+                        </div>
+                        <h2 style={{ color: '#0F172A', fontSize: 'clamp(1.2rem,3vw,1.6rem)', fontWeight: '900', margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>
+                            Featured Executive Workshops
+                        </h2>
+                        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: 0, maxWidth: '500px', lineHeight: '1.6' }}>Exclusive sessions designed for Board Directors and C-Suite leaders to build AI risk literacy.</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button onClick={() => navigate('/executive-workshops')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#0F172A', border: '1px solid #E2E8F0', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#F8FAFC'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
+                            View All <ArrowRight size={13} />
+                        </button>
+                    </div>
+                </div>
+
+                <WorkshopMarqueeTrack items={workshops} speed={0.48} />
+            </div>
+        </section>
+    );
+};
+
 // ─── Events Page ──────────────────────────────────────────────────────────────
 const Events = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -668,7 +788,7 @@ const Events = () => {
     const [deleting, setDeleting] = useState(false);
     const [regTarget, setRegTarget] = useState(null);
 
-    useEffect(() => { document.title = 'Events | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Events | Risk AI Council (RAC)'; }, []);
 
     const fetchData = useCallback(async (signal) => {
         setLoading(true); setError('');
@@ -745,6 +865,10 @@ const Events = () => {
                     margin-top: 2.5rem;
                     flex-wrap: wrap;
                 }
+                
+                /* Carousel hide scrollbar natively */
+                .ws-carousel-hide-scroll::-webkit-scrollbar { display: none; }
+                .ws-carousel-hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
 
             {/* Hero */}
@@ -773,6 +897,7 @@ const Events = () => {
                 </div>
             </div>
 
+
             {/* All Events */}
             <div id="all-events" style={{ padding: 'clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,3rem)' }}>
                 <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
@@ -794,6 +919,12 @@ const Events = () => {
                                         {c.charAt(0).toUpperCase() + c.slice(1)}
                                     </button>
                                 ))}
+                                <button onClick={() => document.getElementById('featured-workshops')?.scrollIntoView({ behavior: 'smooth' })}
+                                    style={{ padding: '5px 14px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', border: '1px solid #CBD5E1', background: 'white', color: '#475569', transition: 'all 0.15s', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}
+                                    onMouseOver={e => { e.currentTarget.style.borderColor = '#94A3B8'; e.currentTarget.style.color = '#1E293B'; }}
+                                    onMouseOut={e => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.color = '#475569'; }}>
+                                    Executive Workshops
+                                </button>
                             </div>
                         </div>
                         {(isAdmin?.() || isExecutive?.()) && (
@@ -845,6 +976,9 @@ const Events = () => {
                     )}
                 </div>
             </div>
+
+            {/* Featured Workshops */}
+            <FeaturedWorkshopsSection />
 
             <NominationsSection />
 

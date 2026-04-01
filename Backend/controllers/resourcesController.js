@@ -285,16 +285,21 @@ export const deleteResource = async (req, res, next) => {
 // GET /api/resources/pending — admin only
 export const getPendingResources = async (req, res, next) => {
     try {
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM resources WHERE status = 'pending'`);
+        const { page, limit, offset, totalPages } = paginate(req.query, total);
+
         const [rows] = await pool.query(
             `SELECT r.*, u.name AS uploader_name, u.email AS uploader_email, u.role AS uploader_role,
                     u.organization_name AS uploader_org
              FROM resources r
              LEFT JOIN users u ON r.uploader_id = u.id
              WHERE r.status = 'pending'
-             ORDER BY r.created_at ASC`
+             ORDER BY r.created_at ASC
+             LIMIT ? OFFSET ?`,
+            [limit, offset]
         );
         const sanitized = rows.map(({ file_url, ...rest }) => rest);
-        return res.json({ success: true, data: sanitized });
+        return res.json({ success: true, data: sanitized, total, page, limit, totalPages });
     } catch (err) {
         next(err);
     }

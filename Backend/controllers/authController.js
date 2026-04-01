@@ -1,7 +1,7 @@
 import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendWelcomeEmail } from '../services/emailService.js';
+import { sendWelcomeEmail, sendVerificationEmail } from '../services/emailService.js';
 
 const COOKIE_OPTIONS = {
     httpOnly: true,
@@ -22,6 +22,11 @@ export const register = async (req, res, next) => {
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
             return res.status(409).json({ success: false, message: 'This email address is already registered.' });
+        }
+
+        const [verification] = await pool.query('SELECT verified FROM email_verifications WHERE email = ?', [email.trim().toLowerCase()]);
+        if (verification.length === 0 || !verification[0].verified) {
+            return res.status(403).json({ success: false, message: 'Email address has not been verified. Please verify your email first.' });
         }
 
         const password_hash = await bcrypt.hash(password, 12);
@@ -47,6 +52,76 @@ export const register = async (req, res, next) => {
                 userId: result.insertId,
             },
         });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /api/auth/send-otp
+export const sendVerificationOtp = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ success: false, message: 'Email is required.' });
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Check if user already exists
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+        if (existing.length > 0) {
+            return res.status(409).json({ success: false, message: 'This email address is already registered.' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        // Expires in 10 minutes
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Upsert into email_verifications
+        await pool.query(
+            `INSERT INTO email_verifications (email, otp, expires_at, verified) 
+             VALUES (?, ?, ?, FALSE)
+             ON DUPLICATE KEY UPDATE otp = ?, expires_at = ?, verified = FALSE`,
+            [cleanEmail, otp, expiresAt, otp, expiresAt]
+        );
+
+        sendVerificationEmail(cleanEmail, otp);
+
+        return res.json({ success: true, message: 'Verification code sent successfully.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /api/auth/verify-otp
+export const verifyOtp = async (req, res, next) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        const [rows] = await pool.query('SELECT * FROM email_verifications WHERE email = ?', [cleanEmail]);
+        if (rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'No verification request found for this email.' });
+        }
+
+        const record = rows[0];
+
+        if (record.verified) {
+            return res.json({ success: true, message: 'Email is already verified.' });
+        }
+
+        if (new Date(record.expires_at) < new Date()) {
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+        }
+
+        if (record.otp !== otp) {
+            return res.status(400).json({ success: false, message: 'Invalid OTP.' });
+        }
+
+        await pool.query('UPDATE email_verifications SET verified = TRUE WHERE email = ?', [cleanEmail]);
+
+        return res.json({ success: true, message: 'Email verified successfully.' });
     } catch (err) {
         next(err);
     }
@@ -142,6 +217,10 @@ export const linkedinCallback = async (req, res, next) => {
         const name = displayName?.trim() || 'LinkedIn User';
         const photo_url = photos?.[0]?.value || null;
 
+        const origin = process.env.NODE_ENV === 'production'
+            ? process.env.FRONTEND_URL
+            : `http://localhost:5173`;
+
         if (!email) {
             // LinkedIn didn't return an email — redirect to login with error
             return res.redirect(
@@ -166,20 +245,21 @@ export const linkedinCallback = async (req, res, next) => {
                 [linkedinId, photo_url, user.id]
             );
         } else {
-            // New user — auto-approve LinkedIn registrations as 'professional'
+            // New user — create with pending status, requires admin approval like all registrations
             const [result] = await pool.query(
                 `INSERT INTO users (name, email, linkedin_id, auth_provider, role, status, photo_url)
-                 VALUES (?, ?, ?, 'linkedin', 'professional', 'approved', ?)`,
+         VALUES (?, ?, ?, 'linkedin', 'professional', 'pending', ?)`,
                 [name, email, linkedinId, photo_url]
             );
             const [newRows] = await pool.query(
-                'SELECT id, name, email, role, status FROM users WHERE id = ?',
+                'SELECT id, name, email, role, status, membership_expires_at FROM users WHERE id = ?',
                 [result.insertId]
             );
             user = newRows[0];
-
-            // Fire welcome email (non-blocking)
             sendWelcomeEmail({ name, email, role: 'professional', organizationName: null });
+
+            // Redirect immediately — no JWT, pending approval required
+            return res.redirect(`${origin}/register?success=linkedin`);
         }
 
         // ── Status checks ─────────────────────────────────────────────────────
@@ -200,12 +280,6 @@ export const linkedinCallback = async (req, res, next) => {
             { expiresIn: '7d' }
         );
         res.cookie('arc_token', token, COOKIE_OPTIONS);
-
-        // Redirect to frontend OAuth landing — works for both local and production
-        // Frontend origin is inferred from the request itself, no hardcoded URLs needed
-        const origin = process.env.NODE_ENV === 'production'
-            ? process.env.FRONTEND_URL
-            : `http://localhost:5173`;
 
         return res.redirect(`${origin}/auth/callback`);
 

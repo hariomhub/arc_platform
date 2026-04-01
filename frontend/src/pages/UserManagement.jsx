@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Section from '../components/Section';
-import { useAuth } from '../context/AuthContext';
+import Section from '../components/Section.jsx';
+import Pagination from '../components/common/Pagination.jsx';
+import { useAuth } from '../context/AuthContext.js';
 import { useNavigate } from 'react-router-dom';
 import {
     Shield, UserPlus, Trash2, ChevronDown, Ban, CheckCircle,
@@ -12,6 +13,7 @@ import {
     updateUserRole,
     updateUserStatus,
     deleteUser,
+    getAdminStats,
 } from '../api/admin.js';
 
 const ROLE_STYLES = {
@@ -90,10 +92,17 @@ const UserManagement = () => {
     const [createForm, setCreateForm]           = useState({ name: '', email: '', password: '', role: 'professional', status: 'approved' });
     const [createLoading, setCreateLoading]     = useState(false);
 
+    const [page, setPage]                       = useState(1);
+    const [totalPages, setTotalPages]           = useState(1);
+    const [stats, setStats]                     = useState({ total_users: 0, pending_users: 0 });
+
     useEffect(() => {
         if (isAdmin && !isAdmin()) { navigate('/'); return; }
-        fetchUsers();
-    }, []);
+        const delayFn = setTimeout(() => {
+            fetchUsers();
+        }, 300);
+        return () => clearTimeout(delayFn);
+    }, [page, search]);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -103,8 +112,12 @@ const UserManagement = () => {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const res = await getAllUsers();
+            const res = await getAllUsers({ page, limit: 20, search });
             setUsers(res.data?.data || res.data || []);
+            setTotalPages(res.data?.totalPages || 1);
+
+            const statsRes = await getAdminStats();
+            setStats(statsRes.data?.data || { total_users: 0, pending_users: 0 });
         } catch (err) {
             showToast(err.response?.data?.message || 'Failed to load users', 'error');
         } finally {
@@ -161,18 +174,7 @@ const UserManagement = () => {
         }
     };
 
-    const filtered = users.filter(u =>
-        (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
-        (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
-        (u.role || '').toLowerCase().includes(search.toLowerCase())
-    );
-
-    const stats = {
-        total:    users.length,
-        approved: users.filter(u => u.status === 'approved').length,
-        pending:  users.filter(u => u.status === 'pending').length,
-        rejected: users.filter(u => u.status === 'rejected').length,
-    };
+    // Remove client-side search and stats filtering
 
     return (
         <>
@@ -205,10 +207,8 @@ const UserManagement = () => {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                     {[
-                        { label: 'Total Users', value: stats.total,    color: '#003366' },
-                        { label: 'Approved',    value: stats.approved, color: '#059669' },
-                        { label: 'Pending',     value: stats.pending,  color: '#D97706' },
-                        { label: 'Rejected',    value: stats.rejected, color: '#DC2626' },
+                        { label: 'Total Users',   value: stats.total_users,    color: '#003366' },
+                        { label: 'Pending Users', value: stats.pending_users,  color: '#D97706' },
                     ].map(({ label, value, color }) => (
                         <div key={label} style={{
                             background: 'white', border: '1px solid var(--border-light)',
@@ -237,7 +237,7 @@ const UserManagement = () => {
                 <div style={{ background: 'white', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                     {loading ? (
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading users...</div>
-                    ) : filtered.length === 0 ? (
+                    ) : users.length === 0 ? (
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No users found.</div>
                     ) : (
                         <div style={{ overflowX: 'auto' }}>
@@ -250,13 +250,13 @@ const UserManagement = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((u, i) => {
+                                {users.map((u, i) => {
                                     const isSelf      = u.id === currentUser?.id;
                                     const roleStyle   = ROLE_STYLES[u.role] || ROLE_STYLES.professional;
                                     const statusStyle = STATUS_STYLES[u.status] || STATUS_STYLES.pending;
                                     return (
                                         <tr key={u.id} style={{
-                                            borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none',
+                                            borderBottom: i < users.length - 1 ? '1px solid var(--border-light)' : 'none',
                                             background: u.status === 'rejected' ? '#FFF7F7' : 'white',
                                         }}>
                                             {/* User */}
@@ -367,6 +367,11 @@ const UserManagement = () => {
                         </div>
                     )}
                 </div>
+                {!loading && users.length > 0 && (
+                    <div style={{ marginTop: '1rem' }}>
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+                    </div>
+                )}
             </Section>
 
             {/* Create User Modal */}
