@@ -23,32 +23,58 @@
 
 /* ─── Custom Animations ─────────────────────────────────────────────────────── */
 @keyframes toast-slide-in {
-  from { transform: translateX(100%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes modal-fade-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1);    }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes skeleton-pulse {
-  0%, 100% { opacity: 1;   }
-  50%       { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ─── Accessibility ─────────────────────────────────────────────────────────── */
 .skip-to-content {
   position: absolute;
-  left: -9999px; top: auto;
-  width: 1px; height: 1px;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
 }
+
 .skip-to-content:focus {
   position: fixed;
-  top: 0.5rem; left: 0.5rem;
+  top: 0.5rem;
+  left: 0.5rem;
   z-index: 9999;
-  width: auto; height: auto;
+  width: auto;
+  height: auto;
   overflow: visible;
   background: white;
   color: var(--primary);
@@ -60,33 +86,33 @@
 
 /* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
-  --primary:       #003366;
-  --primary-dark:  #002244;
+  --primary: #003366;
+  --primary-dark: #002244;
   --primary-light: #004488;
-  --accent:        #0055A4;
+  --accent: #0055A4;
 
   --bg-white: #ffffff;
   --bg-light: #F0F4F8;
-  --bg-dark:  #0F172A;
+  --bg-dark: #0F172A;
 
-  --text-main:      #1A202C;
+  --text-main: #1A202C;
   --text-secondary: #4A5568;
-  --text-light:     #64748B;
-  --text-inverse:   #ffffff;
+  --text-light: #64748B;
+  --text-inverse: #ffffff;
 
-  --border-light:  #E2E8F0;
+  --border-light: #E2E8F0;
   --border-medium: #CBD5E0;
 
-  --spacing-xs:  0.25rem;
-  --spacing-sm:  0.5rem;
-  --spacing-md:  1rem;
-  --spacing-lg:  1.5rem;
-  --spacing-xl:  2rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
 
   --font-serif: 'Outfit', sans-serif;
-  --font-sans:  'Inter', sans-serif;
+  --font-sans: 'Inter', sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -99,13 +125,18 @@
 }
 
 /* ─── Base Reset ─────────────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html { scroll-behavior: smooth; overflow-x: hidden; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
 
 body {
   font-family: var(--font-sans);
@@ -119,20 +150,45 @@ body {
   overflow-x: hidden;
 }
 
-img, video { max-width: 100%; height: auto; display: block; }
+img,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
 
 /* ─── Typography ─────────────────────────────────────────────────────────────── */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-serif);
   color: var(--primary);
   line-height: 1.2;
   margin-bottom: var(--spacing-md);
 }
 
-h1 { font-size: clamp(1.9rem, 4vw, 3rem);   font-weight: 700; }
-h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 600; }
-h3 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 600; }
-h4 { font-size: clamp(1rem, 2vw, 1.25rem);  font-weight: 600; }
+h1 {
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 700;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 600;
+}
+
+h3 {
+  font-size: clamp(1.2rem, 2.5vw, 1.75rem);
+  font-weight: 600;
+}
+
+h4 {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 600;
+}
 
 p {
   margin-bottom: var(--spacing-md);
@@ -144,7 +200,10 @@ a {
   text-decoration: none;
   transition: color 0.2s;
 }
-a:hover { text-decoration: underline; }
+
+a:hover {
+  text-decoration: underline;
+}
 
 /* ─── Container ──────────────────────────────────────────────────────────────── */
 .container {
@@ -155,8 +214,13 @@ a:hover { text-decoration: underline; }
 }
 
 /* ─── Section helpers ────────────────────────────────────────────────────────── */
-.section    { padding: var(--section-py) 0; }
-.section-bg { background-color: var(--bg-light); }
+.section {
+  padding: var(--section-py) 0;
+}
+
+.section-bg {
+  background-color: var(--bg-light);
+}
 
 /* ─── Buttons ────────────────────────────────────────────────────────────────── */
 .btn {
@@ -176,11 +240,24 @@ a:hover { text-decoration: underline; }
   -webkit-tap-highlight-color: transparent;
 }
 
-.btn-primary { background-color: var(--primary); color: var(--text-inverse); }
-.btn-primary:hover { background-color: var(--primary-light); }
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+}
 
-.btn-secondary { background-color: transparent; border: 1px solid var(--primary); color: var(--primary); }
-.btn-secondary:hover { background-color: var(--bg-light); }
+.btn-primary:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-light);
+}
 
 /* ─── Card ───────────────────────────────────────────────────────────────────── */
 .card {
@@ -191,15 +268,25 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
   transition: box-shadow 0.2s;
 }
-.card:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06); }
+
+.card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -1px rgba(0, 0, 0, .06);
+}
 
 /* ─── Utilities ──────────────────────────────────────────────────────────────── */
-.text-high-contrast { color: var(--text-main) !important; }
+.text-high-contrast {
+  color: var(--text-main) !important;
+}
 
 /* ─── Responsive nav helpers (used by Navbar.jsx) ───────────────────────────── */
 @media (max-width: 768px) {
-  .desktop-nav      { display: none !important; }
-  .mobile-menu-btn  { display: block !important; }
+  .desktop-nav {
+    display: none !important;
+  }
+
+  .mobile-menu-btn {
+    display: block !important;
+  }
 }
 
 /* ─── Global responsive grid helpers ────────────────────────────────────────── */
@@ -210,8 +297,11 @@ a:hover { text-decoration: underline; }
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
 }
+
 @media (max-width: 768px) {
-  .grid-2 { grid-template-columns: 1fr; }
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* auto-fit responsive grid */
@@ -222,12 +312,15 @@ a:hover { text-decoration: underline; }
 }
 
 /* ─── Touch / pointer improvements ──────────────────────────────────────────── */
-button, a, [role="button"] {
+button,
+a,
+[role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
 /* Minimum touch target size */
-button, [role="button"] {
+button,
+[role="button"] {
   min-height: 44px;
   min-width: 44px;
 }
@@ -244,31 +337,78 @@ button, [role="button"] {
   scrollbar-width: thin;
   scrollbar-color: #CBD5E0 transparent;
 }
-::-webkit-scrollbar       { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 3px;
+}
 
 /* ─── Hide scrollbar utility (used by carousels) ────────────────────────────── */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 /* ─── Fluid text helpers ─────────────────────────────────────────────────────── */
-.text-fluid-hero   { font-size: clamp(1.8rem, 4.5vw, 3.4rem); }
-.text-fluid-title  { font-size: clamp(1.4rem, 3vw, 2.25rem); }
-.text-fluid-lead   { font-size: clamp(0.95rem, 1.5vw, 1.05rem); }
-.text-fluid-body   { font-size: clamp(0.85rem, 1.2vw, 0.97rem); }
-.text-fluid-small  { font-size: clamp(0.75rem, 1vw, 0.875rem); }
+.text-fluid-hero {
+  font-size: clamp(1.8rem, 4.5vw, 3.4rem);
+}
+
+.text-fluid-title {
+  font-size: clamp(1.4rem, 3vw, 2.25rem);
+}
+
+.text-fluid-lead {
+  font-size: clamp(0.95rem, 1.5vw, 1.05rem);
+}
+
+.text-fluid-body {
+  font-size: clamp(0.85rem, 1.2vw, 0.97rem);
+}
+
+.text-fluid-small {
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+}
 
 /* ─── Safe area insets (notch phones) ───────────────────────────────────────── */
-.safe-top    { padding-top: env(safe-area-inset-top, 0); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
 
 /* ─── Print baseline ─────────────────────────────────────────────────────────── */
 @media print {
-  body { font-size: 12pt; color: #000; background: #fff; }
-  header, footer, nav, .no-print { display: none !important; }
-  a { color: #000; text-decoration: underline; }
+  body {
+    font-size: 12pt;
+    color: #000;
+    background: #fff;
+  }
+
+  header,
+  footer,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
 }

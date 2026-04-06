@@ -5,6 +5,7 @@ import {
     Trophy, Search, X, ChevronLeft, ChevronRight,
     Award, BadgeCheck, Star, Linkedin, BookOpen,
     Check, Loader2, AlertCircle, Filter, Users, Mail, LogIn,
+    Building2, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -22,6 +23,26 @@ const getPhotoUrl = (photo_url) =>
     photo_url
         ? photo_url.startsWith('http') ? photo_url : `http://localhost:5000/${photo_url}`
         : null;
+
+// ─── Body scroll lock hook ────────────────────────────────────────────────────
+const useBodyScrollLock = (locked) => {
+    useEffect(() => {
+        if (locked) {
+            const scrollY = window.scrollY;
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            return () => {
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
+                window.scrollTo(0, scrollY);
+            };
+        }
+    }, [locked]);
+};
 
 // ─── Vote Options Modal ───────────────────────────────────────────────────────
 const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
@@ -69,52 +90,54 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(3px)' }} onClick={onClose}>
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', maxWidth: '480px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ borderBottom: '1px solid #F3F4F6', padding: 'clamp(1.25rem,3vw,1.75rem) clamp(1.25rem,3vw,2rem) clamp(1rem,2vw,1.5rem)' }}>
-                    <button onClick={onClose} style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '0.25rem' }}
-                        onMouseOver={(e) => { e.currentTarget.style.color = '#111827'; }} onMouseOut={(e) => { e.currentTarget.style.color = '#6B7280'; }}>
-                        <X size={20} strokeWidth={2} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+            <div style={{ background: '#FFFFFF', borderRadius: '16px', maxWidth: '460px', width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.25)', border: '1px solid #E5E7EB', position: 'relative', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                {/* Top accent */}
+                <div style={{ height: '4px', background: 'linear-gradient(90deg, #003366, #0284C7)' }} />
+                <div style={{ padding: '1.5rem 1.75rem 0' }}>
+                    <button onClick={onClose} style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#111827'; }} onMouseOut={(e) => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#6B7280'; }}>
+                        <X size={16} />
                     </button>
-                    <h2 style={{ color: '#111827', fontSize: 'clamp(1.1rem,3vw,1.5rem)', fontWeight: '600', margin: '0 0 0.5rem 0', letterSpacing: '-0.01em' }}>Cast Your Vote</h2>
-                    <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{nominee.name} • {nominee.category_name}</p>
+                    <h2 style={{ color: '#111827', fontSize: '1.2rem', fontWeight: '700', margin: '0 0 0.35rem 0', letterSpacing: '-0.01em' }}>Cast Your Vote</h2>
+                    <p style={{ color: '#6B7280', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: '1.5' }}>{nominee.name} • {nominee.category_name}</p>
                 </div>
-                <div style={{ padding: 'clamp(1.25rem,3vw,2rem)' }}>
+                <div style={{ padding: '0 1.75rem 1.75rem' }}>
                     {voteError && (
-                        <div style={{ display: 'flex', gap: '10px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '8px', padding: '0.875rem 1rem', color: '#991B1B', fontSize: '0.875rem', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} /><span>{voteError}</span>
+                        <div style={{ display: 'flex', gap: '10px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '8px', padding: '0.75rem 1rem', color: '#991B1B', fontSize: '0.82rem', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} /><span>{voteError}</span>
                         </div>
                     )}
                     <button onClick={handleLoginClick} type="button"
-                        style={{ width: '100%', background: '#111827', color: 'white', border: 'none', borderRadius: '8px', padding: '0.875rem 1.25rem', fontWeight: '600', fontSize: '0.9375rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit', marginBottom: '0.75rem' }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = '#1F2937'; }} onMouseOut={(e) => { e.currentTarget.style.background = '#111827'; }}>
-                        <LogIn size={18} strokeWidth={2} /> Login to Vote
+                        style={{ width: '100%', background: '#0F172A', color: 'white', border: 'none', borderRadius: '10px', padding: '0.8rem 1.25rem', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit', marginBottom: '0.6rem' }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = '#1E293B'; }} onMouseOut={(e) => { e.currentTarget.style.background = '#0F172A'; }}>
+                        <LogIn size={16} strokeWidth={2} /> Login to Vote
                     </button>
-                    <p style={{ margin: '0 0 1.5rem', fontSize: '0.8125rem', color: '#9CA3AF', textAlign: 'center' }}>Have an account? Sign in to continue</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.5rem 0' }}>
+                    <p style={{ margin: '0 0 1.25rem', fontSize: '0.78rem', color: '#9CA3AF', textAlign: 'center' }}>Have an account? Sign in to continue</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
                         <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
-                        <span style={{ color: '#9CA3AF', fontSize: '0.8125rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Or</span>
+                        <span style={{ color: '#9CA3AF', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Or vote anonymously</span>
                         <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
                     </div>
                     <form onSubmit={handleAnonymousVote}>
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', color: '#374151', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>Email Address</label>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', color: '#374151', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem' }}>Email Address</label>
                             <input type="email" placeholder="your.email@example.com" value={anonymousEmail} onChange={(e) => setAnonymousEmail(e.target.value)} disabled={voting}
-                                style={{ width: '100%', padding: '0.75rem 0.875rem', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '0.9375rem', outline: 'none', transition: 'all 0.15s', fontFamily: 'inherit', background: voting ? '#F9FAFB' : 'white', color: '#111827', boxSizing: 'border-box' }}
-                                onFocus={(e) => { e.target.style.borderColor = '#111827'; e.target.style.boxShadow = '0 0 0 3px rgba(17,24,39,0.05)'; }}
+                                style={{ width: '100%', padding: '0.7rem 0.875rem', border: '1.5px solid #D1D5DB', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', transition: 'all 0.15s', fontFamily: 'inherit', background: voting ? '#F9FAFB' : 'white', color: '#111827', boxSizing: 'border-box' }}
+                                onFocus={(e) => { e.target.style.borderColor = '#003366'; e.target.style.boxShadow = '0 0 0 3px rgba(0,51,102,0.08)'; }}
                                 onBlur={(e) => { e.target.style.borderColor = '#D1D5DB'; e.target.style.boxShadow = 'none'; }} />
-                            <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#6B7280' }}>Used only to prevent duplicate votes</p>
+                            <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#6B7280' }}>Used only to prevent duplicate votes</p>
                         </div>
                         {RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== 'your_recaptcha_site_key_here' && (
-                            <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
                                 <ReCAPTCHA ref={recaptchaRef} sitekey={RECAPTCHA_SITE_KEY} size="invisible" onChange={(token) => setRecaptchaToken(token)} />
                             </div>
                         )}
                         <button type="submit" disabled={voting}
-                            style={{ width: '100%', background: voting ? '#D1D5DB' : '#111827', color: 'white', border: 'none', borderRadius: '8px', padding: '0.875rem 1.25rem', fontWeight: '600', fontSize: '0.9375rem', cursor: voting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit' }}
-                            onMouseOver={(e) => { if (!voting) e.currentTarget.style.background = '#1F2937'; }}
-                            onMouseOut={(e) => { if (!voting) e.currentTarget.style.background = '#111827'; }}>
-                            {voting ? <><Loader2 size={18} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : <>Submit Vote</>}
+                            style={{ width: '100%', background: voting ? '#CBD5E1' : '#003366', color: 'white', border: 'none', borderRadius: '10px', padding: '0.8rem 1.25rem', fontWeight: '600', fontSize: '0.9rem', cursor: voting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit' }}
+                            onMouseOver={(e) => { if (!voting) e.currentTarget.style.background = '#002147'; }}
+                            onMouseOut={(e) => { if (!voting) e.currentTarget.style.background = '#003366'; }}>
+                            {voting ? <><Loader2 size={16} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : <>Submit Anonymous Vote</>}
                         </button>
                     </form>
                 </div>
@@ -132,6 +155,8 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
     const [voted, setVoted] = useState(false);
     const [voteError, setVoteError] = useState('');
     const [showVoteOptions, setShowVoteOptions] = useState(false);
+
+    useBodyScrollLock(true);
 
     const tl = TIMELINE_META[nominee.category_timeline] || TIMELINE_META.yearly;
     const hasVoted = voted || (myVotedCategoryIds || []).includes(nominee.category_id);
@@ -170,82 +195,98 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
     const isWinner = !!nominee.is_winner;
     const accentColor = isWinner ? '#D97706' : '#0284C7';
     const accentLight = isWinner ? '#FEF3C7' : '#EFF6FF';
-    const accentBorder = isWinner ? '#FDE68A' : '#BAE6FD';
+    const accentDark = isWinner ? '#92400E' : '#1D4ED8';
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(5px)' }} onClick={onClose}>
-            <div style={{ background: 'white', borderRadius: '20px', maxWidth: '600px', width: '100%', maxHeight: '92dvh', overflowY: 'auto', boxShadow: '0 40px 100px rgba(0,0,0,0.22)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                {/* Dark header */}
-                <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%)', borderRadius: '20px 20px 0 0', padding: 'clamp(1.25rem,3vw,1.75rem) clamp(1.25rem,3vw,1.75rem) clamp(2.75rem,5vw,3.75rem)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '22px 22px', pointerEvents: 'none' }} />
-                    <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', transition: 'background 0.2s' }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>
-                        <X size={16} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,40,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem', backdropFilter: 'blur(6px)', boxSizing: 'border-box' }} onClick={onClose}>
+            <div style={{ background: 'white', borderRadius: '20px', maxWidth: '560px', width: '100%', maxHeight: '88dvh', overflowY: 'auto', overflowX: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.3)', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+
+                {/* ── Header banner ── */}
+                <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%)', borderRadius: '20px 20px 0 0', padding: '1.25rem 1.25rem 1.25rem', position: 'relative', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '20px 20px 0 0', opacity: 0.05, backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px', pointerEvents: 'none' }} />
+                    {/* Close btn */}
+                    <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.85)', transition: 'background 0.2s', zIndex: 2, flexShrink: 0 }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.24)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)'; }}>
+                        <X size={15} />
                     </button>
-                    {nominee.award_name && (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '20px', padding: '4px 12px', marginBottom: '0.9rem' }}>
-                            <Trophy size={10} color={isWinner ? '#FCD34D' : '#93C5FD'} />
-                            <span style={{ color: isWinner ? '#FDE68A' : '#BFDBFE', fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{nominee.award_name}</span>
+                    {/* Avatar + identity row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingRight: '2.5rem' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '14px', flexShrink: 0, background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : 'linear-gradient(135deg, #1D4ED8 0%, #0EA5E9 100%)', border: '3px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: '800', color: 'white' }}>
+                            {!photoUrl && nominee.name?.charAt(0)}
                         </div>
-                    )}
-                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: '0 0 0.2rem' }}>{nominee.designation}</p>
-                    <h2 style={{ color: 'white', fontSize: 'clamp(1.2rem,3vw,1.5rem)', fontWeight: '800', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.25' }}>{nominee.name}</h2>
-                    {nominee.company && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', margin: '0.3rem 0 0' }}>{nominee.company}</p>}
-                </div>
-                {/* Avatar + badges */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 clamp(1.25rem,3vw,1.75rem)', marginTop: '-44px', marginBottom: '1.25rem' }}>
-                    <div style={{ width: '88px', height: '88px', borderRadius: '50%', background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : 'linear-gradient(135deg, #003366 0%, #0284C7 100%)', border: '4px solid white', boxShadow: '0 4px 20px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: '800', color: 'white', flexShrink: 0 }}>
-                        {!photoUrl && nominee.name?.charAt(0)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            {nominee.award_name && (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '20px', padding: '2px 10px', marginBottom: '0.4rem' }}>
+                                    <Trophy size={9} color={isWinner ? '#FCD34D' : '#93C5FD'} />
+                                    <span style={{ color: isWinner ? '#FDE68A' : '#BFDBFE', fontSize: '0.58rem', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{nominee.award_name}</span>
+                                </div>
+                            )}
+                            <h2 style={{ color: 'white', fontSize: 'clamp(1rem,3vw,1.3rem)', fontWeight: '800', margin: '0 0 0.15rem', letterSpacing: '-0.02em', lineHeight: '1.25', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nominee.name}</h2>
+                            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nominee.designation}{nominee.company ? ` · ${nominee.company}` : ''}</p>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end', paddingBottom: '4px' }}>
-                        {isWinner && <span style={{ background: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A', fontSize: '0.62rem', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}><Trophy size={9} /> Winner</span>}
-                        <span style={{ background: tl.bg, color: tl.color, fontSize: '0.62rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px' }}>{tl.label}</span>
-                        <span style={{ background: accentLight, color: accentColor, border: `1px solid ${accentBorder}`, fontSize: '0.62rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            <BadgeCheck size={9} /> {nominee.category_name}
-                        </span>
+                    {/* Badges row */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+                        {isWinner && (
+                            <span style={{ background: 'rgba(253,230,138,0.18)', color: '#FDE68A', border: '1px solid rgba(253,230,138,0.3)', fontSize: '0.6rem', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                                <Trophy size={8} /> Winner
+                            </span>
+                        )}
+                        <span style={{ background: 'rgba(255,255,255,0.1)', color: tl.color === '#7C3AED' ? '#C4B5FD' : tl.color === '#0284C7' ? '#7DD3FC' : '#6EE7B7', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.6rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px' }}>{tl.label}</span>
+                        {nominee.category_name && (
+                            <span style={{ background: 'rgba(255,255,255,0.1)', color: isWinner ? '#FDE68A' : '#BFDBFE', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.6rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <BadgeCheck size={8} /> {nominee.category_name}
+                            </span>
+                        )}
                     </div>
                 </div>
-                {/* Body */}
-                <div style={{ padding: '0 clamp(1.25rem,3vw,1.75rem) clamp(1.25rem,3vw,1.75rem)' }}>
+
+                {/* ── Body ── */}
+                <div style={{ padding: '1.25rem 1.25rem 1.5rem' }}>
                     {nominee.linkedin_url && (
                         <a href={nominee.linkedin_url} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0369A1', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none', marginBottom: '1.25rem', padding: '6px 14px', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
-                            <Linkedin size={13} /> LinkedIn Profile
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0369A1', fontSize: '0.78rem', fontWeight: '600', textDecoration: 'none', marginBottom: '1.25rem', padding: '6px 14px', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                            <Linkedin size={13} /> LinkedIn Profile <ExternalLink size={11} />
                         </a>
                     )}
+
                     {achievements.length > 0 && (
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
-                                <Star size={13} color="#F59E0B" />
-                                <span style={{ color: '#0F172A', fontWeight: '800', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Key Achievements</span>
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.65rem' }}>
+                                <Star size={13} color="#F59E0B" fill="#F59E0B" />
+                                <span style={{ color: '#0F172A', fontWeight: '700', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Key Achievements</span>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 {achievements.map((a, i) => (
                                     <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '0.6rem 0.85rem', background: '#F8FAFC', borderRadius: '8px', borderLeft: `3px solid ${accentColor}` }}>
-                                        <span style={{ color: accentColor, fontWeight: '800', fontSize: '0.68rem', lineHeight: '1.7', flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
+                                        <span style={{ color: accentColor, fontWeight: '800', fontSize: '0.65rem', lineHeight: '1.75', flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
                                         <span style={{ color: '#334155', fontSize: '0.84rem', lineHeight: '1.65' }}>{a}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
+
                     {nominee.description && (
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.6rem' }}>
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.55rem' }}>
                                 <BookOpen size={13} color="#64748B" />
-                                <span style={{ color: '#0F172A', fontWeight: '800', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>About</span>
+                                <span style={{ color: '#0F172A', fontWeight: '700', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>About</span>
                             </div>
                             <p style={{ color: '#475569', fontSize: '0.875rem', lineHeight: '1.75', margin: 0 }}>{nominee.description}</p>
                         </div>
                     )}
+
                     <div style={{ height: '1px', background: '#F1F5F9', margin: '1.25rem 0' }} />
+
+                    {/* Vote / Winner area */}
                     {isWinner ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '0.9rem 1.5rem', color: '#B45309', fontWeight: '700', fontSize: '0.9rem', justifyContent: 'center' }}>
-                            <Trophy size={18} /> Award Winner — Congratulations!
+                            <Trophy size={18} color="#D97706" /> Award Winner — Congratulations!
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                             {voteError && !hasVoted && (
                                 <div style={{ display: 'flex', gap: '7px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.6rem 1rem', color: '#DC2626', fontSize: '0.82rem', alignItems: 'center' }}>
                                     <AlertCircle size={14} style={{ flexShrink: 0 }} /> {voteError}
@@ -257,7 +298,7 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
                                 </div>
                             ) : (
                                 <button onClick={handleVote} disabled={voting}
-                                    style={{ width: '100%', background: voting ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: '12px', padding: '0.9rem 2rem', fontWeight: '800', fontSize: '0.95rem', cursor: voting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: voting ? 'none' : '0 4px 16px rgba(0,51,102,0.22)', transition: 'all 0.2s', fontFamily: 'inherit' }}
+                                    style={{ width: '100%', background: voting ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: '12px', padding: '0.9rem 2rem', fontWeight: '700', fontSize: '0.9rem', cursor: voting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: voting ? 'none' : '0 4px 16px rgba(0,51,102,0.22)', transition: 'all 0.2s', fontFamily: 'inherit' }}
                                     onMouseOver={(e) => { if (!voting) { e.currentTarget.style.background = '#002147'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
                                     onMouseOut={(e) => { e.currentTarget.style.background = voting ? '#94A3B8' : '#003366'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                     {voting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting Vote…</> : <><Trophy size={16} /> Cast Your Vote</>}
@@ -281,51 +322,88 @@ const NomineeGridCard = ({ nominee, onClick }) => {
     const [hovered, setHovered] = useState(false);
     const photoUrl = getPhotoUrl(nominee.photo_url);
     const isWinner = !!nominee.is_winner;
-    const accentColor = isWinner ? '#B45309' : '#0369A1';
+    const accentColor = isWinner ? '#D97706' : '#0284C7';
     const accentBorder = isWinner ? '#FDE68A' : '#BAE6FD';
-    const accentBg = isWinner ? '#FEF3C7' : '#E0F2FE';
+    const accentBg = isWinner ? '#FEF3C7' : '#EFF6FF';
+    const cardAccent = isWinner ? '#F59E0B' : '#0284C7';
     const firstAchievement = nominee.achievements ? nominee.achievements.split(';')[0]?.trim() : null;
 
     return (
-        <div onClick={() => onClick(nominee)} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-            style={{ background: 'white', borderRadius: '16px', border: `1px solid ${hovered ? accentBorder : '#E8EFF6'}`, borderLeft: `4px solid ${isWinner ? '#D97706' : '#0284C7'}`, padding: 'clamp(1rem,2.5vw,1.35rem) clamp(1rem,2.5vw,1.35rem) clamp(0.85rem,2vw,1.1rem)', cursor: 'pointer', boxShadow: hovered ? `0 18px 44px rgba(0,0,0,0.11)` : '0 2px 10px rgba(0,0,0,0.05)', transform: hovered ? 'translateY(-6px) scale(1.01)' : 'translateY(0) scale(1)', transition: 'all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)', position: 'relative', overflow: 'hidden' }}>
-            {isWinner && <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'radial-gradient(circle, rgba(253,230,138,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />}
+        <div
+            onClick={() => onClick(nominee)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                background: 'white',
+                borderRadius: '16px',
+                border: `1px solid ${hovered ? accentBorder : '#E8EFF6'}`,
+                cursor: 'pointer',
+                boxShadow: hovered ? '0 20px 50px rgba(0,0,0,0.12)' : '0 2px 12px rgba(0,0,0,0.05)',
+                transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
+                transition: 'all 0.26s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+            }}
+        >
+            {/* Top accent bar */}
+            <div style={{ height: '3px', background: isWinner ? 'linear-gradient(90deg, #F59E0B, #FBBF24, #F59E0B)' : 'linear-gradient(90deg, #003366, #0284C7)', flexShrink: 0 }} />
+
+            {/* Winner ribbon */}
             {isWinner && (
-                <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#FEF3C7', color: '#B45309', fontSize: '0.58rem', fontWeight: '800', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', background: '#FEF3C7', color: '#B45309', fontSize: '0.58rem', fontWeight: '800', padding: '3px 9px', borderRadius: '20px', border: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
                     <Trophy size={8} /> Winner
                 </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'clamp(0.6rem,1.5vw,0.9rem)', marginBottom: 'clamp(0.65rem,1.5vw,0.9rem)' }}>
-                <div style={{ width: '58px', height: '58px', borderRadius: '50%', flexShrink: 0, background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : `linear-gradient(135deg, ${isWinner ? '#B45309' : '#003366'} 0%, ${isWinner ? '#F59E0B' : '#0284C7'} 100%)`, border: `3px solid ${isWinner ? '#FDE68A' : '#BFDBFE'}`, boxShadow: `0 0 0 4px ${isWinner ? 'rgba(253,230,138,0.25)' : 'rgba(191,219,254,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: '800', color: 'white' }}>
-                    {!photoUrl && nominee.name?.charAt(0)}
+
+            <div style={{ padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {/* Person row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
+                    <div style={{
+                        width: '54px', height: '54px', borderRadius: '12px', flexShrink: 0,
+                        background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : `linear-gradient(135deg, ${isWinner ? '#B45309' : '#003366'} 0%, ${isWinner ? '#F59E0B' : '#0284C7'} 100%)`,
+                        border: `2px solid ${isWinner ? '#FDE68A' : '#BFDBFE'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: '800', color: 'white',
+                    }}>
+                        {!photoUrl && nominee.name?.charAt(0)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.92rem', color: '#0F172A', lineHeight: '1.3', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: isWinner ? '4.5rem' : '0' }}>{nominee.name}</div>
+                        <div style={{ fontSize: '0.73rem', color: '#475569', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nominee.designation}</div>
+                    </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0, paddingTop: '3px' }}>
-                    <div style={{ fontWeight: '800', fontSize: 'clamp(0.85rem,2vw,0.94rem)', color: '#0F172A', lineHeight: '1.3', marginBottom: '2px', wordBreak: 'break-word' }}>{nominee.name}</div>
-                    <div style={{ fontSize: '0.72rem', color: '#475569', lineHeight: '1.4', wordBreak: 'break-word' }}>{nominee.designation}</div>
-                </div>
-            </div>
-            {nominee.company && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.71rem', color: '#64748B', marginBottom: '0.7rem' }}>
-                    <div style={{ width: '15px', height: '15px', borderRadius: '3px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Award size={8} color="#94A3B8" /></div>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500' }}>{nominee.company}</span>
-                </div>
-            )}
-            {firstAchievement && (
-                <div style={{ fontSize: '0.71rem', color: '#64748B', fontStyle: 'italic', lineHeight: '1.5', marginBottom: '0.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    "{firstAchievement}"
-                </div>
-            )}
-            <div style={{ height: '1px', background: '#F1F5F9', margin: '0.7rem 0' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                    <span style={{ background: accentBg, color: accentColor, fontSize: '0.59rem', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', border: `1px solid ${accentBorder}`, display: 'inline-flex', alignItems: 'center', gap: '3px', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <BadgeCheck size={8} /> {nominee.category_name}
-                    </span>
-                    <span style={{ background: tl.bg, color: tl.color, fontSize: '0.59rem', fontWeight: '700', padding: '2px 7px', borderRadius: '20px' }}>{tl.label}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', fontWeight: '700', color: hovered ? accentColor : '#94A3B8', transition: 'all 0.2s', flexShrink: 0 }}>
-                    {isWinner ? 'View' : 'Vote'}
-                    <ChevronRight size={11} style={{ transform: hovered ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 0.2s' }} />
+
+                {/* Company */}
+                {nominee.company && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: '#64748B', marginBottom: '0.7rem', overflow: 'hidden' }}>
+                        <Building2 size={11} color="#94A3B8" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500' }}>{nominee.company}</span>
+                    </div>
+                )}
+
+                {/* First Achievement snippet */}
+                {firstAchievement && (
+                    <p style={{ fontSize: '0.72rem', color: '#64748B', fontStyle: 'italic', lineHeight: '1.55', margin: '0 0 0.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
+                        "{firstAchievement}"
+                    </p>
+                )}
+
+                {/* Divider */}
+                <div style={{ height: '1px', background: '#F1F5F9', margin: '0.5rem 0 0.75rem' }} />
+
+                {/* Bottom row: tags + action */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                        <span style={{ background: accentBg, color: isWinner ? '#B45309' : '#1D4ED8', fontSize: '0.58rem', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', maxWidth: '115px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <BadgeCheck size={8} /> {nominee.category_name}
+                        </span>
+                        <span style={{ background: tl.bg, color: tl.color, fontSize: '0.58rem', fontWeight: '700', padding: '2px 7px', borderRadius: '4px' }}>{tl.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: '700', color: hovered ? cardAccent : '#94A3B8', transition: 'all 0.2s', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {isWinner ? 'View' : 'Vote'}
+                        <ChevronRight size={12} style={{ transform: hovered ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 0.2s' }} />
+                    </div>
                 </div>
             </div>
         </div>
@@ -435,8 +513,8 @@ const AllNominees = () => {
                 </div>
             </div>
 
-            {/* Filter bar — horizontal scroll on mobile */}
-            <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0.9rem clamp(1rem,3vw,2rem)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {/* Filter bar */}
+            <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0.9rem clamp(1rem,3vw,2rem)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', minWidth: 'min-content' }}>
                     <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px', maxWidth: '300px' }}>
                         <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />

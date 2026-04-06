@@ -18,6 +18,26 @@ import { formatDate } from '../utils/dateFormatter.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import Pagination from '../components/common/Pagination.jsx';
 
+// ─── Body scroll lock hook ────────────────────────────────────────────────────
+const useBodyScrollLock = (locked) => {
+    useEffect(() => {
+        if (locked) {
+            const scrollY = window.scrollY;
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            return () => {
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
+                window.scrollTo(0, scrollY);
+            };
+        }
+    }, [locked]);
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_META = {
     webinar: { color: '#1D4ED8', bg: '#EFF6FF', icon: <Monitor size={13} /> },
@@ -61,6 +81,8 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
     const [voteError, setVoteError] = useState('');
     const [recaptchaToken, setRecaptchaToken] = useState('');
     const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+    useBodyScrollLock(true);
 
     useEffect(() => {
         const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -187,6 +209,8 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
     const [voted, setVoted] = useState(false);
     const [voteError, setVoteError] = useState('');
     const [showVoteOptions, setShowVoteOptions] = useState(false);
+
+    useBodyScrollLock(true);
 
     const tl = TIMELINE_META[nominee.category_timeline] || TIMELINE_META.yearly;
     const hasVoted = voted || (myVotedCategoryIds || []).includes(nominee.category_id);
@@ -497,6 +521,8 @@ const EventRegistrationModal = ({ ev, onClose, onSuccess }) => {
     const cat = (ev.event_category || '').toLowerCase();
     const meta = CATEGORY_META[cat] || { color: '#64748B', bg: '#F1F5F9', icon: <Calendar size={14} /> };
 
+    useBodyScrollLock(true);
+
     const handleChange = (e) => { const { name, value, type, checked } = e.target; setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value })); };
     const handleSubmit = async (e) => {
         e.preventDefault(); setError('');
@@ -587,6 +613,8 @@ const EventFormModal = ({ initial, onSave, onClose }) => {
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
 
+    useBodyScrollLock(true);
+
     const handleChange = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
     const handleSave = async (e) => {
         e.preventDefault();
@@ -633,7 +661,9 @@ const EventFormModal = ({ initial, onSave, onClose }) => {
 };
 
 // ─── Confirm Delete ───────────────────────────────────────────────────────────
-const ConfirmDeleteDialog = ({ ev, onConfirm, onCancel, deleting }) => (
+const ConfirmDeleteDialog = ({ ev, onConfirm, onCancel, deleting }) => {
+    useBodyScrollLock(true);
+    return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onCancel}>
         <div style={{ background: 'white', borderRadius: '12px', padding: 'clamp(1.25rem,3vw,2rem)', maxWidth: '420px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
             <Trash2 size={32} color="#DC2626" style={{ marginBottom: '1rem' }} />
@@ -648,7 +678,8 @@ const ConfirmDeleteDialog = ({ ev, onConfirm, onCancel, deleting }) => (
             </div>
         </div>
     </div>
-);
+    );
+};
 
 // ─── Infinite Workshop Marquee Track ──────────────────────────────────────────
 const WorkshopMarqueeTrack = ({ items, speed = 0.45 }) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Section from '../components/Section.jsx';
 import Pagination from '../components/common/Pagination.jsx';
-import { useAuth } from '../context/AuthContext.js';
+import { useAuth } from '../hooks/useAuth.js';
 import { useNavigate } from 'react-router-dom';
 import {
     Shield, UserPlus, Trash2, ChevronDown, Ban, CheckCircle,

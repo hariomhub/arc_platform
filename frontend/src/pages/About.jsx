@@ -174,7 +174,7 @@ const About = () => {
                         <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>What Defines Us</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: '1.25rem' }}>
                             {[
-                                { icon: Shield, title: 'Independent', desc: 'Zero vendor affiliation - providing unbiased advice you can trust and confidently cite in board-level reporting.' },
+                                { icon: Shield, title: 'Independent', desc: 'Delivering unbiased guidance to support AI governance, risk, and compliance for confident, board-level decision-making.' },
                                 { icon: BookOpen, title: 'Research-Backed', desc: 'Peer-reviewed publications, open datasets, and audit-ready templates you can deploy immediately.' },
                                 { icon: Award, title: 'Aligned with Global Standards', desc: 'Following frameworks and guidance from OECD, EU AI Office, NIST, and national ministries across six continents.' },
                                 { icon: Target, title: 'Actionable', desc: 'Practical frameworks digestible in hours - not weeks of consultant time or opaque recommendations.' },

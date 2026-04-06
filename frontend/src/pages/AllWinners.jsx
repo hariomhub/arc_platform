@@ -9,6 +9,26 @@ import { getAwards, getNominees } from '../api/nominations.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
+// ─── Body scroll lock hook ────────────────────────────────────────────────────
+const useBodyScrollLock = (locked) => {
+    useEffect(() => {
+        if (locked) {
+            const scrollY = window.scrollY;
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            return () => {
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
+                window.scrollTo(0, scrollY);
+            };
+        }
+    }, [locked]);
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIMELINE_META = {
     quarterly:     { label: 'Quarterly',   color: '#7C3AED', bg: '#F5F3FF' },
@@ -52,6 +72,8 @@ const WinnerModal = ({ winner, onClose }) => {
         : [];
     const initials = winner.name?.split(' ').map(w => w[0]).slice(0, 2).join('') || '?';
 
+    useBodyScrollLock(true);
+
     useEffect(() => {
         const handler = (e) => { if (e.key === 'Escape') onClose(); };
         document.addEventListener('keydown', handler);
@@ -60,78 +82,84 @@ const WinnerModal = ({ winner, onClose }) => {
 
     return (
         <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,40,0.7)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem', backdropFilter: 'blur(6px)', boxSizing: 'border-box' }}
             onClick={onClose}
         >
             <div
                 onClick={e => e.stopPropagation()}
-                style={{ background: '#FAFAFA', borderRadius: '16px', maxWidth: '580px', width: '100%', maxHeight: '90dvh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', position: 'relative' }}
+                style={{ background: 'white', borderRadius: '20px', maxWidth: '560px', width: '100%', maxHeight: '88dvh', overflowY: 'auto', overflowX: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}
             >
-                <button onClick={onClose} style={{ position: 'absolute', top: '14px', right: '14px', background: 'white', border: '1px solid #E5E7EB', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                    <X size={15} />
-                </button>
-
-                {/* Header */}
-                <div style={{ background: 'white', borderRadius: '16px 16px 0 0', padding: 'clamp(1.25rem,3vw,1.75rem)', borderBottom: '1px solid #F3F4F6' }}>
-                    <div style={{ display: 'flex', gap: 'clamp(0.75rem,2vw,1.25rem)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        <div style={{ width: '72px', height: '72px', borderRadius: '12px', flexShrink: 0, background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : 'linear-gradient(145deg,#D97706 0%,#F59E0B 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: '700', color: 'white' }}>
+                {/* ── Dark header ── */}
+                <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%)', borderRadius: '20px 20px 0 0', padding: '1.25rem', position: 'relative' }}>
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '20px 20px 0 0', opacity: 0.05, backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px', pointerEvents: 'none' }} />
+                    {/* Close button */}
+                    <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.85)', transition: 'background 0.2s', zIndex: 2 }}
+                        onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.24)'; }}
+                        onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)'; }}>
+                        <X size={15} />
+                    </button>
+                    {/* Avatar + identity */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingRight: '2.5rem' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '14px', flexShrink: 0, background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : 'linear-gradient(135deg, #D97706 0%, #FBBF24 100%)', border: '3px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: '800', color: 'white' }}>
                             {!photoUrl && initials}
                         </div>
-                        <div style={{ flex: 1, minWidth: '160px', paddingRight: '2.5rem' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                             {winner.award_name && (
-                                <p style={{ margin: '0 0 5px', fontSize: '0.68rem', fontWeight: '700', color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{winner.award_name}</p>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(253,230,138,0.15)', border: '1px solid rgba(253,230,138,0.25)', borderRadius: '20px', padding: '2px 10px', marginBottom: '0.4rem' }}>
+                                    <Trophy size={9} color="#FCD34D" />
+                                    <span style={{ color: '#FDE68A', fontSize: '0.58rem', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{winner.award_name}</span>
+                                </div>
                             )}
-                            <h2 style={{ margin: '0 0 3px', fontSize: 'clamp(1.1rem,3vw,1.3rem)', fontWeight: '800', color: '#111827', lineHeight: '1.25', letterSpacing: '-0.01em' }}>{winner.name}</h2>
-                            {winner.designation && <p style={{ margin: '0 0 2px', fontSize: '0.82rem', color: '#4B5563' }}>{winner.designation}</p>}
-                            {winner.company && <p style={{ margin: 0, fontSize: '0.78rem', color: '#9CA3AF' }}>{winner.company}</p>}
+                            <h2 style={{ color: 'white', fontSize: 'clamp(1rem,3vw,1.3rem)', fontWeight: '800', margin: '0 0 0.15rem', letterSpacing: '-0.02em', lineHeight: '1.25', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{winner.name}</h2>
+                            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{winner.designation}{winner.company ? ` · ${winner.company}` : ''}</p>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', fontSize: '0.63rem', fontWeight: '700', padding: '3px 10px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            <Trophy size={9} /> Winner
+                    {/* Badges */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+                        <span style={{ background: 'rgba(253,230,138,0.18)', color: '#FDE68A', border: '1px solid rgba(253,230,138,0.3)', fontSize: '0.6rem', fontWeight: '800', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                            <Trophy size={8} /> Winner
                         </span>
+                        <span style={{ background: 'rgba(255,255,255,0.1)', color: tl.color === '#7C3AED' ? '#C4B5FD' : tl.color === '#0284C7' ? '#7DD3FC' : '#6EE7B7', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.6rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px' }}>{tl.label}</span>
                         {winner.category_name && (
-                            <span style={{ fontSize: '0.7rem', fontWeight: '600', color: '#92400E', background: '#FFFBEB', padding: '3px 10px', borderRadius: '6px' }}>
-                                {winner.category_name}
-                            </span>
+                            <span style={{ background: 'rgba(255,255,255,0.1)', color: '#FDE68A', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.6rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{winner.category_name}</span>
                         )}
-                        <span style={{ fontSize: '0.7rem', fontWeight: '600', color: tl.color, background: tl.bg, padding: '3px 10px', borderRadius: '6px' }}>
-                            {tl.label}
-                        </span>
                         {winner.linkedin_url && (
                             <a href={winner.linkedin_url} target="_blank" rel="noopener noreferrer"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', fontWeight: '600', color: '#0077B5', background: '#F0F9FF', padding: '3px 10px', borderRadius: '6px', textDecoration: 'none', marginLeft: 'auto' }}
-                                onMouseOver={e => e.currentTarget.style.background = '#E0F2FE'}
-                                onMouseOut={e => e.currentTarget.style.background = '#F0F9FF'}>
-                                <Linkedin size={11} /> LinkedIn
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '20px', padding: '3px 10px', color: '#BFDBFE', fontSize: '0.6rem', fontWeight: '700', textDecoration: 'none', marginLeft: 'auto' }}
+                                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                                onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                <Linkedin size={10} /> LinkedIn
                             </a>
                         )}
                     </div>
                 </div>
 
-                {/* Body */}
-                <div style={{ padding: 'clamp(1rem,3vw,1.5rem) clamp(1.25rem,3vw,1.75rem)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* ── Body ── */}
+                <div style={{ padding: '1.25rem 1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {winner.description && (
                         <div>
-                            <p style={{ margin: '0 0 0.5rem', fontSize: '0.7rem', fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em' }}>About</p>
+                            <p style={{ margin: '0 0 0.5rem', fontSize: '0.7rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>About</p>
                             <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151', lineHeight: '1.75' }}>{winner.description}</p>
                         </div>
                     )}
                     {achievements.length > 0 && (
                         <div>
-                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.7rem', fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Key Achievements</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.7rem' }}>
+                                <Star size={13} color="#F59E0B" fill="#F59E0B" />
+                                <span style={{ color: '#0F172A', fontWeight: '700', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Key Achievements</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 {achievements.map((a, i) => (
-                                    <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: '800', flexShrink: 0, marginTop: '1px' }}>{i + 1}</div>
-                                        <p style={{ margin: 0, fontSize: '0.845rem', color: '#374151', lineHeight: '1.65' }}>{a}</p>
+                                    <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '0.6rem 0.85rem', background: '#FFFBEB', borderRadius: '8px', borderLeft: '3px solid #D97706' }}>
+                                        <span style={{ color: '#D97706', fontWeight: '800', fontSize: '0.65rem', lineHeight: '1.75', flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
+                                        <span style={{ color: '#334155', fontSize: '0.84rem', lineHeight: '1.65' }}>{a}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
-                    <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: '1.25rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '10px', padding: '0.85rem 1.25rem', color: '#92400E', fontWeight: '700', fontSize: '0.88rem' }}>
+                    <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '1.1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '0.85rem 1.25rem', color: '#92400E', fontWeight: '700', fontSize: '0.88rem', justifyContent: 'center' }}>
                             <Trophy size={17} color="#D97706" /> Award Winner — Congratulations!
                         </div>
                     </div>
