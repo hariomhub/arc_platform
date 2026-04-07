@@ -13,11 +13,17 @@ const COOKIE_OPTIONS = {
 // POST /api/auth/register
 export const register = async (req, res, next) => {
     try {
-        const { name, email, password, role, organization_name, linkedin_url } = req.body;
+        const { name, email, password, role, organization_name, linkedin_url, professional_sub_type } = req.body;
 
-        // Only professional can self-register; founding_member and executive are assigned by a founding member
+        // Only professional can self-register; council_member and founding_member are assigned by admin
         const allowedSelfRoles = ['professional'];
         const assignedRole = allowedSelfRoles.includes(role) ? role : 'professional';
+
+        // Validate and assign professional sub-type (only for professional role)
+        const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
+        const subType = assignedRole === 'professional' && allowedSubTypes.includes(professional_sub_type)
+            ? professional_sub_type
+            : (assignedRole === 'professional' ? 'working_professional' : null);
 
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
@@ -32,10 +38,11 @@ export const register = async (req, res, next) => {
         const password_hash = await bcrypt.hash(password, 12);
 
         const [result] = await pool.query(
-            `INSERT INTO users (name, email, password_hash, role, status, organization_name, linkedin_url)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
-            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, organization_name || null, linkedin_url || null]
+            `INSERT INTO users (name, email, password_hash, role, professional_sub_type, status, organization_name, linkedin_url)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, subType, organization_name || null, linkedin_url || null]
         );
+
 
         // Fire-and-forget welcome email — never blocks the API response
         sendWelcomeEmail({

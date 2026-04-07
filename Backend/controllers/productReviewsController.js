@@ -1,5 +1,6 @@
 import pool from '../db/connection.js';
 import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
+import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -104,6 +105,15 @@ export const createProduct = async (req, res, next) => {
             short_description || null, overview || null, version_tested || null, kf]
         );
         const [[row]] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
+
+        // Notify all members — fire and forget
+        notifyAllMembers(
+            NOTIF_TYPES.PRODUCT_REVIEW_ADDED,
+            `New AI Product Review: ${name.trim()}`,
+            `${vendor.trim()} — now reviewed on AI Risk Council`,
+            { url: '/services/product-reviews', productId: String(result.insertId) }
+        );
+
         return res.status(201).json({ success: true, data: row });
     } catch (err) {
         next(err);
@@ -142,8 +152,7 @@ export const deleteProduct = async (req, res, next) => {
         const [[check]] = await pool.query('SELECT id FROM products WHERE id = ?', [id]);
         if (!check) return res.status(404).json({ success: false, message: 'Product not found.' });
 
-        // Delete all media and evidence blobs from Azure Storage
-        const [mediaFiles] = await pool.query('SELECT url FROM product_media WHERE product_id = ?', [id]);
+        const [mediaFiles]    = await pool.query('SELECT url FROM product_media WHERE product_id = ?', [id]);
         const [evidenceFiles] = await pool.query('SELECT file_url FROM product_evidences WHERE product_id = ?', [id]);
         await Promise.all([
             ...mediaFiles.map((m) => deleteFromBlob(m.url)),
@@ -224,13 +233,7 @@ export const uploadMedia = async (req, res, next) => {
 
         const inserted = [];
         for (const file of req.files) {
-            // Upload to Azure Blob Storage under products/media/
-            const url = await uploadToBlob(
-                'products/media',
-                file.originalname,
-                file.buffer,
-                file.mimetype
-            );
+            const url = await uploadToBlob('products/media', file.originalname, file.buffer, file.mimetype);
             const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
             const [ins] = await pool.query(
                 'INSERT INTO product_media (product_id, type, url, label, display_order) VALUES (?, ?, ?, ?, ?)',
@@ -278,13 +281,7 @@ export const uploadEvidence = async (req, res, next) => {
 
         const inserted = [];
         for (const file of req.files) {
-            // Upload to Azure Blob Storage under products/evidences/
-            const file_url = await uploadToBlob(
-                'products/evidences',
-                file.originalname,
-                file.buffer,
-                file.mimetype
-            );
+            const file_url = await uploadToBlob('products/evidences', file.originalname, file.buffer, file.mimetype);
             const [ins] = await pool.query(
                 'INSERT INTO product_evidences (product_id, feature_test_id, file_url, file_name, file_type) VALUES (?, ?, ?, ?, ?)',
                 [id, ftId, file_url, file.originalname, file.mimetype]

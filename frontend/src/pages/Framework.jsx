@@ -303,7 +303,7 @@ const PlaybooksSection = () => {
 
     const handleDownload = async (pb) => {
         if (!isLoggedIn) { alert('Please sign in to download playbooks.'); return; }
-        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available for Executive and Founding Member plans.'); return; }
+        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available for Council Member and Founding Member plans.'); return; }
         try {
             const res = await fetch(`/api/playbooks/${pb.id}/download`, { headers: { Authorization: `Bearer ${token}` } });
             if (!res.ok) throw new Error();
@@ -323,8 +323,8 @@ const PlaybooksSection = () => {
             <div style={{ marginBottom: '1.75rem' }}>
                 <h2 style={{ fontSize: 'clamp(1.2rem,2.5vw,1.6rem)', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>Governance Playbooks</h2>
                 <p style={{ color: '#64748B', fontSize: '0.9rem', lineHeight: '1.65', maxWidth: '600px' }}>Download comprehensive governance playbooks aligned with major AI risk frameworks.</p>
-                {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require an Executive or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
-                {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download — available for Executive & Founding Member plans.</span></div>}
+                {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require a Council Member or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
+                {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download — available for Council Member &amp; Founding Member plans.</span></div>}
             </div>
             {loading && <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8' }}><BookOpen size={32} style={{ marginBottom: '8px', opacity: 0.4 }} /><p style={{ margin: 0, fontSize: '0.875rem' }}>Loading playbooks...</p></div>}
             {!loading && Object.entries(grouped).map(([framework, items]) => {
@@ -346,7 +346,7 @@ const PlaybooksSection = () => {
                                     {pb.brief && <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', lineHeight: '1.55' }}>{pb.brief}</p>}
                                 </div>
                                 <button onClick={() => handleDownload(pb)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: canDownloadFramework?.() ? '#003366' : '#94A3B8', color: 'white', border: 'none', borderRadius: '7px', fontWeight: '700', fontSize: '0.78rem', cursor: 'pointer', flexShrink: 0, transition: 'background 0.15s', whiteSpace: 'nowrap' }} onMouseOver={e => { if (canDownloadFramework?.()) e.currentTarget.style.background = '#002147'; }} onMouseOut={e => { if (canDownloadFramework?.()) e.currentTarget.style.background = '#003366'; }}>
-                                    {canDownloadFramework?.() ? <><Download size={13} />Download</> : isLoggedIn ? <><Lock size={13} />Executive Only</> : <><Lock size={13} />Sign In</>}
+                                    {canDownloadFramework?.() ? <><Download size={13} />Download</> : isLoggedIn ? <><Lock size={13} />Council Only</> : <><Lock size={13} />Sign In</>}
                                 </button>
                             </div>)}
                         </div>

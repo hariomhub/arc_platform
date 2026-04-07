@@ -41,9 +41,9 @@ const TABS = [
     { key: 'framework',         label: 'Framework Content',   icon: Shield },
 ];
 
-const ROLE_OPTIONS = ['founding_member', 'executive', 'professional'];
-const ROLE_LABELS  = { founding_member: 'Founding Member', executive: 'Executive', professional: 'Professional' };
-const ROLE_COLORS  = { founding_member: '#7C3AED', executive: '#0284C7', professional: '#059669' };
+const ROLE_OPTIONS = ['founding_member', 'council_member', 'professional'];
+const ROLE_LABELS  = { founding_member: 'Founding Member', council_member: 'Council Member', professional: 'Professional' };
+const ROLE_COLORS  = { founding_member: '#7C3AED', council_member: '#0284C7', professional: '#059669' };
 const EVENT_CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast', 'conference'];
 const CATCOLORS = { webinar: '#0284C7', seminar: '#059669', workshop: '#7C3AED', podcast: '#DC2626', conference: '#D97706' };
 
@@ -234,7 +234,7 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setAppActioning(prev => ({ ...prev, [id]: null })); }
     };
 
-    const ROLE_BADGE   = { executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
+    const ROLE_BADGE   = { council_member: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
     const STATUS_BADGE = { pending: { color: '#92400e', bg: '#fffbeb' }, approved: { color: '#15803d', bg: '#f0fdf4' }, rejected: { color: '#991b1b', bg: '#fef2f2' } };
 
     return (
@@ -314,7 +314,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                         </div>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>Membership Upgrade Applications</h3>
-                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Executive &amp; Founding Member requests</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Council Member &amp; Founding Member requests</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -346,7 +346,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                         <div style={{ flex: 1, minWidth: '180px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '4px' }}>
                                                 <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{displayName}</span>
-                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{a.requested_role === 'founding_member' ? 'Founding Member' : 'Executive'}</span>
+                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{a.requested_role === 'founding_member' ? 'Founding Member' : 'Council Member'}</span>
                                                 <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{a.status}</span>
                                             </div>
                                             <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
@@ -1661,7 +1661,7 @@ const WorkshopsTab = ({ showToast }) => {
             <SectionHeader
                 icon={BookOpen}
                 title="Executive Workshops"
-                subtitle="Admin-only. Visible to Executive & Founding Members. No public registration."
+                subtitle="Council Members create workshops pending admin review. Founding Member publishes."
                 action={
                     <button onClick={openCreate} style={{ ...BTN_PRIMARY, gap: '6px' }}>
                         <Plus size={14} /> Add Workshop
@@ -1705,7 +1705,7 @@ const WorkshopsTab = ({ showToast }) => {
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                             <input type="checkbox" checked={form.is_published} onChange={e => setForm(p => ({ ...p, is_published: e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
-                            Published (visible to Executive members)
+                            Published (visible to Council Members and above)
                         </label>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9' }}>
@@ -1727,7 +1727,7 @@ const WorkshopsTab = ({ showToast }) => {
                     {[1,2,3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
                 </div>
             ) : !error && workshops.length === 0 ? (
-                <EmptyState icon={BookOpen} message="No executive workshops yet. Click 'Add Workshop' to create one." />
+                <EmptyState icon={BookOpen} message="No workshops yet. Click 'Add Workshop' to create one." />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {workshops.map(ws => (
@@ -1785,7 +1785,7 @@ const AdminDashboard = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const VALID_TABS = TABS.map(t => t.key);
-    const defaultTab = user?.role === 'executive' ? 'pending_resources' : 'pending';
+    const defaultTab = user?.role === 'council_member' ? 'pending_resources' : 'pending';
     const urlTab = searchParams.get('tab');
     const [tab, setTab] = useState(urlTab && VALID_TABS.includes(urlTab) ? urlTab : defaultTab);
     const [pendingCount, setPendingCount] = useState(0);
@@ -1796,7 +1796,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         if (!user) { navigate('/login'); return; }
-        if (user.role !== 'founding_member' && user.role !== 'executive') { navigate('/'); }
+        if (user.role !== 'founding_member' && user.role !== 'council_member') { navigate('/'); }
     }, [user, navigate]);
 
     const refreshPending = useCallback(async () => {
@@ -1820,15 +1820,15 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         if (user?.role === 'founding_member') { refreshPending(); refreshPendingResources(); refreshPendingNews(); }
-        else if (user?.role === 'executive') { refreshPendingResources(); refreshPendingNews(); }
+        else if (user?.role === 'council_member') { refreshPendingResources(); refreshPendingNews(); }
     }, [user, refreshPending, refreshPendingResources, refreshPendingNews]);
 
-    if (!user || (user.role !== 'founding_member' && user.role !== 'executive')) return null;
+    if (!user || (user.role !== 'founding_member' && user.role !== 'council_member')) return null;
 
     const isFoundingMember = user.role === 'founding_member';
-    const EXECUTIVE_TABS = ['pending_resources', 'news', 'auto_news', 'events', 'resources'];
-    // workshops tab is founding_member only — not in EXECUTIVE_TABS
-    const visibleTabs = isFoundingMember ? TABS : TABS.filter(t => EXECUTIVE_TABS.includes(t.key));
+    const COUNCIL_TABS = ['pending_resources', 'news', 'auto_news', 'events', 'resources'];
+    // workshops tab is founding_member only — not in COUNCIL_TABS
+    const visibleTabs = isFoundingMember ? TABS : TABS.filter(t => COUNCIL_TABS.includes(t.key));
     const activeTabInfo = TABS.find(t => t.key === tab);
     const ActiveTabIcon = activeTabInfo?.icon;
 
@@ -1853,7 +1853,7 @@ const AdminDashboard = () => {
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
                             <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Logged in as</span>
                             <span style={{ fontSize: '0.78rem', color: '#F1F5F9', fontWeight: '600' }}>{user.name}</span>
-                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : 'Executive'}</span>
+                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : 'Council Member'}</span>
                         </div>
                     </div>
 

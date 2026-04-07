@@ -63,7 +63,7 @@ const Register = () => {
     const location = useLocation();
     const { user, isAuthLoading } = useAuth();
 
-    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '' });
+    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '', professional_sub_type: 'working_professional' });
     const [showPw, setShowPw] = useState(false);
     const [showConfirmPw, setShowConfirmPw] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
@@ -147,7 +147,7 @@ const Register = () => {
         if (Object.keys(errors).length) { setFieldErrors(errors); return; }
         setFieldErrors({}); setSubmitting(true);
         try {
-            await registerUser({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: form.role, organization_name: showOrgField ? form.organization_name.trim() : undefined });
+            await registerUser({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: form.role, organization_name: showOrgField ? form.organization_name.trim() : undefined, professional_sub_type: form.role === 'professional' ? form.professional_sub_type : undefined });
             setSuccess(true);
         } catch (err) { setServerError(getErrorMessage(err)); }
         finally { setSubmitting(false); }
@@ -297,7 +297,10 @@ const Register = () => {
                                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
                             </Link>
                             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the AI Risk Council</h2>
-                            <p style={{ margin: '0 0 2rem', fontSize: '0.86rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>Create your account and gain access to a global community advancing responsible AI governance.</p>
+                            <p style={{ margin: '0 0 2rem', fontSize: '0.86rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
+                                Join as a <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Professional</strong> for community access, or apply for{' '}
+                                <strong style={{ color: '#93C5FD' }}>Council Member</strong> for premium platform benefits.
+                            </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                 {PERKS.map(({ icon: Icon, text }) => (
                                     <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.85rem', borderRadius: 10, background: 'rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
@@ -312,7 +315,7 @@ const Register = () => {
                             </div>
                             <div style={{ marginTop: '1.75rem', padding: '0.9rem 1rem', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.42)', lineHeight: 1.65 }}>
-                                    ✅&nbsp; Free to join. No credit card required.<br />🔒&nbsp; Enterprise-grade security & privacy.
+                                    ✅&nbsp; Free to join as Professional. No credit card required.<br />🏛️&nbsp; Apply for Council Member once registered.<br />🔒&nbsp; Enterprise-grade security & privacy.
                                 </p>
                             </div>
                         </div>
@@ -425,6 +428,42 @@ const Register = () => {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* ── Professional Sub-category (only for professional role) ── */}
+                            {form.role === 'professional' && (
+                                <div>
+                                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>I am a <span style={{ color: '#EF4444' }}>*</span></p>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {[
+                                            { value: 'working_professional', label: '💼 Working Professional' },
+                                            { value: 'final_year_undergrad', label: '🎓 Final Year Undergraduate' },
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setForm(p => ({ ...p, professional_sub_type: opt.value }))}
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    borderRadius: '100px',
+                                                    border: `2px solid ${form.professional_sub_type === opt.value ? '#003366' : '#E2E8F0'}`,
+                                                    background: form.professional_sub_type === opt.value ? '#EEF4FF' : '#FAFBFC',
+                                                    color: form.professional_sub_type === opt.value ? '#003366' : '#64748B',
+                                                    fontWeight: form.professional_sub_type === opt.value ? 700 : 500,
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'var(--font-sans)',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.7rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                                        Both sub-categories have identical access. This is for community profiling only.
+                                    </p>
+                                </div>
+                            )}
 
                             {showOrgField && (
                                 <Field id="ra-org" label="Organisation Name" required error={fieldErrors.organization_name}>

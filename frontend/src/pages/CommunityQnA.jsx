@@ -16,7 +16,7 @@ import AskQuestionModal from '../components/modals/AskQuestionModal.jsx';
 const ITEMS_PER_PAGE = 10;
 
 const roleLabel = (role) => {
-    const map = { founding_member:'Founding Member', executive:'Executive', professional:'Professional', member:'Member', fellow:'Fellow', expert:'Expert' };
+    const map = { founding_member:'Founding Member', council_member:'Council Member', executive:'Council Member', professional:'Professional', member:'Member', fellow:'Fellow', expert:'Expert' };
     return map[role?.toLowerCase()] || role || 'Member';
 };
 

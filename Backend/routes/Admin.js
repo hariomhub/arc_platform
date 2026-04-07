@@ -37,7 +37,7 @@ router.post(
         body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
         body('role')
             .optional()
-            .isIn(['founding_member', 'executive', 'professional'])
+            .isIn(['founding_member', 'council_member', 'professional'])
             .withMessage('Invalid role.'),
         body('status').optional().isIn(['pending', 'approved', 'rejected']).withMessage('Invalid status.'),
         body('organization_name').optional().trim().isLength({ max: 255 }),
@@ -68,7 +68,7 @@ router.patch(
     '/users/:id/role',
     [
         body('role')
-            .isIn(['founding_member', 'executive', 'professional'])
+            .isIn(['founding_member', 'council_member', 'professional'])
             .withMessage('Invalid role.'),
     ],
     validate,

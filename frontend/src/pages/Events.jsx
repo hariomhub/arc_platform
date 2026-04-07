@@ -803,7 +803,7 @@ const FeaturedWorkshopsSection = () => {
 // ─── Events Page ──────────────────────────────────────────────────────────────
 const Events = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const { isAdmin, isExecutive, user } = useAuth();
+    const { isAdmin, isCouncilMember, user } = useAuth();
     const { showToast } = useToast();
 
     const tab = searchParams.get('tab') || 'upcoming';
@@ -958,7 +958,7 @@ const Events = () => {
                                 </button>
                             </div>
                         </div>
-                        {(isAdmin?.() || isExecutive?.()) && (
+                        {(isAdmin?.() || isCouncilMember?.()) && (
                             <button onClick={() => setEditTarget({})} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 <Plus size={16} /> Add Event
                             </button>

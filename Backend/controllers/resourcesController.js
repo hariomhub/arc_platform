@@ -1,5 +1,6 @@
 import pool from '../db/connection.js';
 import { uploadToBlob, deleteFromBlob, getBlobSasUrl } from '../services/azureBlobService.js';
+import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
 
 // Allowed roles for resource file downloads
 const DOWNLOAD_ROLES = ['founding_member', 'executive', 'professional'];
@@ -13,7 +14,6 @@ const paginate = (query, total) => {
 };
 
 // GET /api/resources/recent-videos
-// Fetch the top 3 recent approved video resources (with SAS URLs for direct playback)
 export const getRecentVideos = async (req, res, next) => {
     try {
         const sql = `
@@ -27,10 +27,9 @@ export const getRecentVideos = async (req, res, next) => {
         `;
         const [rows] = await pool.query(sql);
 
-        // Generate SAS URLs for playback
         const videos = rows.map(({ file_url, ...rest }) => ({
             ...rest,
-            video_url: getBlobSasUrl(file_url, 1) // 1 hour expiry
+            video_url: getBlobSasUrl(file_url, 1),
         }));
 
         return res.json({ success: true, data: videos });
@@ -39,7 +38,6 @@ export const getRecentVideos = async (req, res, next) => {
     }
 };
 
-
 // GET /api/resources
 export const getResources = async (req, res, next) => {
     try {
@@ -47,21 +45,20 @@ export const getResources = async (req, res, next) => {
         const isAdmin = req.user?.role === 'founding_member';
 
         let countSql = `
-      SELECT COUNT(*) AS total FROM resources r
-      LEFT JOIN users u ON r.uploader_id = u.id
-      WHERE 1=1
-    `;
+            SELECT COUNT(*) AS total FROM resources r
+            LEFT JOIN users u ON r.uploader_id = u.id
+            WHERE 1=1
+        `;
         let dataSql = `
-      SELECT r.*, u.name AS uploader_name, u.organization_name AS uploader_org
-      FROM resources r
-      LEFT JOIN users u ON r.uploader_id = u.id
-      WHERE 1=1
-    `;
+            SELECT r.*, u.name AS uploader_name, u.organization_name AS uploader_org
+            FROM resources r
+            LEFT JOIN users u ON r.uploader_id = u.id
+            WHERE 1=1
+        `;
         const params = [];
 
         if (!isAdmin) {
             if (req.user) {
-                // Logged-in non-admins see approved resources + their own (any status)
                 countSql += " AND (r.status = 'approved' OR r.uploader_id = ?)";
                 dataSql  += " AND (r.status = 'approved' OR r.uploader_id = ?)";
                 params.push(req.user.id);
@@ -74,7 +71,7 @@ export const getResources = async (req, res, next) => {
         if (type) {
             const clause = ' AND r.type = ?';
             countSql += clause;
-            dataSql += clause;
+            dataSql  += clause;
             params.push(type);
         }
 
@@ -84,9 +81,7 @@ export const getResources = async (req, res, next) => {
         dataSql += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
         const [rows] = await pool.query(dataSql, [...params, limit, offset]);
 
-        // Strip file_url from response — clients must use the download endpoint
         const sanitized = rows.map(({ file_url, ...rest }) => rest);
-
         return res.json({ success: true, data: sanitized, total, page, limit, totalPages });
     } catch (err) {
         next(err);
@@ -98,14 +93,13 @@ export const getResourceById = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
             `SELECT r.*, u.name AS uploader_name, u.organization_name AS uploader_org
-       FROM resources r LEFT JOIN users u ON r.uploader_id = u.id
-       WHERE r.id = ?`,
+             FROM resources r LEFT JOIN users u ON r.uploader_id = u.id
+             WHERE r.id = ?`,
             [req.params.id]
         );
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
         }
-        // Remove file_url from public detail view
         const { file_url, ...rest } = rows[0];
         return res.json({ success: true, data: rest });
     } catch (err) {
@@ -114,7 +108,6 @@ export const getResourceById = async (req, res, next) => {
 };
 
 // GET /api/resources/:id/download  (RBAC enforced)
-// Returns a short-lived SAS URL for the client to open directly (avoids cross-origin redirect issues)
 export const downloadResource = async (req, res, next) => {
     try {
         const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
@@ -132,8 +125,7 @@ export const downloadResource = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
         }
 
-        // Return a fresh SAS URL — frontend opens it with window.open() for download/playback
-        const sasUrl = getBlobSasUrl(resource.file_url, 2); // 2-hour expiry
+        const sasUrl = getBlobSasUrl(resource.file_url, 2);
         return res.json({ success: true, url: sasUrl });
     } catch (err) {
         next(err);
@@ -141,7 +133,6 @@ export const downloadResource = async (req, res, next) => {
 };
 
 // GET /api/resources/:id/stream  (public — used for home-page video playback)
-// Returns a short-lived SAS URL so the <video> tag can reach private blobs
 export const getStreamUrl = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
@@ -160,7 +151,7 @@ export const getStreamUrl = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
         }
 
-        const sasUrl = getBlobSasUrl(resource.file_url, 2); // 2-hour expiry
+        const sasUrl = getBlobSasUrl(resource.file_url, 2);
         return res.json({ success: true, url: sasUrl });
     } catch (err) {
         next(err);
@@ -172,9 +163,7 @@ export const createResource = async (req, res, next) => {
     try {
         const { title, description, abstract, demo_url, type } = req.body;
         const uploaderRole = req.user.role;
-        const isAdmin = uploaderRole === 'founding_member';
 
-        // Types reserved for founding_member and executive only (site-level content)
         const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
         const canUploadAdminTypes = ['founding_member', 'executive'].includes(uploaderRole);
         if (ADMIN_ONLY_TYPES.includes(type) && !canUploadAdminTypes) {
@@ -183,7 +172,6 @@ export const createResource = async (req, res, next) => {
 
         let file_url = null;
         if (req.file) {
-            // Resource files go to the PRIVATE container — served via SAS URL on download
             file_url = await uploadToBlob(
                 'resources',
                 req.file.originalname,
@@ -193,23 +181,37 @@ export const createResource = async (req, res, next) => {
             );
         }
 
+        // Founding members and executives get auto-approved
+        const assignedStatus = ['founding_member', 'executive'].includes(req.user.role) ? 'approved' : 'pending';
+
         const [result] = await pool.query(
             `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 description ? description.trim() : null,
-                abstract ? abstract.trim() : null,
+                abstract    ? abstract.trim()    : null,
                 file_url,
-                demo_url ? demo_url.trim() : null,
+                demo_url    ? demo_url.trim()    : null,
                 type,
-                ['founding_member', 'executive'].includes(req.user.role) ? 'approved' : 'pending',
+                assignedStatus,
                 req.user.id,
             ]
         );
 
         const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [result.insertId]);
         const { file_url: _f, ...rest } = rows[0];
+
+        // Only notify when auto-approved — pending resources wait for admin approval
+        if (assignedStatus === 'approved') {
+            notifyAllMembers(
+                NOTIF_TYPES.RESOURCE_APPROVED,
+                `New Resource: ${title.trim()}`,
+                `A new ${type.replace('_', ' ')} has been published on AI Risk Council`,
+                { url: '/resources', resourceId: String(result.insertId) }
+            );
+        }
+
         return res.status(201).json({ success: true, data: rest });
     } catch (err) {
         next(err);
@@ -228,7 +230,6 @@ export const updateResource = async (req, res, next) => {
 
         let file_url = check[0].file_url;
         if (req.file) {
-            // Delete old blob if one exists
             await deleteFromBlob(file_url);
             file_url = await uploadToBlob(
                 'resources',
@@ -244,9 +245,9 @@ export const updateResource = async (req, res, next) => {
             [
                 title.trim(),
                 description ? description.trim() : null,
-                abstract ? abstract.trim() : null,
+                abstract    ? abstract.trim()    : null,
                 file_url,
-                demo_url ? demo_url.trim() : null,
+                demo_url    ? demo_url.trim()    : null,
                 type,
                 req.params.id,
             ]
@@ -272,7 +273,6 @@ export const deleteResource = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'You can only delete resources you have uploaded.' });
         }
 
-        // Remove blob from Azure Storage
         await deleteFromBlob(check[0].file_url);
 
         await pool.query('DELETE FROM resources WHERE id = ?', [req.params.id]);
@@ -308,9 +308,24 @@ export const getPendingResources = async (req, res, next) => {
 // PATCH /api/resources/:id/approve — admin only
 export const approveResource = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id FROM resources WHERE id = ?', [req.params.id]);
-        if (check.length === 0) return res.status(404).json({ success: false, message: 'Resource not found.' });
+        const [check] = await pool.query(
+            'SELECT id, title, type FROM resources WHERE id = ?',
+            [req.params.id]
+        );
+        if (check.length === 0) {
+            return res.status(404).json({ success: false, message: 'Resource not found.' });
+        }
+
         await pool.query("UPDATE resources SET status = 'approved' WHERE id = ?", [req.params.id]);
+
+        // Notify all members — fire and forget
+        notifyAllMembers(
+            NOTIF_TYPES.RESOURCE_APPROVED,
+            `New Resource: ${check[0].title}`,
+            `A new ${check[0].type.replace('_', ' ')} has been published on AI Risk Council`,
+            { url: '/resources', resourceId: String(check[0].id) }
+        );
+
         return res.json({ success: true, data: { message: 'Resource approved.' } });
     } catch (err) {
         next(err);
@@ -321,7 +336,9 @@ export const approveResource = async (req, res, next) => {
 export const rejectResource = async (req, res, next) => {
     try {
         const [check] = await pool.query('SELECT id FROM resources WHERE id = ?', [req.params.id]);
-        if (check.length === 0) return res.status(404).json({ success: false, message: 'Resource not found.' });
+        if (check.length === 0) {
+            return res.status(404).json({ success: false, message: 'Resource not found.' });
+        }
         await pool.query("UPDATE resources SET status = 'rejected' WHERE id = ?", [req.params.id]);
         return res.json({ success: true, data: { message: 'Resource rejected.' } });
     } catch (err) {

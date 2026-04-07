@@ -59,7 +59,7 @@ export default function ExecutiveCheckout() {
                     </div>
                     <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Application Submitted!</h2>
                     <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                        Your Executive Membership application is now under review.
+                        Your Council Member application is now under review.
                         You will receive an email once an admin approves or rejects your application.
                         Your Professional membership remains fully active in the meantime.
                     </p>
@@ -90,8 +90,8 @@ export default function ExecutiveCheckout() {
                 {/* Page header */}
                 <div className="mb-8 text-center">
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Upgrade Your Membership</p>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Executive Membership</h1>
-                    <p className="text-gray-500 text-sm mt-2">3-year membership · Pending admin approval</p>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Council Membership</h1>
+                    <p className="text-gray-500 text-sm mt-2">2-year membership · Pending admin approval</p>
                 </div>
 
                 {/* Responsive layout: stacks on mobile, side-by-side on lg */}
@@ -166,8 +166,8 @@ export default function ExecutiveCheckout() {
 
                             <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-gray-100">
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-900">Executive Membership</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">3-year term · Risk AI Council (RAC)</p>
+                                    <p className="text-sm font-semibold text-gray-900">Council Membership</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">2-year term · Risk AI Council (RAC)</p>
                                 </div>
                                 <p className="text-sm font-semibold text-gray-500 line-through whitespace-nowrap">$299 / qtr</p>
                             </div>
@@ -193,7 +193,7 @@ export default function ExecutiveCheckout() {
                             <div className="space-y-2 text-xs text-gray-500">
                                 {[
                                     'No credit card required',
-                                    '3-year Executive access on approval',
+                                    '2-year Council Member access on approval',
                                     'Professional membership stays active during review',
                                 ].map((txt) => (
                                     <div key={txt} className="flex items-center gap-2">

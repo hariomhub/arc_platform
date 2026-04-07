@@ -85,11 +85,11 @@ router.post(
     resourcesController.createResource
 );
 
-// PUT /api/resources/:id — admin + executive
+// PUT /api/resources/:id — founding_member (admin) ONLY
 router.put(
     '/:id',
     auth,
-    requireRole('founding_member', 'executive'),
+    requireRole('founding_member'),
     upload.single('file'),
     resourceValidation,
     validate,
@@ -103,13 +103,14 @@ router.delete(
     resourcesController.deleteResource
 );
 
-// GET /api/resources/admin/pending — admin + executive: list pending resources awaiting approval
-router.get('/admin/pending', auth, requireRole('founding_member', 'executive'), resourcesController.getPendingResources);
+// GET /api/resources/admin/pending — founding_member ONLY (council_member no longer has approve/reject access)
+router.get('/admin/pending', auth, requireRole('founding_member'), resourcesController.getPendingResources);
 
-// PATCH /api/resources/:id/approve — admin + executive
-router.patch('/:id/approve', auth, requireRole('founding_member', 'executive'), resourcesController.approveResource);
+// PATCH /api/resources/:id/approve — founding_member ONLY
+router.patch('/:id/approve', auth, requireRole('founding_member'), resourcesController.approveResource);
 
-// PATCH /api/resources/:id/reject — admin + executive
-router.patch('/:id/reject', auth, requireRole('founding_member', 'executive'), resourcesController.rejectResource);
+// PATCH /api/resources/:id/reject — founding_member ONLY
+router.patch('/:id/reject', auth, requireRole('founding_member'), resourcesController.rejectResource);
+
 
 export default router;

@@ -4,13 +4,15 @@
  * Cron job that runs daily at 08:00 UTC and:
  *
  *   1. Finds users whose membership expires in exactly 15 days
- *      → sends sendMembershipExpiryWarningEmail (daysLeft: 15)
+ *      → sends email warning (daysLeft: 15)
  *
  *   2. Finds users whose membership expires in exactly 7 days
- *      → sends sendMembershipExpiryWarningEmail (daysLeft: 7)
+ *      → sends email warning (daysLeft: 7)
+ *      → sends immediate push notification
  *
  *   3. Finds users whose membership expired yesterday (within the last 24 h)
- *      → sends sendMembershipExpiredEmail
+ *      → sends expiry email
+ *      → sends immediate push notification
  *
  * Founding members have no expiry date (NULL) — they are skipped.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -22,12 +24,13 @@ import {
     sendMembershipExpiryWarningEmail,
     sendMembershipExpiredEmail,
 } from '../services/emailService.js';
+import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
  * Returns users whose membership_expires_at falls within the given UTC date range.
- * Only roles that actually expire (professional, executive) are included.
+ * Bug fix: was using is_approved = 1 (wrong column) — corrected to status = 'approved'
  */
 const getUsersExpiringBetween = async (fromDate, toDate) => {
     const [rows] = await pool.query(
@@ -35,8 +38,8 @@ const getUsersExpiringBetween = async (fromDate, toDate) => {
          FROM users
          WHERE membership_expires_at >= ?
            AND membership_expires_at <  ?
-           AND role IN ('professional', 'executive')
-           AND is_approved = 1`,
+           AND role IN ('professional', 'council_member')
+           AND status = 'approved'`,
         [fromDate, toDate],
     );
     return rows;
@@ -50,8 +53,7 @@ export const runMembershipExpiryCheck = async () => {
     const now = new Date();
 
     try {
-        // ── 1. 15-day reminder ────────────────────────────────────────────────
-        // Window: users expiring in exactly 15 days (today + 15)
+        // ── 1. 15-day reminder — email only, no push ──────────────────────────
         const reminder15Start = new Date(Date.UTC(
             now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 15, 0, 0, 0,
         ));
@@ -68,10 +70,17 @@ export const runMembershipExpiryCheck = async () => {
                 expiresAt: user.membership_expires_at,
                 daysLeft:  15,
             });
+            // 15-day reminder is batched (non-urgent) — saved to notifications table
+            notifyUser(
+                user.id,
+                NOTIF_TYPES.MEMBERSHIP_EXPIRING_15,
+                'Your membership expires in 15 days',
+                'Renew soon to keep your full access to AI Risk Council.',
+                { url: '/membership' }
+            );
         }
 
-        // ── 2. 7-day warning ──────────────────────────────────────────────────
-        // Window: users expiring in exactly 7 days (today + 7)
+        // ── 2. 7-day warning — email + immediate push ─────────────────────────
         const warningStart = new Date(Date.UTC(
             now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7, 0, 0, 0,
         ));
@@ -88,10 +97,17 @@ export const runMembershipExpiryCheck = async () => {
                 expiresAt: user.membership_expires_at,
                 daysLeft:  7,
             });
+            // 7-day warning is immediate push
+            notifyUser(
+                user.id,
+                NOTIF_TYPES.MEMBERSHIP_EXPIRING_7,
+                'Your membership expires in 7 days',
+                'Renew now to keep your full access to AI Risk Council.',
+                { url: '/membership' }
+            );
         }
 
-        // ── 2. Expiry notification ────────────────────────────────────────────
-        // Window: users whose expiry fell within the last 24 h (yesterday's window)
+        // ── 3. Expired — email + immediate push ───────────────────────────────
         const expiredEnd   = new Date(Date.UTC(
             now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0,
         ));
@@ -107,6 +123,14 @@ export const runMembershipExpiryCheck = async () => {
                 role:      user.role,
                 expiredAt: user.membership_expires_at,
             });
+            // Expiry is immediate push
+            notifyUser(
+                user.id,
+                NOTIF_TYPES.MEMBERSHIP_EXPIRED,
+                'Your membership has expired',
+                'Contact us to renew and restore your full access.',
+                { url: '/contact' }
+            );
         }
 
         console.log('[MembershipExpiry] Check complete.');
@@ -120,7 +144,6 @@ export const runMembershipExpiryCheck = async () => {
 export const initMembershipExpiryCron = () => {
     console.log('[MembershipExpiry] Scheduling daily check at 08:00 UTC...');
 
-    // Every day at 08:00 UTC
     cron.schedule('0 8 * * *', () => {
         runMembershipExpiryCheck();
     }, { timezone: 'UTC' });

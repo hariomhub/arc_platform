@@ -6,7 +6,9 @@ import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import morgan from 'morgan';
 import passport from './middleware/passport.js';
-import session from 'express-session'; 
+import session from 'express-session';
+import notificationsRoutes from './routes/notifications-route.js';
+import { initNotificationDigestCron } from './jobs/notificationDigestJob.js';
 
 // ─── Env Validation ───────────────────────────────────────────────────────────
 const required = [
@@ -54,7 +56,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -67,21 +69,21 @@ app.set('trust proxy', 1);
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
-            defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'",
-                             "https://www.google.com", "https://www.gstatic.com"],
-            styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
-            imgSrc:         ["'self'", "data:", "blob:", "https:", "http:"],
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'",
+                "https://www.google.com", "https://www.gstatic.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+            imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
             // Allow media (video/audio) from Azure Blob, YouTube, Vimeo and self
-            mediaSrc:       ["'self'", "blob:", "https:", "http:",
-                             "https://*.blob.core.windows.net",
-                             "https://www.youtube.com", "https://player.vimeo.com"],
-            frameSrc:       ["'self'", "https://www.google.com",
-                             "https://www.youtube.com", "https://player.vimeo.com",
-                             "https://www.recaptcha.net"],
-            connectSrc:     ["'self'", "https:", "wss:"],
-            objectSrc:      ["'none'"],
+            mediaSrc: ["'self'", "blob:", "https:", "http:",
+                "https://*.blob.core.windows.net",
+                "https://www.youtube.com", "https://player.vimeo.com"],
+            frameSrc: ["'self'", "https://www.google.com",
+                "https://www.youtube.com", "https://player.vimeo.com",
+                "https://www.recaptcha.net"],
+            connectSrc: ["'self'", "https:", "wss:"],
+            objectSrc: ["'none'"],
             upgradeInsecureRequests: [],
         },
     },
@@ -162,6 +164,7 @@ app.use('/api/nominations', nominationsRoutes);
 app.use('/api/framework', frameworkRoutes);
 app.use('/api/membership', membershipRoutes);
 app.use('/api/workshops', workshopsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // All file assets are now served directly from Azure Blob Storage URLs stored in the DB.
 // No static /uploads/* routes needed.
@@ -201,4 +204,7 @@ app.listen(PORT, () => {
     // Initialize membership expiry email notifications
     initMembershipExpiryCron();
     console.log('📅 Membership expiry check initialized');
+
+    initNotificationDigestCron();
+    console.log('🔔 Notification digest cron initialized');
 });

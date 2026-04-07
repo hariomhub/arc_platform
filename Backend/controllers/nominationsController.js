@@ -1,6 +1,7 @@
 import pool from '../db/connection.js';
 import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 import { verifyRecaptchaToken } from '../middleware/verifyRecaptcha.js';
+import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const isDupEntry = (err) =>
@@ -44,10 +45,10 @@ export const getNominees = async (req, res, next) => {
         `;
         const params = [];
 
-        if (award_id) { sql += ' AND n.award_id    = ?'; params.push(award_id); }
+        if (award_id)    { sql += ' AND n.award_id    = ?'; params.push(award_id); }
         if (category_id) { sql += ' AND n.category_id = ?'; params.push(category_id); }
-        if (timeline) { sql += ' AND ac.timeline   = ?'; params.push(timeline); }
-        if (search) { sql += ' AND n.name LIKE ?'; params.push(`%${search}%`); }
+        if (timeline)    { sql += ' AND ac.timeline   = ?'; params.push(timeline); }
+        if (search)      { sql += ' AND n.name LIKE ?';     params.push(`%${search}%`); }
 
         if (req.query.is_winner !== undefined) {
             sql += ' AND n.is_winner = ?';
@@ -107,7 +108,6 @@ export const castVote = async (req, res, next) => {
             if (!emailRegex.test(anonymousEmail)) {
                 return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
             }
-            // Only enforce reCAPTCHA when the secret key is configured
             const recaptchaSecretConfigured = !!process.env.RECAPTCHA_SECRET_KEY;
             if (recaptchaSecretConfigured) {
                 if (!recaptchaToken) {
@@ -139,10 +139,10 @@ export const castVote = async (req, res, next) => {
 
         let existingVoteQuery, existingVoteParams;
         if (isAnon) {
-            existingVoteQuery = `SELECT id FROM votes WHERE category_id = ? AND is_anonymous = 1 AND anonymous_email = ?`;
+            existingVoteQuery  = `SELECT id FROM votes WHERE category_id = ? AND is_anonymous = 1 AND anonymous_email = ?`;
             existingVoteParams = [category_id, voterEmail];
         } else {
-            existingVoteQuery = `SELECT id FROM votes WHERE category_id = ? AND user_id = ?`;
+            existingVoteQuery  = `SELECT id FROM votes WHERE category_id = ? AND user_id = ?`;
             existingVoteParams = [category_id, userId];
         }
 
@@ -181,9 +181,9 @@ export const getMyVotes = async (req, res, next) => {
 // ── GET /api/nominations/leaderboard  (admin only) ──────────────────────────
 export const getLeaderboard = async (req, res, next) => {
     try {
-        const [awards] = await pool.query(`SELECT * FROM awards ORDER BY id`);
+        const [awards]     = await pool.query(`SELECT * FROM awards ORDER BY id`);
         const [categories] = await pool.query(`SELECT * FROM award_categories ORDER BY award_id, id`);
-        const [nominees] = await pool.query(`
+        const [nominees]   = await pool.query(`
             SELECT n.id AS nominee_id, n.name, n.designation, n.company, n.photo_url,
                    n.linkedin_url, n.category_id, n.award_id,
                    COUNT(v.id) AS vote_count
@@ -195,15 +195,15 @@ export const getLeaderboard = async (req, res, next) => {
         `);
 
         const result = awards.map((a) => ({
-            award_id: a.id,
+            award_id:   a.id,
             award_name: a.name,
             categories: categories
                 .filter((c) => c.award_id === a.id)
                 .map((c) => ({
-                    category_id: c.id,
+                    category_id:   c.id,
                     category_name: c.name,
-                    timeline: c.timeline,
-                    nominees: nominees.filter((n) => n.category_id === c.id),
+                    timeline:      c.timeline,
+                    nominees:      nominees.filter((n) => n.category_id === c.id),
                 })),
         }));
 
@@ -287,6 +287,15 @@ export const createNominee = async (req, res, next) => {
             [award_id, category_id, name.trim(), designation?.trim(), company?.trim(), linkedin_url?.trim() || null, achievements?.trim() || null, description?.trim() || null, Boolean(is_active), Boolean(is_winner)]
         );
         const [[row]] = await pool.query(`SELECT * FROM nominees WHERE id = ?`, [r.insertId]);
+
+        // Notify all members — fire and forget
+        notifyAllMembers(
+            NOTIF_TYPES.NOMINEE_ADDED,
+            `New Nominee: ${name.trim()}`,
+            `${company ? `${company.trim()} — ` : ''}nominated for recognition`,
+            { url: '/nominees', nomineeId: String(r.insertId) }
+        );
+
         return res.status(201).json({ success: true, data: row });
     } catch (err) { next(err); }
 };
@@ -294,12 +303,27 @@ export const createNominee = async (req, res, next) => {
 export const updateNominee = async (req, res, next) => {
     try {
         const { award_id, category_id, name, designation, company, linkedin_url, achievements, description, is_active, is_winner } = req.body;
+
+        // Fetch current state to detect winner change
+        const [[existing]] = await pool.query(`SELECT is_winner FROM nominees WHERE id = ?`, [req.params.id]);
+
         await pool.query(
             `UPDATE nominees SET award_id=?, category_id=?, name=?, designation=?, company=?,
              linkedin_url=?, achievements=?, description=?, is_active=?, is_winner=? WHERE id=?`,
             [award_id, category_id, name.trim(), designation?.trim(), company?.trim(), linkedin_url?.trim() || null, achievements?.trim() || null, description?.trim() || null, Boolean(is_active), Boolean(is_winner ?? false), req.params.id]
         );
         const [[row]] = await pool.query(`SELECT * FROM nominees WHERE id = ?`, [req.params.id]);
+
+        // Only notify when winner status is being set to true for the first time
+        if (is_winner && existing && !existing.is_winner) {
+            notifyAllMembers(
+                NOTIF_TYPES.WINNER_ANNOUNCED,
+                `Winner Announced: ${name.trim()}`,
+                `Congratulations to our latest award winner${company ? ` from ${company.trim()}` : ''}`,
+                { url: '/winners', nomineeId: String(req.params.id) }
+            );
+        }
+
         return res.json({ success: true, data: row });
     } catch (err) { next(err); }
 };
@@ -308,7 +332,6 @@ export const deleteNominee = async (req, res, next) => {
     try {
         const [[nom]] = await pool.query(`SELECT photo_url FROM nominees WHERE id = ?`, [req.params.id]);
 
-        // Delete photo blob from Azure Storage
         await deleteFromBlob(nom?.photo_url);
 
         await pool.query(`DELETE FROM nominees WHERE id = ?`, [req.params.id]);
@@ -323,10 +346,8 @@ export const uploadNomineePhoto = async (req, res, next) => {
         if (!nom) return res.status(404).json({ success: false, message: 'Nominee not found.' });
         if (!req.file) return res.status(422).json({ success: false, message: 'No image provided.' });
 
-        // Delete old photo blob
         await deleteFromBlob(nom.photo_url);
 
-        // Upload new photo to Azure Blob Storage
         const photo_url = await uploadToBlob(
             'nominees/photos',
             req.file.originalname,

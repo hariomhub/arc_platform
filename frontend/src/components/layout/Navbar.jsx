@@ -6,6 +6,7 @@ import {
     Settings, FileText, HelpCircle, Info, Phone, Award,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
+import NotificationBell from './NotificationBell.jsx';
 
 const PUBLIC_NAV = [
     { label: 'Home',                 path: '/',              icon: Home },
@@ -21,14 +22,15 @@ const PUBLIC_NAV = [
 
 const ROLE_META = {
     founding_member: { bg: '#6D28D9', text: 'Founder' },
-    executive:       { bg: '#1D4ED8', text: 'Executive' },
+    council_member:  { bg: '#1D4ED8', text: 'Council' },
+    executive:       { bg: '#1D4ED8', text: 'Council' },  // legacy alias
     professional:    { bg: '#059669', text: 'Pro' },
 };
 
 const Navbar = () => {
     const location  = useLocation();
     const navigate  = useNavigate();
-    const { user, isLoggedIn, isAdmin, logout } = useAuth();
+    const { user, isLoggedIn, isAdmin, logout, unreadCount, setUnreadCount } = useAuth();
 
     const [mobileOpen,   setMobileOpen]   = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -61,7 +63,7 @@ const Navbar = () => {
             document.body.style.top        = `-${scrollY}px`;
             document.body.style.left       = '0';
             document.body.style.right      = '0';
-            document.body.style.overflowY  = 'scroll'; /* keep scrollbar width so layout doesn't jump */
+            document.body.style.overflowY  = 'scroll';
         } else {
             const scrollY = document.body.style.top;
             document.body.style.position  = '';
@@ -80,8 +82,8 @@ const Navbar = () => {
         };
     }, [mobileOpen]);
 
-    const handleLogout = () => { logout(); setUserMenuOpen(false); setMobileOpen(false); };
-    const isActive = (p) => p === '/' ? location.pathname === '/' : location.pathname.startsWith(p);
+    const handleLogout  = () => { logout(); setUserMenuOpen(false); setMobileOpen(false); };
+    const isActive      = (p) => p === '/' ? location.pathname === '/' : location.pathname.startsWith(p);
     const handleNavClick = () => { setMobileOpen(false); window.scrollTo({ top: 0 }); };
 
     return (
@@ -147,7 +149,6 @@ const Navbar = () => {
                 }
                 .nb-avatar-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
 
-                /* ── Mobile nav link ── */
                 .nb-mob-link {
                     display: flex; align-items: center; gap: 0.75rem;
                     padding: 0.7rem 0.875rem;
@@ -166,7 +167,6 @@ const Navbar = () => {
                 .nb-mob-admin:hover     { background: #f5f3ff !important; }
                 .nb-mob-admin.nb-active { background: #ede9fe !important; }
 
-                /* ── Overlay ── */
                 .nb-overlay {
                     position: fixed; top: 66px; left: 0; right: 0; bottom: 0;
                     background: rgba(0,0,0,0.25);
@@ -175,7 +175,6 @@ const Navbar = () => {
                 }
                 @keyframes nbFadeIn { from { opacity: 0 } to { opacity: 1 } }
 
-                /* ── Right side drawer ── */
                 .nb-drawer {
                     position: fixed; top: 66px; right: 0; bottom: 0;
                     width: 280px;
@@ -198,7 +197,6 @@ const Navbar = () => {
                 }
             `}</style>
 
-            {/* Overlay — closes drawer on tap */}
             {mobileOpen && (
                 <div className="nb-overlay" onClick={() => setMobileOpen(false)} aria-hidden="true" />
             )}
@@ -207,7 +205,6 @@ const Navbar = () => {
             <header style={{
                 background: 'white', borderBottom: '1px solid #e8edf3',
                 position: 'sticky', top: 0,
-                /* z-index must be ABOVE the overlay (998) so hamburger stays clickable */
                 zIndex: 1000,
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             }}>
@@ -220,11 +217,11 @@ const Navbar = () => {
 
                     {/* Logo */}
                     <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-                            <img src="/ai_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)' }} />
-                            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#003366', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
-                        </Link>
+                        <img src="/ai_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)' }} />
+                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#003366', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
+                    </Link>
 
-                    {/* Desktop nav — takes remaining space, hidden on mobile */}
+                    {/* Desktop nav */}
                     <nav className="nb-desktop" aria-label="Main navigation"
                         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
                         {PUBLIC_NAV.map((item) => (
@@ -235,62 +232,78 @@ const Navbar = () => {
                         ))}
                     </nav>
 
-                    {/* ── Right side: desktop auth | mobile avatar + hamburger ── */}
+                    {/* ── Right side ── */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, marginLeft: 'auto' }}>
 
-                        {/* Desktop auth controls — hidden on mobile */}
+                        {/* Desktop auth controls */}
                         <div className="nb-desktop" style={{ alignItems: 'center', gap: '0.5rem' }}>
                             {isLoggedIn ? (
-                                <div ref={dropdownRef} style={{ position: 'relative' }}>
-                                    <button className="nb-avatar-btn"
-                                        onClick={() => setUserMenuOpen(!userMenuOpen)}
-                                        aria-expanded={userMenuOpen} aria-haspopup="menu" aria-label="User menu">
-                                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: role.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: '700' }}>
-                                            {user?.name?.charAt(0).toUpperCase()}
-                                        </div>
-                                        <span className="nb-user-name" style={{ fontSize: '0.83rem', fontWeight: '600', color: '#1e293b', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {user?.name?.split(' ')[0]}
-                                        </span>
-                                        <span className="nb-role-badge" style={{ fontSize: '0.6rem', fontWeight: '700', letterSpacing: '0.05em', background: role.bg, color: 'white', padding: '0.1rem 0.42rem', borderRadius: '100px', textTransform: 'uppercase', flexShrink: 0 }}>
-                                            {role.text}
-                                        </span>
-                                        <ChevronDown size={13} color="#94a3b8"
-                                            style={{ transition: 'transform 0.2s', transform: userMenuOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
-                                    </button>
-                                    {userMenuOpen && (
-                                        <div role="menu" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', background: 'white', border: '1px solid #e8edf3', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', minWidth: '210px', zIndex: 200, overflow: 'hidden' }}>
-                                            <div style={{ padding: '0.75rem 1rem 0.65rem', borderBottom: '1px solid #f1f5f9' }}>
-                                                <p style={{ margin: 0, fontSize: '0.68rem', color: '#94a3b8', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>Signed in as</p>
-                                                <p style={{ margin: 0, fontSize: '0.84rem', fontWeight: '700', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
+                                <>
+                                    {/* ── Bell icon — desktop only ── */}
+                                    <NotificationBell
+                                        unreadCount={unreadCount || 0}
+                                        onCountChange={setUnreadCount}
+                                    />
+
+                                    {/* ── Avatar dropdown ── */}
+                                    <div ref={dropdownRef} style={{ position: 'relative' }}>
+                                        <button className="nb-avatar-btn"
+                                            onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                            aria-expanded={userMenuOpen} aria-haspopup="menu" aria-label="User menu">
+                                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: role.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: '700' }}>
+                                                {user?.name?.charAt(0).toUpperCase()}
                                             </div>
-                                            {adminUser ? (<>
-                                                <Link role="menuitem" to="/admin-dashboard" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><LayoutDashboard size={15} color="#6D28D9" /> Admin Dashboard</Link>
-                                                <Link role="menuitem" to="/resources" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><BookOpen size={15} color="#6D28D9" /> Research &amp; Resources</Link>
+                                            <span className="nb-user-name" style={{ fontSize: '0.83rem', fontWeight: '600', color: '#1e293b', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {user?.name?.split(' ')[0]}
+                                            </span>
+                                            <span className="nb-role-badge" style={{ fontSize: '0.6rem', fontWeight: '700', letterSpacing: '0.05em', background: role.bg, color: 'white', padding: '0.1rem 0.42rem', borderRadius: '100px', textTransform: 'uppercase', flexShrink: 0 }}>
+                                                {role.text}
+                                            </span>
+                                            <ChevronDown size={13} color="#94a3b8"
+                                                style={{ transition: 'transform 0.2s', transform: userMenuOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
+                                        </button>
+                                        {userMenuOpen && (
+                                            <div role="menu" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', background: 'white', border: '1px solid #e8edf3', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', minWidth: '210px', zIndex: 200, overflow: 'hidden' }}>
+                                                <div style={{ padding: '0.75rem 1rem 0.65rem', borderBottom: '1px solid #f1f5f9' }}>
+                                                    <p style={{ margin: 0, fontSize: '0.68rem', color: '#94a3b8', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>Signed in as</p>
+                                                    <p style={{ margin: 0, fontSize: '0.84rem', fontWeight: '700', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
+                                                </div>
+                                                {adminUser ? (<>
+                                                    <Link role="menuitem" to="/admin-dashboard" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><LayoutDashboard size={15} color="#6D28D9" /> Admin Dashboard</Link>
+                                                    <Link role="menuitem" to="/resources" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><BookOpen size={15} color="#6D28D9" /> Research &amp; Resources</Link>
+                                                    <div style={{ height: '1px', background: '#f1f5f9' }} />
+                                                </>) : (<>
+                                                    <Link role="menuitem" to="/user/dashboard" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><LayoutDashboard size={15} color="#003366" /> My Dashboard</Link>
+                                                    <Link role="menuitem" to="/resources" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><BookOpen size={15} color="#003366" /> Research &amp; Resources</Link>
+                                                    <div style={{ height: '1px', background: '#f1f5f9' }} />
+                                                </>)}
+                                                <Link role="menuitem" to="/profile" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><User size={15} color="#64748b" /> My Profile</Link>
                                                 <div style={{ height: '1px', background: '#f1f5f9' }} />
-                                            </>) : (<>
-                                                <Link role="menuitem" to="/user/dashboard" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><LayoutDashboard size={15} color="#003366" /> My Dashboard</Link>
-                                                <Link role="menuitem" to="/resources" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><BookOpen size={15} color="#003366" /> Research &amp; Resources</Link>
-                                                <div style={{ height: '1px', background: '#f1f5f9' }} />
-                                            </>)}
-                                            <Link role="menuitem" to="/profile" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><User size={15} color="#64748b" /> My Profile</Link>
-                                            <div style={{ height: '1px', background: '#f1f5f9' }} />
-                                            <button role="menuitem" onClick={handleLogout} className="nb-dd-item nb-dd-danger"><LogOut size={15} /> Sign Out</button>
-                                        </div>
-                                    )}
-                                </div>
+                                                <button role="menuitem" onClick={handleLogout} className="nb-dd-item nb-dd-danger"><LogOut size={15} /> Sign Out</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                             ) : (<>
                                 <button onClick={() => navigate('/login')} className="nb-btn-ghost">Sign In</button>
                                 <button onClick={() => navigate('/membership')} className="nb-btn-solid">Join Council</button>
                             </>)}
                         </div>
 
-                        {/* ── Mobile: avatar circle (logged in) or Sign In — visible only on mobile ── */}
+                        {/* ── Mobile: bell + avatar or Sign In ── */}
                         {isLoggedIn ? (
                             <div
                                 className="nb-hamburger"
                                 ref={mobileDropdownRef}
-                                style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                                style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
+                                {/* ── Bell icon — mobile ── */}
+                                <NotificationBell
+                                    unreadCount={unreadCount || 0}
+                                    onCountChange={setUnreadCount}
+                                />
+
+                                {/* ── Avatar ── */}
                                 <button
                                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                                     aria-expanded={userMenuOpen}
@@ -317,7 +330,6 @@ const Navbar = () => {
                                         boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
                                         minWidth: '220px', zIndex: 1002, overflow: 'hidden',
                                     }}>
-                                        {/* Header */}
                                         <div style={{ padding: '0.875rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9', background: '#fafafa' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
                                                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: role.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8rem', fontWeight: '700', flexShrink: 0 }}>
@@ -330,7 +342,6 @@ const Navbar = () => {
                                             </div>
                                             <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
                                         </div>
-                                        {/* Menu items */}
                                         {adminUser ? (<>
                                             <Link role="menuitem" to="/admin-dashboard" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><LayoutDashboard size={15} color="#6D28D9" /> Admin Dashboard</Link>
                                             <Link role="menuitem" to="/resources" onClick={() => setUserMenuOpen(false)} className="nb-dd-item"><BookOpen size={15} color="#6D28D9" /> Research &amp; Resources</Link>
@@ -390,28 +401,31 @@ const Navbar = () => {
             {mobileOpen && (
                 <div id="mobile-nav" className="nb-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu">
 
-                    {/* Scrollable body */}
                     <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 0.75rem 1rem' }}>
 
-                        {/* User card if logged in */}
+                        {/* User card */}
                         {isLoggedIn && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem', background: '#f8fafc', borderRadius: '12px', marginBottom: '1rem', border: '1px solid #e2e8f0' }}>
                                 <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: role.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.875rem', fontWeight: '700' }}>
                                     {user?.name?.charAt(0).toUpperCase()}
                                 </div>
-                                <div style={{ minWidth: 0 }}>
+                                <div style={{ minWidth: 0, flex: 1 }}>
                                     <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: '700', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</p>
                                     <span style={{ fontSize: '0.6rem', fontWeight: '700', background: role.bg, color: 'white', padding: '1px 7px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         {role.text}
                                     </span>
                                 </div>
+                                {/* ── Notification count in drawer user card ── */}
+                                {(unreadCount || 0) > 0 && (
+                                    <span style={{ background: '#EF4444', color: 'white', fontSize: '0.6rem', fontWeight: '700', padding: '2px 7px', borderRadius: '100px', flexShrink: 0 }}>
+                                        {unreadCount} new
+                                    </span>
+                                )}
                             </div>
                         )}
 
-                        {/* Section label */}
                         <p style={{ margin: '0 0 0.25rem 0.25rem', fontSize: '0.62rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pages</p>
 
-                        {/* Nav links */}
                         <nav aria-label="Mobile navigation">
                             {PUBLIC_NAV.map((item) => {
                                 const Icon = item.icon;
@@ -425,7 +439,6 @@ const Navbar = () => {
                             })}
                         </nav>
 
-                        {/* Admin section */}
                         {adminUser && (
                             <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
                                 <p style={{ margin: '0 0 0.25rem 0.25rem', fontSize: '0.62rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Admin</p>

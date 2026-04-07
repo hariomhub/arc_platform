@@ -42,11 +42,13 @@ const workshopValidation = [
 router.get('/', workshopsController.getWorkshops);
 router.get('/:id', workshopsController.getWorkshopById);
 
-// ── Write routes — founding_member (admin) ONLY ───────────────────────────────
-router.post('/', auth, requireRole('founding_member'), workshopValidation, validate, workshopsController.createWorkshop);
-router.put('/:id', auth, requireRole('founding_member'), workshopValidation, validate, workshopsController.updateWorkshop);
+// ── Write routes — founding_member + council_member (create/edit/delete as drafts) ─
+router.post('/', auth, requireRole('founding_member', 'council_member'), workshopValidation, validate, workshopsController.createWorkshop);
+router.put('/:id', auth, requireRole('founding_member', 'council_member'), workshopValidation, validate, workshopsController.updateWorkshop);
+// Publish toggle: founding_member ONLY
 router.patch('/:id/publish', auth, requireRole('founding_member'), workshopsController.togglePublishWorkshop);
-router.post('/:id/upload-banner', auth, requireRole('founding_member'), upload.single('banner'), workshopsController.uploadWorkshopBanner);
-router.delete('/:id', auth, requireRole('founding_member'), workshopsController.deleteWorkshop);
+router.post('/:id/upload-banner', auth, requireRole('founding_member', 'council_member'), upload.single('banner'), workshopsController.uploadWorkshopBanner);
+router.delete('/:id', auth, requireRole('founding_member', 'council_member'), workshopsController.deleteWorkshop);
+
 
 export default router;

@@ -1,4 +1,5 @@
 import pool from '../db/connection.js';
+import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -8,7 +9,7 @@ const paginate = (query, total) => {
     return { page, limit, offset, totalPages };
 };
 
-// Safe JSON parse for tags field (handles both JSON arrays and plain comma-separated strings)
+// Safe JSON parse for tags field
 const parseTags = (raw) => {
     if (!raw) return [];
     try {
@@ -28,25 +29,22 @@ export const getPosts = async (req, res, next) => {
         const orderBy = sort === 'most_voted' ? 'p.vote_count DESC' : 'p.created_at DESC';
 
         let countSql = `SELECT COUNT(*) AS total FROM qna_posts p WHERE 1=1`;
-        let dataSql = `
-      SELECT p.*, u.name AS author_name, u.role AS author_role
-      FROM qna_posts p
-      JOIN users u ON p.author_id = u.id
-      WHERE 1=1
-    `;
+        let dataSql  = `
+            SELECT p.*, u.name AS author_name, u.role AS author_role
+            FROM qna_posts p
+            JOIN users u ON p.author_id = u.id
+            WHERE 1=1
+        `;
         const params = [];
 
         if (tags) {
             const clause = ' AND p.tags LIKE ?';
-            countSql += clause;
-            dataSql += clause;
+            countSql += clause; dataSql += clause;
             params.push(`%${tags}%`);
         }
-
         if (search) {
             const clause = ' AND (p.title LIKE ? OR p.body LIKE ?)';
-            countSql += clause;
-            dataSql += clause;
+            countSql += clause; dataSql += clause;
             params.push(`%${search}%`, `%${search}%`);
         }
 
@@ -67,8 +65,8 @@ export const getPostById = async (req, res, next) => {
     try {
         const [posts] = await pool.query(
             `SELECT p.*, u.name AS author_name, u.role AS author_role
-       FROM qna_posts p JOIN users u ON p.author_id = u.id
-       WHERE p.id = ?`,
+             FROM qna_posts p JOIN users u ON p.author_id = u.id
+             WHERE p.id = ?`,
             [req.params.id]
         );
         if (posts.length === 0) {
@@ -77,9 +75,9 @@ export const getPostById = async (req, res, next) => {
 
         const [answers] = await pool.query(
             `SELECT a.*, u.name AS author_name, u.role AS author_role
-       FROM qna_answers a JOIN users u ON a.author_id = u.id
-       WHERE a.post_id = ?
-       ORDER BY a.created_at ASC`,
+             FROM qna_answers a JOIN users u ON a.author_id = u.id
+             WHERE a.post_id = ?
+             ORDER BY a.created_at ASC`,
             [req.params.id]
         );
 
@@ -95,7 +93,6 @@ export const createPost = async (req, res, next) => {
     try {
         const { title, body, tags } = req.body;
 
-        // Normalise tags: accept array or comma-separated string, store as JSON
         let tagsJson = null;
         if (tags) {
             const tagArray = Array.isArray(tags)
@@ -111,8 +108,8 @@ export const createPost = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT p.*, u.name AS author_name, u.role AS author_role
-       FROM qna_posts p JOIN users u ON p.author_id = u.id
-       WHERE p.id = ?`,
+             FROM qna_posts p JOIN users u ON p.author_id = u.id
+             WHERE p.id = ?`,
             [result.insertId]
         );
 
@@ -146,7 +143,11 @@ export const createAnswer = async (req, res, next) => {
     try {
         const { body } = req.body;
 
-        const [posts] = await pool.query('SELECT id FROM qna_posts WHERE id = ?', [req.params.id]);
+        // Fetch post — need author_id for notification
+        const [posts] = await pool.query(
+            'SELECT id, author_id, title FROM qna_posts WHERE id = ?',
+            [req.params.id]
+        );
         if (posts.length === 0) {
             return res.status(404).json({ success: false, message: 'Post not found.' });
         }
@@ -161,10 +162,21 @@ export const createAnswer = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT a.*, u.name AS author_name, u.role AS author_role
-       FROM qna_answers a JOIN users u ON a.author_id = u.id
-       WHERE a.id = ?`,
+             FROM qna_answers a JOIN users u ON a.author_id = u.id
+             WHERE a.id = ?`,
             [result.insertId]
         );
+
+        // Notify post author — only if answerer is different from post author
+        if (posts[0].author_id !== req.user.id) {
+            notifyUser(
+                posts[0].author_id,
+                NOTIF_TYPES.QNA_ANSWERED,
+                `${req.user.name} answered your question`,
+                posts[0].title,
+                { url: `/community-qna/${req.params.id}` }
+            );
+        }
 
         return res.status(201).json({ success: true, data: rows[0] });
     } catch (err) {
@@ -185,7 +197,6 @@ export const deleteAnswer = async (req, res, next) => {
         }
 
         await pool.query('DELETE FROM qna_answers WHERE id = ?', [req.params.id]);
-        // Decrement answer_count (floor at 0)
         await pool.query(
             'UPDATE qna_posts SET answer_count = GREATEST(0, answer_count - 1) WHERE id = ?',
             [rows[0].post_id]
@@ -208,20 +219,17 @@ export const votePost = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Post not found.' });
         }
 
-        // Check if already voted
         const [existing] = await pool.query(
             'SELECT id FROM qna_votes WHERE post_id = ? AND user_id = ?',
             [postId, userId]
         );
 
         if (existing.length > 0) {
-            // Toggle: remove vote
             await pool.query('DELETE FROM qna_votes WHERE post_id = ? AND user_id = ?', [postId, userId]);
             await pool.query('UPDATE qna_posts SET vote_count = GREATEST(0, vote_count - 1) WHERE id = ?', [postId]);
             return res.json({ success: true, data: { voted: false, message: 'Vote removed.' } });
         }
 
-        // Add vote
         await pool.query('INSERT INTO qna_votes (post_id, user_id) VALUES (?, ?)', [postId, userId]);
         await pool.query('UPDATE qna_posts SET vote_count = vote_count + 1 WHERE id = ?', [postId]);
 

@@ -53,14 +53,16 @@ router.get('/:id', eventsController.getEventById);
 router.post('/:id/register', auth, regController.registerForEvent);
 router.delete('/:id/register', auth, regController.cancelRegistration);
 
-// Admin + Executive: view all registrations for an event
-router.get('/:id/registrations', auth, requireRole('founding_member', 'executive'), regController.getEventRegistrations);
+// Admin + Council Member: view all registrations for an event
+router.get('/:id/registrations', auth, requireRole('founding_member', 'council_member'), regController.getEventRegistrations);
 
-// Admin + Executive
-router.post('/', auth, requireRole('founding_member', 'executive'), eventValidation, validate, eventsController.createEvent);
-router.put('/:id', auth, requireRole('founding_member', 'executive'), eventValidation, validate, eventsController.updateEvent);
-router.patch('/:id/publish', auth, requireRole('founding_member', 'executive'), eventsController.togglePublishEvent);
-router.post('/:id/upload-banner', auth, requireRole('founding_member', 'executive'), upload.single('banner'), eventsController.uploadBanner);
-router.delete('/:id', auth, requireRole('founding_member', 'executive'), eventsController.deleteEvent);
+// Admin (founding_member) + Council Member: create, update, upload banner, delete
+router.post('/', auth, requireRole('founding_member', 'council_member'), eventValidation, validate, eventsController.createEvent);
+router.put('/:id', auth, requireRole('founding_member', 'council_member'), eventValidation, validate, eventsController.updateEvent);
+// Publish toggle: founding_member ONLY
+router.patch('/:id/publish', auth, requireRole('founding_member'), eventsController.togglePublishEvent);
+router.post('/:id/upload-banner', auth, requireRole('founding_member', 'council_member'), upload.single('banner'), eventsController.uploadBanner);
+router.delete('/:id', auth, requireRole('founding_member', 'council_member'), eventsController.deleteEvent);
+
 
 export default router;

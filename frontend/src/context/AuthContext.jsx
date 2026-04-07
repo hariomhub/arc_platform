@@ -1,11 +1,19 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getMe, logoutUser } from '../api/auth.js';
+import useNotifications from '../hooks/useNotifications.js';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+    const {
+        unreadCount,
+        setUnreadCount,
+        removeToken,
+        fetchUnreadCount,
+    } = useNotifications(user, !!user);
 
     // ── Restore session on mount via HttpOnly cookie ──────────────────────────
     useEffect(() => {
@@ -18,7 +26,6 @@ export const AuthProvider = ({ children }) => {
                     setUser(res.data.data);
                 }
             } catch {
-                // 401 = not logged in — that's fine, just silently skip
                 if (!cancelled) setUser(null);
             } finally {
                 if (!cancelled) setIsAuthLoading(false);
@@ -30,13 +37,13 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // ── login: called after successful POST /auth/login ───────────────────────
-    // The server already set the HttpOnly cookie; we just store the user object.
     const login = useCallback((userData) => {
         setUser(userData);
     }, []);
 
-    // ── logout: clear cookie server-side, clear local state ───────────────────
+    // ── logout: remove FCM token first, then clear cookie + state ────────────
     const logout = useCallback(async () => {
+        await removeToken(); // remove FCM token before session ends
         try {
             await logoutUser();
         } catch {
@@ -45,28 +52,24 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             window.location.href = '/';
         }
-    }, []);
+    }, [removeToken]);
 
-    // ── Role helpers ──────────────────────────────────────────────────────────
-    const isAdmin = () => user?.role === 'founding_member';
-    const isFoundingMember = () => user?.role === 'founding_member';
-    const isExecutive = () => user?.role === 'executive';
-    const isProfessional = () => user?.role === 'professional';
-    // isMember: any authenticated, approved user
-    const isMember = () => !!user;
-    const canDownloadFramework = () =>
-        ['founding_member', 'executive'].includes(user?.role);
+    // ── Role helpers ─────────────────────────────────────────────────
+    const isAdmin            = () => user?.role === 'founding_member';
+    const isFoundingMember   = () => user?.role === 'founding_member';
+    // Council Member (was Executive) — primary helper name
+    const isCouncilMember    = () => user?.role === 'council_member';
+    // Legacy alias — kept so any existing component refs still work
+    const isExecutive        = () => user?.role === 'council_member';
+    const isProfessional     = () => user?.role === 'professional';
+    const isMember           = () => !!user;
+    // Professionals can view but NOT download resources/framework
+    const canDownloadFramework = () => ['founding_member', 'council_member'].includes(user?.role);
+    const canUploadWhitepaper  = () => !!user;
+    const canUploadProduct     = () => !!user;
 
-    const canUploadWhitepaper = () => !!user;
-    const canUploadProduct = () => !!user;
-
-    // Provide a static API base URL for legacy code
-    const API = 'http://localhost:5000/api';
-
-    // Provide a dummy token (could be replaced with real JWT if needed)
-    const token = null;
-
-    // Provide a fetch wrapper that uses credentials
+    const API       = 'http://localhost:5000/api';
+    const token     = null;
     const authFetch = (...args) => fetch(...args);
 
     return (
@@ -78,7 +81,8 @@ export const AuthProvider = ({ children }) => {
                 logout,
                 isAdmin,
                 isFoundingMember,
-                isExecutive,
+                isCouncilMember,
+                isExecutive,        // legacy alias — same as isCouncilMember
                 isProfessional,
                 isMember,
                 canDownloadFramework,
@@ -88,6 +92,10 @@ export const AuthProvider = ({ children }) => {
                 API,
                 token,
                 authFetch,
+                // ── Notification state exposed to all consumers ──
+                unreadCount,
+                setUnreadCount,
+                fetchUnreadCount,
             }}
         >
             {children}
@@ -98,7 +106,6 @@ export const AuthProvider = ({ children }) => {
 import { useContext } from 'react';
 export default AuthContext;
 
-// Custom hook for consuming AuthContext
 export function useAuth() {
     return useContext(AuthContext);
 }

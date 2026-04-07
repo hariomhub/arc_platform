@@ -10,9 +10,9 @@ import { useAuth } from '../hooks/useAuth.js';
 import { getEvents, getMyRegistrations } from '../api/events.js';
 import { getNews } from '../api/news.js';
 
-const ROLE_LABELS = { founding_member: 'Founding Member', executive: 'Executive', professional: 'Professional' };
-const ROLE_COLORS = { founding_member: '#7C3AED', executive: '#B45309', professional: '#0369A1' };
-const ROLE_BG     = { founding_member: 'rgba(124,58,237,0.12)', executive: 'rgba(180,83,9,0.12)', professional: 'rgba(3,105,161,0.12)' };
+const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Council Member', executive: 'Council Member', professional: 'Professional' };
+const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#B45309', executive: '#B45309', professional: '#0369A1' };
+const ROLE_BG     = { founding_member: 'rgba(124,58,237,0.12)', council_member: 'rgba(180,83,9,0.12)', executive: 'rgba(180,83,9,0.12)', professional: 'rgba(3,105,161,0.12)' };
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 const getCountdown = (dateStr) => {
@@ -26,7 +26,7 @@ const getCountdown = (dateStr) => {
 
 const UserDashboard = () => {
     const navigate = useNavigate();
-    const { user, logout, isAdmin, isExecutive } = useAuth();
+    const { user, logout, isAdmin, isCouncilMember } = useAuth();
 
     if (isAdmin && isAdmin()) return <Navigate to="/admin-dashboard" replace />;
 
@@ -65,12 +65,12 @@ const UserDashboard = () => {
     ];
 
     const PLATFORM_FEATURES = [
-        { icon: Newspaper,  label: 'Manage News',       desc: 'Create & publish news articles',        path: '/news',                                  allowed: isAdmin?.() || isExecutive?.(), lockMsg: 'Executive / Founding Member only' },
-        { icon: Calendar,   label: 'Manage Events',     desc: 'Create & publish events',               path: '/events',                                allowed: isAdmin?.() || isExecutive?.(), lockMsg: 'Executive / Founding Member only' },
-        { icon: BookOpen,   label: 'Auto-News',         desc: 'Approve automated news feed',           path: '/admin-dashboard?tab=auto_news',         allowed: isAdmin?.() || isExecutive?.(), lockMsg: 'Executive / Founding Member only' },
-        { icon: FileText,   label: 'Approve Resources', desc: 'Review pending resource uploads',       path: '/admin-dashboard?tab=pending_resources', allowed: isAdmin?.() || isExecutive?.(), lockMsg: 'Executive / Founding Member only' },
-        { icon: Users,      label: 'Approve Members',   desc: 'Review membership applications',        path: '/admin-dashboard?tab=pending',           allowed: isAdmin?.(),                   lockMsg: 'Founding Member only' },
-        { icon: Award,      label: 'Manage Awards',     desc: 'Manage nominees & voting',              path: '/admin-dashboard?tab=nominations',       allowed: isAdmin?.(),                   lockMsg: 'Founding Member only' },
+        { icon: Newspaper,  label: 'Manage News',       desc: 'Create & publish news articles',        path: '/news',                                  allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
+        { icon: Calendar,   label: 'Manage Events',     desc: 'Create & publish events',               path: '/events',                                allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
+        { icon: BookOpen,   label: 'Auto-News',         desc: 'Approve automated news feed',           path: '/admin-dashboard?tab=auto_news',         allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
+        { icon: FileText,   label: 'Approve Resources', desc: 'Review pending resource uploads',       path: '/admin-dashboard?tab=pending_resources', allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
+        { icon: Users,      label: 'Approve Members',   desc: 'Review membership applications',        path: '/admin-dashboard?tab=pending',           allowed: isAdmin?.(),                          lockMsg: 'Founding Member only' },
+        { icon: Award,      label: 'Manage Awards',     desc: 'Manage nominees & voting',              path: '/admin-dashboard?tab=nominations',       allowed: isAdmin?.(),                          lockMsg: 'Founding Member only' },
     ];
 
     return (

@@ -889,6 +889,10 @@ export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRol
  * @param {string} email
  * @param {string} otp
  */
+// ── Council Member alias (mirrors sendExecutiveApplicationAdminEmail) ─────────
+// membershipController imports this name; the email content is identical.
+export const sendCouncilApplicationAdminEmail = sendExecutiveApplicationAdminEmail;
+
 export const sendVerificationEmail = (email, otp) => {
   const html = layout(`
     <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Verify Your Email</h2>

@@ -11,11 +11,11 @@ import LoadingSpinner from './LoadingSpinner.jsx';
  * - Admin → children
  */
 const AdminRoute = ({ children }) => {
-    const { user, isAuthLoading, isAdmin, isExecutive } = useAuth();
+    const { user, isAuthLoading, isAdmin, isCouncilMember } = useAuth();
 
     if (isAuthLoading) return <LoadingSpinner fullPage />;
     if (!user) return <Navigate to="/login" replace />;
-    if (!isAdmin() && !isExecutive()) return <Navigate to="/" replace />;
+    if (!isAdmin() && !isCouncilMember()) return <Navigate to="/" replace />;
 
     return children;
 };

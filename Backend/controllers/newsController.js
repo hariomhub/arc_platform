@@ -11,22 +11,20 @@ const paginate = (query, total) => {
 // GET /api/news  — public: only published items
 export const getNews = async (req, res, next) => {
     try {
-        // Admin gets all (published + unpublished); public gets only published
         const showAll = req.query.all === 'true';
-        
-        // Updated filter to include both manual news and approved automated news
-        const whereClause = showAll 
-            ? '' 
+
+        const whereClause = showAll
+            ? ''
             : 'WHERE (is_published = 1 AND (is_automated = FALSE OR (is_automated = TRUE AND status = \'APPROVED\')))';
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM news ${whereClause}`);
         const { page, limit, offset, totalPages } = paginate(req.query, total);
 
         const [rows] = await pool.query(
-            `SELECT *, 
-             COALESCE(published_at, created_at) as sort_date 
-             FROM news ${whereClause} 
-             ORDER BY sort_date DESC 
+            `SELECT *,
+             COALESCE(published_at, created_at) as sort_date
+             FROM news ${whereClause}
+             ORDER BY sort_date DESC
              LIMIT ? OFFSET ?`,
             [limit, offset]
         );
@@ -50,38 +48,57 @@ export const getNewsById = async (req, res, next) => {
     }
 };
 
-// POST /api/news  (admin only)
+// POST /api/news  (founding_member or council_member)
 export const createNews = async (req, res, next) => {
     try {
         const { title, summary, link, image_url, is_published } = req.body;
+        const isCouncilMember = req.user.role === 'council_member';
+
+        // council_member always creates as draft
+        const publishedValue = isCouncilMember ? false : (is_published !== undefined ? Boolean(is_published) : true);
 
         const [result] = await pool.query(
-            'INSERT INTO news (title, summary, link, image_url, is_published) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO news (title, summary, link, image_url, is_published, created_by) VALUES (?, ?, ?, ?, ?, ?)',
             [
                 title.trim(),
                 summary ? summary.trim() : null,
                 link ? link.trim() : null,
                 image_url ? image_url.trim() : null,
-                is_published !== undefined ? Boolean(is_published) : true,
+                publishedValue,
+                req.user.id,
             ]
         );
 
         const [rows] = await pool.query('SELECT * FROM news WHERE id = ?', [result.insertId]);
-        return res.status(201).json({ success: true, data: rows[0] });
+        return res.status(201).json({
+            success: true,
+            data: rows[0],
+            message: isCouncilMember ? 'News item submitted for admin review. It will appear publicly once published by an admin.' : undefined,
+        });
     } catch (err) {
         next(err);
     }
 };
 
-// PUT /api/news/:id  (admin only)
+// PUT /api/news/:id  (founding_member or council_member — council_member owns only)
 export const updateNews = async (req, res, next) => {
     try {
         const { title, summary, link, image_url, is_published } = req.body;
 
-        const [check] = await pool.query('SELECT id FROM news WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, created_by, is_published FROM news WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'News item not found.' });
         }
+
+        // council_member may only edit news they created
+        if (req.user.role === 'council_member' && check[0].created_by !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'You can only edit news items you created.' });
+        }
+
+        // council_member cannot change is_published — keep existing value
+        const publishedValue = req.user.role === 'council_member'
+            ? check[0].is_published
+            : (is_published !== undefined ? Boolean(is_published) : true);
 
         await pool.query(
             'UPDATE news SET title=?, summary=?, link=?, image_url=?, is_published=? WHERE id=?',
@@ -90,7 +107,7 @@ export const updateNews = async (req, res, next) => {
                 summary ? summary.trim() : null,
                 link ? link.trim() : null,
                 image_url ? image_url.trim() : null,
-                is_published !== undefined ? Boolean(is_published) : true,
+                publishedValue,
                 req.params.id,
             ]
         );
@@ -102,7 +119,7 @@ export const updateNews = async (req, res, next) => {
     }
 };
 
-// PATCH /api/news/:id/publish  (admin only) — toggle publish state
+// PATCH /api/news/:id/publish  (founding_member ONLY) — toggle publish state
 export const togglePublishNews = async (req, res, next) => {
     try {
         const [rows] = await pool.query('SELECT id, is_published FROM news WHERE id = ?', [req.params.id]);
@@ -124,12 +141,17 @@ export const togglePublishNews = async (req, res, next) => {
     }
 };
 
-// DELETE /api/news/:id  (admin only)
+// DELETE /api/news/:id  (founding_member or council_member — council_member owns only)
 export const deleteNews = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id FROM news WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, created_by FROM news WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'News item not found.' });
+        }
+
+        // Ownership check for council_member
+        if (req.user.role === 'council_member' && check[0].created_by !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'You can only delete news items you created.' });
         }
 
         await pool.query('DELETE FROM news WHERE id = ?', [req.params.id]);

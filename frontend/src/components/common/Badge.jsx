@@ -13,6 +13,7 @@ const VARIANT_STYLES = {
 
     // User roles
     founding_member: { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
+    council_member: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
     executive: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
     professional: { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
 
