@@ -6,7 +6,7 @@
 -- =============================================
 INSERT INTO users (name, email, password_hash, role, status, bio, linkedin_url, organization_name) VALUES
 (
-  'ARC Administrator',
+  'RAC Administrator',
   'admin@arc.com',
   '$2b$12$k8yzAUy4sehSiLrME5iVGORaj5mHwH3jdYwryio0i1Pu95XjC3E6S',
   'admin',

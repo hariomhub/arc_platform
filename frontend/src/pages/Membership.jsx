@@ -1,5 +1,5 @@
 /**
- * Membership.jsx — 2-Tier Membership Page
+ * Membership.jsx - 2-Tier Membership Page
  * Theme: matches app light theme (#f8fafc bg, white cards, #003366 primary, gradient hero)
  */
 
@@ -19,10 +19,11 @@ const PROFESSIONAL_FEATURES = [
     { label: 'Events calendar & registration',     included: true  },
     { label: 'Community Q&A (read & post)',         included: true  },
     { label: 'Monthly newsletter',                  included: true  },
+    { label: 'Vote in AI Risk Awards / Initiatives',included: true  },
     { label: 'View frameworks & resources online',  included: true  },
     { label: 'Framework & resource downloads',      included: false },
     { label: 'Create events / news / workshops',    included: false },
-    { label: 'Executive workshops access',          included: false },
+    { label: 'Submit AI Product Reviews',           included: false },
 ];
 
 const COUNCIL_FEATURES = [
@@ -32,6 +33,7 @@ const COUNCIL_FEATURES = [
     { label: 'Create events (pending admin approval)',      included: true },
     { label: 'Create news articles (pending approval)',     included: true },
     { label: 'Create workshops (pending approval)',         included: true },
+    { label: 'Submit AI Product Reviews (pending approval)',included: true },
     { label: 'Manage automated news feed',                  included: true },
     { label: '2-year membership term',                      included: true },
 ];
@@ -42,10 +44,11 @@ const COMPARISON_ROWS = [
     { feature: 'Events calendar & registration',      pro: true,  council: true  },
     { feature: 'Community Q&A (read & post)',         pro: true,  council: true  },
     { feature: 'Monthly newsletter',                  pro: true,  council: true  },
+    { feature: 'Vote in AI Risk Awards / Initiatives', pro: true, council: true },
     { feature: 'View frameworks & resources online',  pro: true,  council: true  },
     { feature: 'Download frameworks & resources',     pro: false, council: true  },
     { feature: 'Upload resources (auto-approved)',    pro: false, council: true  },
-    { feature: 'Create AI product reviews',           pro: false, council: true  },
+    { feature: 'Submit AI Product Reviews (pending approval)', pro: false, council: true  },
     { feature: 'Create events (pending approval)',    pro: false, council: true  },
     { feature: 'Create news (pending approval)',      pro: false, council: true  },
     { feature: 'Create workshops (pending approval)', pro: false, council: true  },
@@ -57,7 +60,7 @@ const COMPARISON_ROWS = [
 const FAQ = [
     {
         q: 'What is the difference between Professional and Council Member?',
-        a: 'Professional gives you community access — news, events, Q&A, and the ability to view frameworks online. Council Member unlocks downloads, content creation (events, news, workshops), resource uploads, and a 2-year term.',
+        a: 'Professional gives you community access - news, events, Q&A, and the ability to view frameworks online. Council Member unlocks downloads, content creation (events, news, workshops), resource uploads, and a 2-year term.',
     },
     {
         q: 'Can I upgrade from Professional to Council Member?',
@@ -69,7 +72,7 @@ const FAQ = [
     },
     {
         q: 'Who are Founding Members?',
-        a: 'Founding Members are senior administrators who manage the platform. They are appointed directly — there is no public application process for this role.',
+        a: 'Founding Members are senior administrators who manage the platform. They are appointed directly - there is no public application process for this role.',
     },
 ];
 
@@ -80,7 +83,7 @@ const SUB_CATEGORIES = [
         emoji: '💼',
         label: 'Working Professional',
         tag: 'Industry & Corporate',
-        desc: 'Currently employed in any sector — technology, finance, policy, or consulting — where AI governance intersects with your work.',
+        desc: 'Currently employed in any sector - technology, finance, policy, or consulting - where AI governance intersects with your work.',
         traits: ['Full-time employment', 'Industry practitioners', 'Cross-sector roles'],
     },
     {
@@ -257,10 +260,13 @@ const Membership = () => {
             {/* ── HERO ──────────────────────────────────────────────────────── */}
             <div style={{
                 background: 'linear-gradient(135deg, #002244 0%, #003366 55%, #005599 100%)',
-                padding: 'clamp(1.75rem,3.5vw,2.75rem) clamp(1rem,4vw,2rem)',
+                padding: 'clamp(2rem,3.5vw,3rem) clamp(1rem,4vw,2rem)',
                 position: 'relative', overflow: 'hidden',
             }}>
-                <div style={{ maxWidth: '700px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '360px', height: '360px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+                <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+                
+                <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
                     <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
                         background: 'rgba(255,255,255,0.1)', borderRadius: '100px',
@@ -268,27 +274,35 @@ const Membership = () => {
                         fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.12em',
                         color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase',
                     }}>
-                        <Shield size={12} color="#A78BFA" /> Membership Plans
+                        <Shield size={12} color="#60A5FA" /> Membership Plans
                     </div>
                     <h1 style={{
-                        color: 'white', fontSize: 'clamp(1.65rem,4vw,2.5rem)',
-                        fontWeight: '800', margin: '0 0 0.7rem', lineHeight: '1.18',
-                        fontFamily: 'var(--font-serif, serif)',
+                        color: 'white', fontSize: 'clamp(2rem,5vw,3rem)',
+                        fontWeight: '800', margin: '0 0 1rem', lineHeight: '1.18',
+                        fontFamily: 'var(--font-sans)',
                     }}>
                         Choose Your Membership Path
                     </h1>
                     <p style={{
-                        color: 'rgba(255,255,255,0.65)',
-                        fontSize: 'clamp(0.875rem,1.5vw,1rem)',
-                        lineHeight: '1.65', margin: 0, maxWidth: '500px', marginInline: 'auto',
+                        color: '#CBD5E1',
+                        fontSize: 'clamp(0.95rem,2vw,1.1rem)',
+                        lineHeight: '1.65', margin: 0, maxWidth: '600px', marginInline: 'auto',
                     }}>
-                        Join a global community of AI risk and governance professionals. Two tiers, one mission — shaping responsible AI.
+                        Join a global community of AI risk and governance professionals. Two tiers, one mission - shaping responsible AI.
                     </p>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <button onClick={() => !isLoggedIn ? navigate('/login') : document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', color: '#003366', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.95rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            Sign In to Apply <ArrowRight size={14} />
+                        </button>
+                        <button onClick={() => !isLoggedIn ? navigate('/register') : document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            Create Account
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* ── MAIN CONTENT ──────────────────────────────────────────────── */}
-            <div style={{ maxWidth: '1060px', margin: '0 auto', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
+            <div id="membership-cards" style={{ maxWidth: '1060px', margin: '0 auto', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
 
                 {/* ── TIER CARDS ──────────────────────────────────────────── */}
                 <div style={{
@@ -318,8 +332,8 @@ const Membership = () => {
 
                             {/* Pricing */}
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                <span style={{ textDecoration: 'line-through', color: '#CBD5E1', fontSize: '1.7rem', fontWeight: '700' }}>$49</span>
-                                <span style={{ fontSize: '0.82rem', color: '#CBD5E1', fontWeight: '600' }}>/yr</span>
+                                <span style={{ textDecoration: 'line-through', color: '#475569', fontSize: '2.2rem', fontWeight: '800' }}>$49</span>
+                                <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: '600' }}>/yr</span>
                                 <span style={{ fontSize: '1.9rem', fontWeight: '900', color: '#059669', marginLeft: '2px' }}>$0</span>
                             </div>
                         </div>
@@ -354,9 +368,6 @@ const Membership = () => {
                                     </div>
                                 ))}
                             </div>
-                            <p style={{ margin: '0.5rem 0 0', fontSize: '0.7rem', color: '#94A3B8' }}>
-                                Both sub-categories have identical access. Self-declared for community profiling only.
-                            </p>
                         </div>
 
                         {/* Divider */}
@@ -373,7 +384,7 @@ const Membership = () => {
                                     }}>
                                         {included
                                             ? <Check size={10} color="#059669" strokeWidth={3} />
-                                            : <X size={10} color="#CBD5E1" strokeWidth={2.5} />}
+                                            : <X size={10} color="#EF4444" strokeWidth={2.5} />}
                                     </div>
                                     <span style={{ fontSize: '0.82rem', color: included ? '#374151' : '#94A3B8' }}>{label}</span>
                                 </div>
@@ -423,8 +434,8 @@ const Membership = () => {
 
                             {/* Pricing */}
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                <span style={{ textDecoration: 'line-through', color: '#CBD5E1', fontSize: '1.7rem', fontWeight: '700' }}>$99</span>
-                                <span style={{ fontSize: '0.82rem', color: '#CBD5E1', fontWeight: '600' }}>/yr</span>
+                                <span style={{ textDecoration: 'line-through', color: '#475569', fontSize: '2.2rem', fontWeight: '800' }}>$99</span>
+                                <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: '600' }}>/yr</span>
                                 <span style={{ fontSize: '1.9rem', fontWeight: '900', color: '#003366', marginLeft: '2px' }}>$0</span>
                             </div>
                         </div>
@@ -489,8 +500,8 @@ const Membership = () => {
                                 {COMPARISON_ROWS.map(({ feature, pro, council }, i) => (
                                     <tr key={i}>
                                         <td>{feature}</td>
-                                        <td>{pro ? <Check size={17} color="#059669" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#CBD5E1" strokeWidth={2} style={{ display: 'inline' }} />}</td>
-                                        <td>{council ? <Check size={17} color="#003366" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#CBD5E1" strokeWidth={2} style={{ display: 'inline' }} />}</td>
+                                        <td>{pro ? <Check size={17} color="#059669" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#EF4444" strokeWidth={2.5} style={{ display: 'inline' }} />}</td>
+                                        <td>{council ? <Check size={17} color="#003366" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#EF4444" strokeWidth={2.5} style={{ display: 'inline' }} />}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -557,7 +568,7 @@ const Membership = () => {
                                     <Shield size={16} color="#A78BFA" />
                                     <h3 style={{ margin: 0, color: 'white', fontSize: '1rem', fontWeight: '800' }}>Professional Membership</h3>
                                 </div>
-                                <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>Select the sub-category that best describes you — both have identical access.</p>
+                                <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>Select the sub-category that best describes you - both have identical access.</p>
                             </div>
                             <button onClick={() => setShowSubCatModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: 'white', borderRadius: '6px', padding: '0.25rem', display: 'flex' }}>
                                 <X size={18} />
@@ -621,7 +632,7 @@ const Membership = () => {
                                     <h3 style={{ margin: 0, color: 'white', fontSize: '1rem', fontWeight: '800' }}>Apply for Council Member</h3>
                                 </div>
                                 <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>
-                                    Reviewed by our admin team — typically within 24–48 hours.
+                                    Reviewed by our admin team - typically within 24–48 hours.
                                 </p>
                             </div>
                             <button onClick={() => setShowCouncilModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: 'white', borderRadius: '6px', padding: '0.25rem', display: 'flex' }}>
