@@ -58,7 +58,7 @@ const UserDashboard = () => {
     const QUICK_LINKS = [
         { icon: User,          label: 'Edit Profile',    path: '/profile',       color: '#003366' },
         { icon: Calendar,      label: 'All Events',      path: '/events',        color: '#0369A1' },
-        { icon: MessageSquare, label: 'Community Q&A',   path: '/community-qna', color: '#059669' },
+        { icon: MessageSquare, label: 'Community Feed',   path: '/community-qna', color: '#059669' },
         { icon: HelpCircle,    label: 'AI Framework',    path: '/framework',     color: '#7C3AED' },
         { icon: BookOpen,      label: 'Resources',       path: '/resources',     color: '#D97706' },
         { icon: FileText,      label: 'Certifications',  path: '/certification', color: '#DC2626' },

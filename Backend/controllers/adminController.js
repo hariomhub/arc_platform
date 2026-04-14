@@ -257,7 +257,7 @@ export const getStats = async (req, res, next) => {
         const [[{ pending_users }]]        = await pool.query('SELECT COUNT(*) AS pending_users FROM users WHERE status = "pending"');
         const [[{ total_resources }]]      = await pool.query('SELECT COUNT(*) AS total_resources FROM resources');
         const [[{ total_events }]]         = await pool.query('SELECT COUNT(*) AS total_events FROM events');
-        const [[{ total_qna }]]            = await pool.query('SELECT COUNT(*) AS total_qna FROM qna_posts');
+        const [[{ total_qna }]]            = await pool.query('SELECT COUNT(*) AS total_qna FROM feed_posts');
         const [[{ pending_applications }]] = await pool.query(
             'SELECT COUNT(*) AS pending_applications FROM membership_applications WHERE status = "pending"'
         );

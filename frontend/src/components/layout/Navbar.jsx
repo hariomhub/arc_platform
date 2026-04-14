@@ -4,6 +4,7 @@ import {
     Menu, X, LogOut, User, ChevronDown, Shield,
     BookOpen, LayoutDashboard, Home, Calendar,
     Settings, FileText, HelpCircle, Info, Phone, Award,
+    MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import NotificationBell from './NotificationBell.jsx';
@@ -15,7 +16,7 @@ const PUBLIC_NAV = [
     { label: 'AI Risk Framework',    path: '/framework',     icon: FileText },
     { label: 'Research & Resources', path: '/resources',     icon: BookOpen },
     { label: 'Certifications',       path: '/certification', icon: Award },
-    { label: 'Community Q&A',        path: '/community-qna', icon: HelpCircle },
+    { label: 'Community Feed',        path: '/community-qna', icon:  MessageSquare },
     { label: 'About Us',             path: '/about',         icon: Info },
     { label: 'Contact Us',           path: '/contact',       icon: Phone },
 ];

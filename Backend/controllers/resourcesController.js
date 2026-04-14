@@ -3,7 +3,7 @@ import { uploadToBlob, deleteFromBlob, getBlobSasUrl } from '../services/azureBl
 import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
 
 // Allowed roles for resource file downloads
-const DOWNLOAD_ROLES = ['founding_member', 'executive', 'professional'];
+const DOWNLOAD_ROLES = ['founding_member', 'council_member', 'professional'];
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -165,7 +165,7 @@ export const createResource = async (req, res, next) => {
         const uploaderRole = req.user.role;
 
         const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
-        const canUploadAdminTypes = ['founding_member', 'executive'].includes(uploaderRole);
+        const canUploadAdminTypes = ['founding_member', 'council_member'].includes(uploaderRole);
         if (ADMIN_ONLY_TYPES.includes(type) && !canUploadAdminTypes) {
             return res.status(403).json({ success: false, message: `Only Founding Members and Executives can upload ${type.replace('_', ' ')}s.` });
         }
@@ -182,8 +182,7 @@ export const createResource = async (req, res, next) => {
         }
 
         // Founding members and executives get auto-approved
-        const assignedStatus = ['founding_member', 'executive'].includes(req.user.role) ? 'approved' : 'pending';
-
+        const assignedStatus = ['founding_member', 'council_member'].includes(req.user.role) ? 'approved' : 'pending';
         const [result] = await pool.query(
             `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
