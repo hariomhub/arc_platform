@@ -102,83 +102,86 @@ const CreatePost = ({ onPostCreated }) => {
 
                 .cp-wrap {
                     background: white;
-                    border-radius: 20px;
-                    border: 1px solid rgba(0,51,102,0.1);
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
                     overflow: hidden;
-                    box-shadow: 0 4px 24px rgba(0,51,102,0.07);
-                    transition: box-shadow 0.2s, border-color 0.2s;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                    transition: box-shadow 0.15s, border-color 0.15s;
                 }
-                .cp-wrap:hover { box-shadow: 0 8px 32px rgba(0,51,102,0.1); border-color: rgba(0,51,102,0.15); }
+                .cp-wrap:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-color: #cbd5e1; }
 
                 .cp-trigger {
-                    display: flex; align-items: center; gap: 14px;
-                    padding: 1rem 1.25rem; cursor: pointer;
+                    display: flex; align-items: center; gap: 12px;
+                    padding: 0.875rem 1rem; cursor: pointer;
                     transition: background 0.15s;
                 }
                 .cp-trigger:hover { background: #f8fafc; }
 
                 .cp-input-pill {
                     flex: 1;
-                    background: #f1f5f9;
-                    border: 1.5px solid #e2e8f0;
-                    border-radius: 100px;
-                    padding: 0.7rem 1.25rem;
-                    font-size: 0.9rem;
-                    color: #94a3b8;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 68px;
+                    padding: 0.6rem 1rem;
+                    font-size: 0.85rem;
+                    color: #64748b;
                     user-select: none;
                     transition: all 0.15s;
                     font-family: inherit;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 .cp-trigger:hover .cp-input-pill {
-                    background: #e9eef5;
+                    background: white;
                     border-color: #cbd5e1;
-                    color: #64748b;
+                    color: #475569;
+                }
+
+                @media (max-width: 480px) {
+                    .cp-input-pill { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+                    .cp-trigger { gap: 8px; padding: 0.75rem 0.8rem; }
+                    .cp-post-btn-collapsed span.btn-text { display: none; }
                 }
 
                 .cp-post-btn-collapsed {
-                    display: inline-flex; align-items: center; gap: 7px;
-                    background: linear-gradient(135deg,#003366,#0055a4);
-                    color: white; border: none; border-radius: 100px;
-                    padding: 0.6rem 1.1rem; font-weight: 700; font-size: 0.8rem;
+                    display: inline-flex; align-items: center; gap: 6px;
+                    background: #003366;
+                    color: white; border: none; border-radius: 6px;
+                    padding: 0.5rem 0.875rem; font-weight: 600; font-size: 0.8rem;
                     cursor: pointer; font-family: inherit; flex-shrink: 0;
-                    box-shadow: 0 2px 12px rgba(0,51,102,0.3);
-                    transition: all 0.15s;
+                    transition: background 0.15s;
                 }
                 .cp-post-btn-collapsed:hover {
-                    background: linear-gradient(135deg,#002244,#003d80);
-                    transform: translateY(-1px);
-                    box-shadow: 0 4px 16px rgba(0,51,102,0.35);
+                    background: #002244;
                 }
 
                 .cp-expanded { animation: cp-expand 0.2s ease; }
 
                 .cp-toolbar-btn {
                     display: inline-flex; align-items: center; gap: 5px;
-                    border: 1.5px solid #e2e8f0; border-radius: 10px;
-                    padding: 6px 12px; background: white;
+                    border: 1px solid transparent; border-radius: 6px;
+                    padding: 5px 10px; background: transparent;
                     font-size: 0.78rem; font-weight: 600; color: #475569;
-                    cursor: pointer; font-family: inherit; transition: all 0.15s;
+                    cursor: pointer; font-family: inherit; transition: background 0.1s;
                     white-space: nowrap;
                 }
-                .cp-toolbar-btn:hover { background:#f8fafc; border-color:#003366; color:#003366; }
-                .cp-toolbar-btn.active { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
-                .cp-toolbar-btn:disabled { opacity:0.4; cursor:not-allowed; }
+                .cp-toolbar-btn:hover { background: #f1f5f9; color: #003366; }
+                .cp-toolbar-btn.active { background: #eff6ff; color: #1d4ed8; }
+                .cp-toolbar-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
                 .cp-submit-btn {
-                    display: inline-flex; align-items: center; gap: 7px;
-                    background: linear-gradient(135deg,#003366,#0055a4);
-                    color: white; border: none; border-radius: 12px;
-                    padding: 0.7rem 1.5rem; font-weight: 800; font-size: 0.875rem;
+                    display: inline-flex; align-items: center; gap: 6px;
+                    background: #003366;
+                    color: white; border: none; border-radius: 6px;
+                    padding: 0.6rem 1.25rem; font-weight: 600; font-size: 0.85rem;
                     cursor: pointer; font-family: inherit;
-                    box-shadow: 0 4px 16px rgba(0,51,102,0.28);
-                    transition: all 0.15s;
+                    transition: background 0.15s;
                 }
                 .cp-submit-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg,#002244,#003d80);
-                    transform: translateY(-1px);
-                    box-shadow: 0 6px 20px rgba(0,51,102,0.35);
+                    background: #002244;
                 }
-                .cp-submit-btn:disabled { background:#94a3b8; box-shadow:none; cursor:not-allowed; }
+                .cp-submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
             `}</style>
 
             <div className="cp-wrap">
@@ -194,7 +197,7 @@ const CreatePost = ({ onPostCreated }) => {
                         </div>
                         {/* Post button */}
                         <button className="cp-post-btn-collapsed" onClick={e => { e.stopPropagation(); setExpanded(true); setTimeout(() => textRef.current?.focus(), 60); }}>
-                            <Plus size={14} /> New Post
+                            <Plus size={14} /> <span className="btn-text">New Post</span>
                         </button>
                     </div>
                 ) : (
@@ -204,13 +207,13 @@ const CreatePost = ({ onPostCreated }) => {
                         <div style={{ height:'3px', background:`linear-gradient(90deg,${roleMeta.color},${roleMeta.color}60,transparent)` }} />
 
                         {/* Author row */}
-                        <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'1rem 1.5rem 0.75rem', borderBottom:'1px solid #f1f5f9' }}>
-                            <div style={{ width:'40px', height:'40px', borderRadius:'50%', flexShrink:0, background:`linear-gradient(135deg,${roleMeta.color}e0,${roleMeta.color}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.9rem', fontWeight:'800', color:'white' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'1rem 1.5rem', borderBottom:'1px solid #f1f5f9' }}>
+                            <div style={{ width:'36px', height:'36px', borderRadius:'50%', flexShrink:0, background:`linear-gradient(135deg,${roleMeta.color}dd,${roleMeta.color}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.85rem', fontWeight:'800', color:'white' }}>
                                 {user?.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <p style={{ margin:0, fontFamily:"'Sora',sans-serif", fontSize:'0.875rem', fontWeight:'700', color:'#0f172a' }}>{user?.name}</p>
-                                <span style={{ fontSize:'0.63rem', fontWeight:'800', padding:'1px 7px', borderRadius:'100px', background:`${roleMeta.color}12`, color:roleMeta.color, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                                <p style={{ margin:0, fontFamily:"'Sora',sans-serif", fontSize:'0.875rem', fontWeight:'600', color:'#0f172a' }}>{user?.name}</p>
+                                <span style={{ fontSize:'0.65rem', fontWeight:'700', color:'#64748b' }}>
                                     {roleMeta.label}
                                 </span>
                             </div>
@@ -294,10 +297,10 @@ const CreatePost = ({ onPostCreated }) => {
                         )}
 
                         {/* Footer toolbar */}
-                        <div style={{ display:'flex', alignItems:'center', gap:'6px', padding:'0.875rem 1.5rem', borderTop:'1px solid #f1f5f9', flexWrap:'wrap', background:'#fafbfc' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'4px', padding:'0.75rem 1.5rem', borderTop:'1px solid #f1f5f9', flexWrap:'wrap', background:'#f8fafc' }}>
                             <button type="button" className={`cp-toolbar-btn${files.some(f=>f.type.startsWith('image/'))?' active':''}`}
                                 onClick={() => fileInputRef_click(fileRef, 'image/*')} disabled={mediaCount>=MAX_MEDIA}>
-                                <Image size={14} /> Photo
+                                <Image size={15} /> Photo
                             </button>
                             <button type="button" className={`cp-toolbar-btn${files.some(f=>f.type==='application/pdf')?' active':''}`}
                                 onClick={() => fileInputRef_click(fileRef, 'application/pdf')} disabled={mediaCount>=MAX_MEDIA}>

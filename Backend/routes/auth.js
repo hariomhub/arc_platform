@@ -97,5 +97,7 @@ router.get(
     },
     authController.linkedinCallback
 );
+// PATCH /api/auth/complete-profile — for LinkedIn OAuth users to set sub-category
+router.patch('/complete-profile', auth, authController.completeProfile);
 
 export default router;

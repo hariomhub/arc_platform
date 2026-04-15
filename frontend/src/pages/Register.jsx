@@ -63,7 +63,9 @@ const Register = () => {
     const location = useLocation();
     const { user, isAuthLoading } = useAuth();
 
-    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '', professional_sub_type: 'working_professional' });
+    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '', professional_sub_type: '', linkedin_url: '' });
+
+    const [subCatSelected, setSubCatSelected] = useState(false);
     const [showPw, setShowPw] = useState(false);
     const [showConfirmPw, setShowConfirmPw] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
@@ -82,6 +84,12 @@ const Register = () => {
         const params = new URLSearchParams(location.search);
         if (params.get('success') === 'linkedin') {
             setSuccess(true);
+        }
+        // Pre-fill sub-category from Membership page redirect (?sub=...)
+        const sub = params.get('sub');
+        if (sub === 'working_professional' || sub === 'final_year_undergrad') {
+            setForm(p => ({ ...p, professional_sub_type: sub }));
+            setSubCatSelected(true); // came pre-selected from Membership page
         }
     }, [location.search]);
 
@@ -138,6 +146,10 @@ const Register = () => {
         else if (form.password.length < 8) e.password = 'Password must be at least 8 characters.';
         if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.';
         if (showOrgField && !form.organization_name.trim()) e.organization_name = 'Organisation name is required.';
+        if (form.role === 'professional' && subCatSelected) {
+            if (!form.linkedin_url.trim()) e.linkedin_url = 'LinkedIn profile URL is required.';
+            else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(form.linkedin_url.trim())) e.linkedin_url = 'Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).';
+        }
         return e;
     };
 
@@ -147,7 +159,15 @@ const Register = () => {
         if (Object.keys(errors).length) { setFieldErrors(errors); return; }
         setFieldErrors({}); setSubmitting(true);
         try {
-            await registerUser({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: form.role, organization_name: showOrgField ? form.organization_name.trim() : undefined, professional_sub_type: form.role === 'professional' ? form.professional_sub_type : undefined });
+            await registerUser({
+                name: form.name.trim(),
+                email: form.email.trim().toLowerCase(),
+                password: form.password,
+                role: form.role,
+                organization_name: showOrgField ? form.organization_name.trim() : undefined,
+                professional_sub_type: form.role === 'professional' ? form.professional_sub_type : undefined,
+                linkedin_url: form.role === 'professional' && form.linkedin_url.trim() ? form.linkedin_url.trim() : undefined,
+            });
             setSuccess(true);
         } catch (err) { setServerError(getErrorMessage(err)); }
         finally { setSubmitting(false); }
@@ -429,7 +449,6 @@ const Register = () => {
                                 </div>
                             </div>
 
-                            {/* ── Professional Sub-category (only for professional role) ── */}
                             {form.role === 'professional' && (
                                 <div>
                                     <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>I am a <span style={{ color: '#EF4444' }}>*</span></p>
@@ -441,7 +460,10 @@ const Register = () => {
                                             <button
                                                 key={opt.value}
                                                 type="button"
-                                                onClick={() => setForm(p => ({ ...p, professional_sub_type: opt.value }))}
+                                                onClick={() => {
+                                                    setForm(p => ({ ...p, professional_sub_type: opt.value }));
+                                                    setSubCatSelected(true);
+                                                }}
                                                 style={{
                                                     padding: '0.5rem 1rem',
                                                     borderRadius: '100px',
@@ -459,10 +481,27 @@ const Register = () => {
                                             </button>
                                         ))}
                                     </div>
-                                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.7rem', color: '#94A3B8', lineHeight: 1.5 }}>
-                                        Both sub-categories have identical access. This is for community profiling only.
-                                    </p>
                                 </div>
+                            )}
+
+                            {/* ── LinkedIn URL — shown only after sub-category is selected ── */}
+                            {form.role === 'professional' && subCatSelected && (
+                                <Field id="ra-linkedin" label="LinkedIn Profile URL" required hint="Required for admin verification" error={fieldErrors.linkedin_url}>
+                                    <input
+                                        id="ra-linkedin"
+                                        type="url"
+                                        name="linkedin_url"
+                                        value={form.linkedin_url}
+                                        onChange={handleChange}
+                                        placeholder="https://linkedin.com/in/your-name"
+                                        disabled={submitting}
+                                        className={`ra-input${fieldErrors.linkedin_url ? ' ra-input-err' : ''}`}
+                                        style={inputStyle(fieldErrors.linkedin_url, submitting)}
+                                    />
+                                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#94A3B8', lineHeight: 1.5 }}>
+                                        Admin will review your LinkedIn profile to verify your background before approving your account.
+                                    </p>
+                                </Field>
                             )}
 
                             {showOrgField && (

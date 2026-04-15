@@ -29,7 +29,7 @@ const PROFESSIONAL_FEATURES = [
 const COUNCIL_FEATURES = [
     { label: 'Everything in Professional',                  included: true },
     { label: 'Framework & resource downloads',              included: true },
-    { label: 'Upload resources (auto-approved)',            included: true },
+    { label: 'Upload resources (pending admin approval)',            included: true },
     { label: 'Create events (pending admin approval)',      included: true },
     { label: 'Create news articles (pending approval)',     included: true },
     { label: 'Create workshops (pending approval)',         included: true },
@@ -291,12 +291,55 @@ const Membership = () => {
                         Join a global community of AI risk and governance professionals. Two tiers, one mission - shaping responsible AI.
                     </p>
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <button onClick={() => !isLoggedIn ? navigate('/login') : document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', color: '#003366', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.95rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            Sign In to Apply <ArrowRight size={14} />
-                        </button>
-                        <button onClick={() => !isLoggedIn ? navigate('/register') : document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            Create Account
-                        </button>
+                        {!isLoggedIn ? (
+                            <>
+                                <button onClick={() => navigate('/login')} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', color: '#003366', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.95rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Sign In to Apply <ArrowRight size={14} />
+                                </button>
+                                <button onClick={() => navigate('/register')} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Create Account
+                                </button>
+                            </>
+                        ) : isFounder ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
+                                <Shield size={16} color="#f59e0b" />
+                                <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#fbbf24' }}>✓ Founding Member</span>
+                            </div>
+                        ) : isCouncil && isApproved ? (
+                            <>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
+                                    <Award size={16} color="#93c5fd" />
+                                    <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'white' }}>✓ Council Member</span>
+                                </div>
+                                <button onClick={() => document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    View Benefits
+                                </button>
+                            </>
+                        ) : isCouncil ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
+                                <Loader2 size={15} color="#93c5fd" style={{ animation: 'spin 1.5s linear infinite' }} />
+                                <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'rgba(255,255,255,0.75)' }}>Council Application Under Review</span>
+                            </div>
+                        ) : currentRole === 'professional' && isApproved ? (
+                            <>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(5,118,66,0.2)', border: '1px solid rgba(5,118,66,0.4)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
+                                    <Shield size={16} color="#4ade80" />
+                                    <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#4ade80' }}>✓ Professional Member</span>
+                                </div>
+                                <button onClick={() => setShowCouncilModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Apply for Council <ArrowRight size={14} />
+                                </button>
+                            </>
+                        ) : currentRole === 'professional' ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
+                                <Loader2 size={15} color="#93c5fd" style={{ animation: 'spin 1.5s linear infinite' }} />
+                                <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'rgba(255,255,255,0.75)' }}>Application Pending Approval</span>
+                            </div>
+                        ) : (
+                            <button onClick={() => document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', color: '#003366', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.95rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                View Plans <ArrowRight size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -341,7 +384,7 @@ const Membership = () => {
                         {/* ── Sub-categories: 2-column layout ── */}
                         <div style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
                             <p style={{ margin: '0 0 0.6rem', fontSize: '0.68rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                Sub-categories
+                                Prerequisites
                             </p>
                             <div className="subcol-grid">
                                 {SUB_CATEGORIES.map(sc => (
@@ -535,26 +578,57 @@ const Membership = () => {
                     borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.25rem) clamp(1.25rem,3vw,2rem)',
                     textAlign: 'center',
                 }}>
-                    <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>
-                        Ready to Join the AI Risk Council?
-                    </h2>
-                    <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>
-                        Apply today and start building in the AI risk and governance space.
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={() => !isLoggedIn ? setShowSubCatModal(true) : null}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                            Get Professional <ArrowRight size={13} />
-                        </button>
-                        <button
-                            onClick={() => !isLoggedIn ? navigate('/login?next=/membership') : setShowCouncilModal(true)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                            Apply for Council Member
-                        </button>
-                    </div>
+                    {/* Role-aware CTA content */}
+                    {isFounder ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Founding Member</h2>
+                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65' }}>You have full platform access and administrative privileges.</p>
+                        </>
+                    ) : isCouncil && isApproved ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Council Member ✓</h2>
+                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>You have full access to downloads, content creation, and platform-wide privileges.</p>
+                            <button onClick={() => navigate('/user/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer' }}>
+                                Go to Dashboard <ArrowRight size={13} />
+                            </button>
+                        </>
+                    ) : currentRole === 'professional' && isApproved ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Professional Member ✓</h2>
+                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>Ready to unlock more? Apply for Council Member to get downloads and content creation privileges.</p>
+                            <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button onClick={() => navigate('/user/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer' }}>
+                                    My Dashboard
+                                </button>
+                                <button onClick={() => setShowCouncilModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer' }}>
+                                    Apply for Council Member <ArrowRight size={13} />
+                                </button>
+                            </div>
+                        </>
+                    ) : currentRole === 'professional' ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Application Pending</h2>
+                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65' }}>Our team is reviewing your Professional membership application. You'll be notified within 24–48 hours.</p>
+                        </>
+                    ) : isCouncil ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Council Application Under Review</h2>
+                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65' }}>Your Council Member application is being reviewed. You'll hear back within 24–48 hours.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Ready to Join the AI Risk Council?</h2>
+                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>Apply today and start building in the AI risk and governance space.</p>
+                            <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button onClick={() => setShowSubCatModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Get Professional <ArrowRight size={13} />
+                                </button>
+                                <button onClick={() => navigate('/login?next=/membership')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    Sign In
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -607,7 +681,7 @@ const Membership = () => {
                             </div>
 
                             <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '0.65rem 0.9rem', fontSize: '0.75rem', color: '#64748B', border: '1px solid #E2E8F0' }}>
-                                Both sub-categories share identical access and pricing. The selection is self-declared and used for community analytics only.
+                                Both Prerequisites share identical access and pricing. The selection is self-declared and used for community analytics only.
                             </div>
 
                             <button

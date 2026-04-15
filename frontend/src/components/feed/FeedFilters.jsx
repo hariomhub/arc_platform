@@ -15,53 +15,51 @@ const FeedFilters = ({ sort, onSortChange, search, onSearchChange, tagFilter, on
     return (
         <>
             <style>{`
-                @keyframes ff-slide { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes ff-slide { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
 
                 .ff-wrap {
                     background: white;
-                    border-radius: 16px;
-                    border: 1px solid rgba(0,51,102,0.08);
-                    padding: 0.875rem 1.1rem;
-                    box-shadow: 0 2px 12px rgba(0,51,102,0.05);
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                    padding: 0.75rem 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
                 }
 
                 .ff-sort-row {
-                    display: flex; align-items: center; gap: 6px;
-                    overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+                    display: flex; align-items: center; gap: 8px;
+                    overflow-x: auto; scrollbar-width: none;
                 }
                 .ff-sort-row::-webkit-scrollbar { display: none; }
 
                 .ff-pill {
-                    display: inline-flex; align-items: center; gap: 5px;
-                    padding: 0.45rem 0.875rem; border-radius: 100px;
-                    border: 1.5px solid #e2e8f0; background: white;
-                    font-size: 0.78rem; font-weight: 600; color: #64748b;
+                    display: inline-flex; align-items: center; gap: 6px;
+                    padding: 0.4rem 0.8rem; border-radius: 6px;
+                    border: 1px solid transparent; background: transparent;
+                    font-size: 0.78rem; font-weight: 600; color: #475569;
                     cursor: pointer; white-space: nowrap; font-family: inherit;
-                    transition: all 0.15s;
+                    transition: all 0.1s ease;
                 }
-                .ff-pill:hover { border-color: rgba(0,51,102,0.3); color: #003366; background: #f0f5ff; }
+                .ff-pill:hover { background: #f1f5f9; color: #003366; }
                 .ff-pill.active {
-                    background: linear-gradient(135deg,#003366,#0055a4);
-                    color: white; border-color: transparent;
-                    box-shadow: 0 2px 10px rgba(0,51,102,0.25);
+                    background: #003366;
+                    color: white; border-color: #003366;
                 }
 
                 .ff-pill-tag.active {
-                    background: linear-gradient(135deg,#1d4ed8,#2563eb);
-                    color: white; border-color: transparent;
-                    box-shadow: 0 2px 10px rgba(29,78,216,0.25);
+                    background: #2563eb;
+                    color: white; border-color: #2563eb;
                 }
 
-                .ff-search-wrap { animation: ff-slide 0.18s ease both; margin-top: 0.75rem; }
+                .ff-search-wrap { animation: ff-slide 0.15s ease both; margin-top: 0.75rem; border-top: 1px solid #f1f5f9; padding-top: 0.75rem; }
 
                 .ff-search-input {
-                    width: 100%; padding: 0.65rem 2.5rem 0.65rem 2.5rem;
-                    border: 1.5px solid #e2e8f0; border-radius: 12px;
+                    width: 100%; padding: 0.55rem 2.5rem;
+                    border: 1px solid #e2e8f0; border-radius: 6px;
                     font-size: 0.85rem; font-family: inherit; outline: none;
-                    color: #1e293b; background: #f8fafc;
-                    transition: all 0.15s; box-sizing: border-box;
+                    color: #0f172a; background: white;
+                    transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box;
                 }
-                .ff-search-input:focus { border-color: #003366; background: white; box-shadow: 0 0 0 3px rgba(0,51,102,0.07); }
+                .ff-search-input:focus { border-color: #003366; box-shadow: 0 0 0 3px rgba(0,51,102,0.08); }
             `}</style>
 
             <div className="ff-wrap">
@@ -84,7 +82,7 @@ const FeedFilters = ({ sort, onSortChange, search, onSearchChange, tagFilter, on
                             <Tag size={12} /> #{tagFilter} <X size={11} />
                         </button>
                     ) : tagInputOpen ? (
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1.5px solid #003366', borderRadius: '100px', padding: '0.25rem 0.6rem', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #003366', borderRadius: '6px', padding: '0.2rem 0.5rem', gap: '6px' }}>
                             <Tag size={12} color="#003366" />
                             <input 
                                 type="text"
@@ -102,12 +100,12 @@ const FeedFilters = ({ sort, onSortChange, search, onSearchChange, tagFilter, on
                                 }}
                                 onBlur={() => { if(!tagInputValue) setTagInputOpen(false); }}
                                 placeholder="enter tag..."
-                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '90px', fontSize: '0.78rem', color: '#1e293b', fontFamily: 'inherit', padding: 0 }}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '90px', fontSize: '0.78rem', color: '#0f172a', fontFamily: 'inherit', padding: 0 }}
                             />
                             <button onMouseDown={(e) => { e.preventDefault(); setTagInputOpen(false); }} style={{ background: 'none', border: 'none', padding: '0', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={13} color="#64748b" /></button>
                         </div>
                     ) : (
-                        <button className="ff-pill" onClick={() => setTagInputOpen(true)} style={{ color:'#94a3b8', borderStyle:'dashed' }}>
+                        <button className="ff-pill" onClick={() => setTagInputOpen(true)} style={{ color:'#64748b', border:'1px dashed #cbd5e1' }}>
                             <Tag size={12} /> Filter by tag
                         </button>
                     )}

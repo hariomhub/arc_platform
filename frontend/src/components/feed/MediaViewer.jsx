@@ -76,13 +76,13 @@ const MediaViewer = ({ item, onClose }) => {
                         <img
                             src={item.url}
                             alt={item.original_name || 'Post image'}
-                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '12px', display: 'block' }}
+                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px', display: 'block', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
                         />
                     )}
 
                     {/* PDF viewer */}
                     {item.type === 'pdf' && (
-                        <div style={{ width: 'min(820px, 90vw)', height: '85vh', borderRadius: '12px', overflow: 'hidden', background: 'white', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ width: 'min(820px, 90vw)', height: '85vh', borderRadius: '8px', overflow: 'hidden', background: 'white', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
                             {/* PDF header */}
                             <div style={{ background: '#1e293b', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexShrink: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>

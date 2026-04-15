@@ -11,8 +11,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    Heart, CornerDownRight, Pencil, Trash2,
-    EyeOff, Loader2, Send, ChevronDown, ChevronUp,
+    ThumbsUp, CornerDownRight, Pencil, Trash2,
+    EyeOff, Eye, Loader2, Send, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
@@ -179,7 +179,7 @@ const CommentRow = ({ comment, postId, depth = 0, onCommentAdded, onCommentDelet
                             {roleMeta.label}
                         </span>
                         <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginLeft: 'auto' }}>{timeAgo(comment.created_at)}</span>
-                        {comment.is_edited && <span style={{ fontSize: '0.65rem', color: '#cbd5e1', fontStyle: 'italic' }}>edited</span>}
+                        {!!comment.is_edited && <span style={{ fontSize: '0.65rem', color: '#cbd5e1', fontStyle: 'italic' }}>edited</span>}
                     </div>
 
                     {/* Content or edit form */}
@@ -208,10 +208,18 @@ const CommentRow = ({ comment, postId, depth = 0, onCommentAdded, onCommentDelet
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingLeft: '4px' }}>
                     {/* Like */}
                     <button onClick={handleLike}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', fontFamily: 'var(--font-sans)', fontSize: '0.75rem', fontWeight: '600', color: liked ? '#e11d48' : '#64748b', padding: '3px 7px', borderRadius: '6px', transition: 'all 0.12s' }}
-                        onMouseOver={e => { if (user) e.currentTarget.style.background = '#f1f5f9'; }}
-                        onMouseOut={e => e.currentTarget.style.background = 'none'}>
-                        <Heart size={13} fill={liked ? '#e11d48' : 'none'} color={liked ? '#e11d48' : '#64748b'} />
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            background: liked ? '#FFF7ED' : 'none',
+                            border: `1px solid ${liked ? '#FED7AA' : 'transparent'}`,
+                            cursor: user ? 'pointer' : 'default',
+                            fontFamily: 'var(--font-sans)', fontSize: '0.75rem', fontWeight: '600',
+                            color: liked ? '#EA580C' : '#64748b',
+                            padding: '3px 8px', borderRadius: '20px', transition: 'all 0.15s',
+                        }}
+                        onMouseOver={e => { if (user) { e.currentTarget.style.background = liked ? '#FFEDD5' : '#f1f5f9'; e.currentTarget.style.color = liked ? '#EA580C' : '#1a1a2e'; }}}
+                        onMouseOut={e => { e.currentTarget.style.background = liked ? '#FFF7ED' : 'none'; e.currentTarget.style.color = liked ? '#EA580C' : '#64748b'; }}>
+                        <ThumbsUp size={13} fill={liked ? '#EA580C' : 'none'} color={liked ? '#EA580C' : '#64748b'} style={{ transition: 'all 0.13s' }} />
                         {likeCount > 0 && <span>{likeCount}</span>}
                     </button>
 
@@ -376,9 +384,11 @@ const CommentThread = ({ postId, initialCount = 0 }) => {
                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#1e293b' }}>
                     Comments
                 </h3>
-                <span style={{ background: '#f1f5f9', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px' }}>
-                    {count}
-                </span>
+                {count > 0 && (
+                    <span style={{ background: '#eef2ff', color: '#003366', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px' }}>
+                        {count}
+                    </span>
+                )}
             </div>
 
             {/* Write a comment — logged-in users */}

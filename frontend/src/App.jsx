@@ -16,6 +16,7 @@ const Events = lazy(() => import('./pages/Events.jsx'));
 const Services = lazy(() => import('./pages/Services.jsx'));
 const Framework = lazy(() => import('./pages/Framework.jsx'));
 const Resources = lazy(() => import('./pages/Resources.jsx'));
+const ResourceDetail = lazy(() => import('./pages/ResourceDetail.jsx'));
 const Certifications = lazy(() => import('./pages/Certifications.jsx'));
 const CommunityQnA = lazy(() => import('./pages/CommunityQnA.jsx'));
 const QnADetail = lazy(() => import('./pages/QnADetail.jsx'));
@@ -23,6 +24,7 @@ const Contact = lazy(() => import('./pages/Contact.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
+const RegisterComplete = lazy(() => import('./pages/RegisterComplete.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
@@ -89,6 +91,7 @@ function App() {
 
               {/* ── Research & Resources — open to all; page handles role-based UI ── */}
               <Route path="/resources" element={<Resources />} />
+              <Route path="/resources/:id" element={<ResourceDetail />} />
               <Route path="/community-qna" element={<CommunityQnA />} />
               <Route path="/community-qna/:id" element={<QnADetail />} />
               <Route path="/news" element={<News />} />
@@ -103,6 +106,7 @@ function App() {
               <Route path="/membership" element={<Membership />} />
               <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
               <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+              <Route path="/register/complete" element={<RegisterComplete />} />
 
               {/* ── Protected routes ── */}
               <Route

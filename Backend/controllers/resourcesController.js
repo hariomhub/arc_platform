@@ -164,10 +164,15 @@ export const createResource = async (req, res, next) => {
         const { title, description, abstract, demo_url, type } = req.body;
         const uploaderRole = req.user.role;
 
+        // Professional members cannot upload resources
+        if (!['founding_member', 'council_member'].includes(uploaderRole)) {
+            return res.status(403).json({ success: false, message: 'Only Council Members and Founding Members can upload resources.' });
+        }
+
         const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
-        const canUploadAdminTypes = ['founding_member', 'council_member'].includes(uploaderRole);
+        const canUploadAdminTypes = uploaderRole === 'founding_member';
         if (ADMIN_ONLY_TYPES.includes(type) && !canUploadAdminTypes) {
-            return res.status(403).json({ success: false, message: `Only Founding Members and Executives can upload ${type.replace('_', ' ')}s.` });
+            return res.status(403).json({ success: false, message: `Only Founding Members can upload ${type.replace('_', ' ')}s.` });
         }
 
         let file_url = null;
@@ -181,8 +186,8 @@ export const createResource = async (req, res, next) => {
             );
         }
 
-        // Founding members and executives get auto-approved
-        const assignedStatus = ['founding_member', 'council_member'].includes(req.user.role) ? 'approved' : 'pending';
+        // Only founding_member gets auto-approved; council_member resources go to pending
+        const assignedStatus = uploaderRole === 'founding_member' ? 'approved' : 'pending';
         const [result] = await pool.query(
             `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

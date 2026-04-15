@@ -265,8 +265,16 @@ export const linkedinCallback = async (req, res, next) => {
             user = newRows[0];
             sendWelcomeEmail({ name, email, role: 'professional', organizationName: null });
 
-            // Redirect immediately — no JWT, pending approval required
-            return res.redirect(`${origin}/register?success=linkedin`);
+            // Issue a short-lived temp token so the complete-profile page can call PATCH /auth/complete-profile
+            const tempToken = jwt.sign(
+                { id: user.id, name: user.name, email: user.email, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+            res.cookie('arc_token', tempToken, COOKIE_OPTIONS);
+
+            // Redirect to complete-profile page — user must pick sub-category
+            return res.redirect(`${origin}/register/complete`);
         }
 
         // ── Status checks ─────────────────────────────────────────────────────
@@ -290,6 +298,31 @@ export const linkedinCallback = async (req, res, next) => {
 
         return res.redirect(`${origin}/auth/callback`);
 
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/auth/complete-profile
+// Used by LinkedIn OAuth new users to set professional_sub_type + linkedin_url
+export const completeProfile = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated.' });
+
+        const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
+        const { professional_sub_type, linkedin_url } = req.body;
+
+        if (!allowedSubTypes.includes(professional_sub_type)) {
+            return res.status(400).json({ success: false, message: 'Invalid sub-category. Choose working_professional or final_year_undergrad.' });
+        }
+
+        await pool.query(
+            `UPDATE users SET professional_sub_type = ?, linkedin_url = COALESCE(NULLIF(?, ''), linkedin_url) WHERE id = ?`,
+            [professional_sub_type, linkedin_url || null, userId]
+        );
+
+        return res.json({ success: true, data: { message: 'Profile completed successfully.' } });
     } catch (err) {
         next(err);
     }

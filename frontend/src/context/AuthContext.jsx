@@ -65,8 +65,9 @@ export const AuthProvider = ({ children }) => {
     const isMember           = () => !!user;
     // Professionals can view but NOT download resources/framework
     const canDownloadFramework = () => ['founding_member', 'council_member'].includes(user?.role);
-    const canUploadWhitepaper  = () => !!user;
-    const canUploadProduct     = () => !!user;
+    const canUploadWhitepaper  = () => ['founding_member', 'council_member'].includes(user?.role);
+    const canUploadProduct     = () => ['founding_member', 'council_member'].includes(user?.role);
+
 
     const API       = 'http://localhost:5000/api';
     const token     = null;
