@@ -72,6 +72,9 @@ router.post(
 // POST /api/auth/logout
 router.post('/logout', authController.logout);
 
+// delete /api/auth/delete
+// router.delete('/delete', auth, authController.deleteAccount);
+
 // GET /api/auth/me — uses optionalAuth so guests get 200 {data:null} instead of 401
 router.get('/me', optionalAuth, authController.getMe);
 

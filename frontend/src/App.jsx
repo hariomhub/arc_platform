@@ -40,6 +40,8 @@ const ExecutiveCheckout = lazy(() => import('./pages/ExecutiveCheckout.jsx'));
 const ExecutiveWorkshops = lazy(() => import('./pages/ExecutiveWorkshops.jsx'));
 const MediaHub = lazy(() => import('./pages/MediaHub.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications.jsx'));
+const PrivacyPolicy  = lazy(() => import('./pages/PrivacyPolicy.jsx'));
+const DeleteAccount  = lazy(() => import('./pages/DeleteAccount.jsx'));
 
 // ── OAuth landing: waits for cookie/session restore then routes correctly ──
 const OAuthLanding = () => {
@@ -97,6 +99,8 @@ function App() {
               <Route path="/news" element={<News />} />
               <Route path="/media-hub" element={<MediaHub />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/services/product-reviews" element={<ProductReviews />} />
               <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />
               <Route path="/nominees" element={<AllNominees />} />

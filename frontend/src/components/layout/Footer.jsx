@@ -168,9 +168,10 @@ const Footer = () => (
                             © 2026 AI Risk Council. All rights reserved.
                         </p>
                         <nav aria-label="Legal links" className="ft-links">
-                            <Link to="/privacy" className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Privacy Policy</Link>
-                            <Link to="/terms"   className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Terms of Use</Link>
-                            <Link to="/cookie"  className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Cookie Preferences</Link>
+                            <Link to="/privacy"         className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Privacy Policy</Link>
+                            <Link to="/terms"           className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Terms of Use</Link>
+                            <Link to="/cookie"          className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Cookie Preferences</Link>
+                            <Link to="/delete-account"  className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Delete Account</Link>
                         </nav>
                     </div>
                 </div>
