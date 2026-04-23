@@ -14,3 +14,8 @@ export const deleteUser        = (id)         => api.delete(`/admin/users/${id}`
 export const getMembershipApplications    = (params)            => api.get('/admin/membership-applications', { params });
 export const approveMembershipApplication = (id)                => api.patch(`/admin/membership-applications/${id}/approve`);
 export const rejectMembershipApplication  = (id, adminNotes)   => api.patch(`/admin/membership-applications/${id}/reject`, { admin_notes: adminNotes });
+
+// Sub-type upgrade requests: final_year_undergrad → working_professional
+export const getPendingSubTypeUpgrades  = (params) => api.get('/admin/sub-type-upgrades', { params });
+export const approveSubTypeUpgrade      = (id)     => api.patch(`/admin/sub-type-upgrades/${id}/approve`);
+export const rejectSubTypeUpgrade       = (id)     => api.patch(`/admin/sub-type-upgrades/${id}/reject`);

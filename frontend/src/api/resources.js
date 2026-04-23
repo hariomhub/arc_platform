@@ -36,3 +36,7 @@ export const deleteReview = (resourceId, reviewId) =>
 
 export const toggleReviewUpvote = (resourceId, reviewId) =>
     api.post(`/resources/${resourceId}/reviews/${reviewId}/upvote`);
+
+// ── Download usage ────────────────────────────────────────────────────────────
+/** Returns { used, limit, unlimited, can_download, resets_on } for the current user */
+export const getMyDownloadUsage = () => api.get('/resources/my-download-usage');

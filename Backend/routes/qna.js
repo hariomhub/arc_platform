@@ -70,7 +70,13 @@ const idParam = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── GET /api/qna/saved  — current user's saved posts (Profile saved tab) ──────
-router.get('/saved', auth, feedController.getSavedPosts);
+router.get('/saved',     auth, feedController.getSavedPosts);
+
+// ── GET /api/qna/my-posts  — logged-in user's own posts (Profile My Posts tab) ─
+router.get('/my-posts',  auth, feedController.getMyPosts);
+
+// ── GET /api/qna/my-stats  — aggregate stats for the logged-in user ────────────
+router.get('/my-stats',  auth, feedController.getMyStats);
 
 // ── GET /api/qna  — public feed ───────────────────────────────────────────────
 router.get('/', optionalAuth, feedController.getFeed);

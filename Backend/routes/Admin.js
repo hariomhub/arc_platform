@@ -98,4 +98,14 @@ router.patch(
     adminController.rejectMembershipApplication
 );
 
+// ─── Sub-Type Upgrade Requests ────────────────────────────────────────────────
+// GET /api/admin/sub-type-upgrades  — list of pending upgrade requests
+router.get('/sub-type-upgrades', adminController.getPendingSubTypeUpgrades);
+
+// PATCH /api/admin/sub-type-upgrades/:id/approve
+router.patch('/sub-type-upgrades/:id/approve', adminController.approveSubTypeUpgrade);
+
+// PATCH /api/admin/sub-type-upgrades/:id/reject
+router.patch('/sub-type-upgrades/:id/reject', adminController.rejectSubTypeUpgrade);
+
 export default router;

@@ -21,7 +21,7 @@ const PROFESSIONAL_FEATURES = [
     { label: 'Monthly newsletter',                  included: true  },
     { label: 'Vote in AI Risk Awards / Initiatives',included: true  },
     { label: 'View frameworks & resources online',  included: true  },
-    { label: 'Framework & resource downloads',      included: false },
+    { label: 'Downloads (Working Professional) / No downloads (Final Year Undergrad)', included: 'partial' },
     { label: 'Create events / news / workshops',    included: false },
     { label: 'Submit AI Product Reviews',           included: false },
 ];
@@ -46,7 +46,7 @@ const COMPARISON_ROWS = [
     { feature: 'Monthly newsletter',                  pro: true,  council: true  },
     { feature: 'Vote in AI Risk Awards / Initiatives', pro: true, council: true },
     { feature: 'View frameworks & resources online',  pro: true,  council: true  },
-    { feature: 'Download frameworks & resources',     pro: false, council: true  },
+    { feature: 'Downloads',                            pro: 'subtype', council: true  },
     { feature: 'Upload resources (auto-approved)',    pro: false, council: true  },
     { feature: 'Submit AI Product Reviews (pending approval)', pro: false, council: true  },
     { feature: 'Create events (pending approval)',    pro: false, council: true  },
@@ -121,14 +121,19 @@ const Membership = () => {
     const isApproved  = user?.status === 'approved';
     const isCouncil   = ['council_member', 'executive'].includes(currentRole);
     const isFounder   = currentRole === 'founding_member';
+    const isUndergrad  = currentRole === 'professional' && user?.professional_sub_type === 'final_year_undergrad';
+    const isPendingUpgrade = !!user?.pending_sub_type_upgrade;
 
     const getProfCta = () => {
-        if (!isLoggedIn)                                    return { label: 'Get Started',               action: () => setShowSubCatModal(true) };
-        if (isFounder)                                      return { label: '✓ Founding Member',         action: null };
-        if (isCouncil && isApproved)                        return { label: '✓ You are a Council Member',action: null };
-        if (isCouncil)                                      return { label: 'Council Application Pending',action: null };
-        if (currentRole === 'professional' && isApproved)  return { label: '✓ Your current plan',       action: null };
-        if (currentRole === 'professional')                 return { label: 'Application Pending',       action: null };
+        if (!isLoggedIn)                                                     return { label: 'Get Started',                    action: () => setShowSubCatModal(true) };
+        if (isFounder)                                                       return { label: '✓ Founding Member',              action: null };
+        if (isCouncil && isApproved)                                         return { label: '✓ You are a Council Member',     action: null };
+        if (isCouncil)                                                       return { label: 'Council Application Pending',    action: null };
+        if (currentRole === 'professional' && isApproved && isUndergrad && isPendingUpgrade)
+                                                                             return { label: '⏳ Upgrade Pending Review',      action: null };
+        if (currentRole === 'professional' && isApproved && isUndergrad)     return { label: '↑ Request Upgrade',              action: () => handleUpgradeRequest() };
+        if (currentRole === 'professional' && isApproved)                    return { label: '✓ Your current plan',            action: null };
+        if (currentRole === 'professional')                                  return { label: 'Application Pending',            action: null };
         return { label: 'Get Started', action: () => setShowSubCatModal(true) };
     };
 
@@ -142,6 +147,25 @@ const Membership = () => {
 
     const profCta    = getProfCta();
     const councilCta = getCouncilCta();
+
+    // Upgrade handler for final_year_undergrad → working_professional
+    const [upgrading, setUpgrading]   = useState(false);
+    const [upgraded,  setUpgraded]    = useState(false);
+
+    const handleUpgradeRequest = async () => {
+        if (upgrading || isPendingUpgrade || upgraded) return;
+        setUpgrading(true);
+        try {
+            const { requestSubTypeUpgrade } = await import('../api/auth.js');
+            await requestSubTypeUpgrade();
+            setUpgraded(true);
+            showToast('Upgrade request submitted! Admin will review within 24–48 hours.', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || 'Request failed. Please try again.', 'error');
+        } finally {
+            setUpgrading(false);
+        }
+    };
 
     // ── Council form submit ───────────────────────────────────────────────────
     const handleCouncilSubmit = async (e) => {
@@ -347,6 +371,44 @@ const Membership = () => {
             {/* ── MAIN CONTENT ──────────────────────────────────────────────── */}
             <div id="membership-cards" style={{ maxWidth: '1060px', margin: '0 auto', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
 
+                {/* ── UNDERGRAD UPGRADE BANNER ────────────────────────────── */}
+                {isLoggedIn && isUndergrad && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)',
+                        border: '1.5px solid #FCD34D',
+                        borderRadius: '14px',
+                        padding: '1.25rem 1.5rem',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                    }}>
+                        <div>
+                            <p style={{ margin: '0 0 3px', fontWeight: '800', fontSize: '0.95rem', color: '#92400E' }}>
+                                🎓 You're a Final Year Undergraduate
+                            </p>
+                            <p style={{ margin: 0, fontSize: '0.82rem', color: '#B45309', lineHeight: '1.5' }}>
+                                Upgrade to <strong>Working Professional</strong> to unlock 10 resource downloads/month — no extra cost, just admin approval (24–48 hrs).
+                            </p>
+                        </div>
+                        {(isPendingUpgrade || upgraded) ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF9C3', border: '1px solid #FCD34D', borderRadius: '8px', padding: '0.6rem 1.1rem', fontSize: '0.83rem', fontWeight: '700', color: '#92400E', whiteSpace: 'nowrap' }}>
+                                ⏳ Upgrade request pending admin review
+                            </span>
+                        ) : (
+                            <button
+                                onClick={handleUpgradeRequest}
+                                disabled={upgrading}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', borderRadius: '8px', padding: '0.65rem 1.4rem', fontWeight: '700', fontSize: '0.875rem', cursor: upgrading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: upgrading ? 0.7 : 1, whiteSpace: 'nowrap' }}
+                            >
+                                {upgrading ? '⏳ Submitting…' : '↑ Request Upgrade to Working Professional'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {/* ── TIER CARDS ──────────────────────────────────────────── */}
                 <div style={{
                     display: 'grid',
@@ -423,10 +485,12 @@ const Membership = () => {
                                     <div style={{
                                         width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: included ? '#D1FAE5' : '#F1F5F9',
+                                        background: included === true ? '#D1FAE5' : included === 'partial' ? '#FEF3C7' : '#F1F5F9',
                                     }}>
-                                        {included
+                                        {included === true
                                             ? <Check size={10} color="#059669" strokeWidth={3} />
+                                            : included === 'partial'
+                                            ? <span style={{ fontSize:'9px', fontWeight:'900', color:'#D97706' }}>~</span>
                                             : <X size={10} color="#EF4444" strokeWidth={2.5} />}
                                     </div>
                                     <span style={{ fontSize: '0.82rem', color: included ? '#374151' : '#94A3B8' }}>{label}</span>
@@ -543,7 +607,21 @@ const Membership = () => {
                                 {COMPARISON_ROWS.map(({ feature, pro, council }, i) => (
                                     <tr key={i}>
                                         <td>{feature}</td>
-                                        <td>{pro ? <Check size={17} color="#059669" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#EF4444" strokeWidth={2.5} style={{ display: 'inline' }} />}</td>
+                                        <td>
+                                            {pro === true && <Check size={17} color="#059669" strokeWidth={2.5} style={{ display: 'inline' }} />}
+                                            {pro === false && <X size={15} color="#EF4444" strokeWidth={2.5} style={{ display: 'inline' }} />}
+                                            {pro === 'partial' && <span style={{ fontSize:'0.7rem', fontWeight:'800', color:'#D97706', background:'#FEF3C7', padding:'1px 6px', borderRadius:'4px' }}>Partial</span>}
+                                            {pro === 'subtype' && (
+                                                <div style={{ display:'flex', flexDirection:'column', gap:'3px', alignItems:'flex-start' }}>
+                                                    <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.72rem', color:'#374151' }}>
+                                                        <Check size={12} color="#059669" strokeWidth={3}/> Working Professional
+                                                    </span>
+                                                    <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.72rem', color:'#94A3B8' }}>
+                                                        <X size={11} color="#EF4444" strokeWidth={2.5}/> Final Year Undergrad
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </td>
                                         <td>{council ? <Check size={17} color="#003366" strokeWidth={2.5} style={{ display: 'inline' }} /> : <X size={15} color="#EF4444" strokeWidth={2.5} style={{ display: 'inline' }} />}</td>
                                     </tr>
                                 ))}
@@ -592,10 +670,31 @@ const Membership = () => {
                                 Go to Dashboard <ArrowRight size={13} />
                             </button>
                         </>
+                    ) : currentRole === 'professional' && isApproved && isUndergrad ? (
+                        <>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>🎓 You're a Final Year Undergraduate</h2>
+                            <p style={{ margin: '0 auto 1.2rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '460px' }}>
+                                You have full community access. To unlock resource downloads (10/month), request an upgrade to <strong style={{color:'#FCD34D'}}>Working Professional</strong> below.
+                            </p>
+                            {isPendingUpgrade ? (
+                                <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:'9px', padding:'0.65rem 1.25rem', fontSize:'0.85rem', color:'white', fontWeight:'700' }}>
+                                    ✓ Upgrade request pending admin review (24–48 hrs)
+                                </div>
+                            ) : (
+                                <div style={{ display:'flex', gap:'0.85rem', justifyContent:'center', flexWrap:'wrap' }}>
+                                    <button onClick={() => navigate('/user/dashboard')} style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(255,255,255,0.12)', color:'white', border:'1px solid rgba(255,255,255,0.25)', padding:'0.72rem 1.5rem', borderRadius:'8px', fontWeight:'600', fontSize:'0.875rem', cursor:'pointer' }}>
+                                        My Dashboard
+                                    </button>
+                                    <button onClick={() => navigate('/user/profile?tab=stats')} style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'#FCD34D', color:'#1E293B', padding:'0.72rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.875rem', border:'none', cursor:'pointer' }}>
+                                        Request Upgrade on Profile <ArrowRight size={13}/>
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     ) : currentRole === 'professional' && isApproved ? (
                         <>
-                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Professional Member ✓</h2>
-                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>Ready to unlock more? Apply for Council Member to get downloads and content creation privileges.</p>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>💼 You're a Working Professional ✓</h2>
+                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>You have download access (10 resources/month). Apply for Council Member to unlock content creation and more.</p>
                             <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                                 <button onClick={() => navigate('/user/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer' }}>
                                     My Dashboard

@@ -4,11 +4,15 @@ import {
     User, Calendar, BookOpen, ArrowRight, ExternalLink, LogOut,
     MessageSquare, HelpCircle, Star, ClipboardList, MapPin,
     CheckCircle, Lock, Zap, Users, Award, Newspaper, Bell,
-    FileText, ChevronRight, Shield,
+    FileText, ChevronRight, Shield, Heart, Bookmark, BarChart2, Download,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { getEvents, getMyRegistrations } from '../api/events.js';
-import { getNews } from '../api/news.js';
+import { getMyStats } from '../api/feed.js';
+import { getMyDownloadUsage } from '../api/resources.js';
+import { getMyPosts } from '../api/feed.js';
+import MyPostsModal from '../components/modals/MyPostsModal.jsx';
+import MyStatsModal from '../components/modals/MyStatsModal.jsx';
 
 const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Council Member', executive: 'Council Member', professional: 'Professional' };
 const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#B45309', executive: '#B45309', professional: '#0369A1' };
@@ -31,20 +35,41 @@ const UserDashboard = () => {
     if (isAdmin && isAdmin()) return <Navigate to="/admin-dashboard" replace />;
 
     const [events,        setEvents]        = useState([]);
-    const [news,          setNews]          = useState([]);
     const [registrations, setRegistrations] = useState([]);
+    const [stats,         setStats]         = useState(null);
+    const [usage,         setUsage]         = useState(null);
+    const [posts,         setPosts]         = useState([]);
     const [loading,       setLoading]       = useState(true);
+    const [showPostsModal, setShowPostsModal] = useState(false);
+    const [showStatsModal, setShowStatsModal] = useState(false);
+
+    const timeAgo = (dateString) => {
+        const diff = Date.now() - new Date(dateString).getTime();
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        const weeks = Math.floor(days / 7);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return `${weeks}w ago`;
+    };
 
     useEffect(() => {
         document.title = 'Dashboard | AI Risk Council';
         Promise.allSettled([
             getEvents({ is_upcoming: true, limit: 4 }),
-            getNews({ limit: 4 }),
             getMyRegistrations(),
-        ]).then(([evRes, nwRes, regRes]) => {
+            getMyStats(),
+            getMyDownloadUsage(),
+            getMyPosts({ page: 1, limit: 4 }),
+        ]).then(([evRes, regRes, statRes, usageRes, postRes]) => {
             if (evRes.status === 'fulfilled') setEvents(evRes.value.data?.data?.events ?? evRes.value.data?.data ?? []);
-            if (nwRes.status === 'fulfilled') setNews(nwRes.value.data?.data?.news ?? nwRes.value.data?.data ?? []);
             if (regRes.status === 'fulfilled') setRegistrations(regRes.value.data?.data ?? []);
+            if (statRes.status === 'fulfilled') setStats(statRes.value.data?.data);
+            if (usageRes.status === 'fulfilled') setUsage(usageRes.value.data?.data);
+            if (postRes.status === 'fulfilled') setPosts(postRes.value.data?.data ?? []);
         }).finally(() => setLoading(false));
     }, []);
 
@@ -224,7 +249,6 @@ const UserDashboard = () => {
                             {[
                                 { label:'Events Registered', value: loading ? '—' : registrations.length },
                                 { label:'Upcoming Events',   value: loading ? '—' : events.length },
-                                { label:'News Articles',     value: loading ? '—' : news.length },
                                 { label:'Membership',        value: roleLabel },
                             ].map(({ label, value }) => (
                                 <div key={label}>
@@ -251,6 +275,10 @@ const UserDashboard = () => {
                                         { label:'Name',   value: user?.name },
                                         { label:'Email',  value: user?.email },
                                         { label:'Role',   value: roleLabel },
+                                        ...(user?.role === 'professional' && user?.professional_sub_type ? [{
+                                            label: 'Type',
+                                            value: user.professional_sub_type === 'working_professional' ? '💼 Working Professional' : '🎓 Final Year Undergraduate',
+                                        }] : []),
                                         { label:'Status', value: user?.status ?? 'Active' },
                                     ].map(({ label, value }) => (
                                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', paddingBottom:'0.5rem', borderBottom:'1px solid #F1F5F9', fontSize:'0.85rem' }}>
@@ -282,18 +310,30 @@ const UserDashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Upgrade card */}
+                            {/* Upgrade card — show for ALL professional members; hide only for council_member & founding_member */}
+                            {user?.role !== 'founding_member' && user?.role !== 'council_member' && (
                             <div className="dash-card" style={{ background:'linear-gradient(135deg,#002855 0%,#003d80 100%)', border:'none' }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'0.6rem' }}>
                                     <Star size={14} color='#FCD34D'/>
-                                    <span style={{ fontSize:'0.68rem', fontWeight:'700', color:'#FCD34D', textTransform:'uppercase', letterSpacing:'0.08em' }}>Upgrade</span>
+                                    <span style={{ fontSize:'0.68rem', fontWeight:'700', color:'#FCD34D', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+                                        Upgrade Membership
+                                    </span>
                                 </div>
-                                <h3 style={{ margin:'0 0 0.45rem', color:'white', fontWeight:'800', fontSize:'1rem' }}>Unlock Full Access</h3>
+                                <h3 style={{ margin:'0 0 0.45rem', color:'white', fontWeight:'800', fontSize:'1rem' }}>
+                                    {user?.professional_sub_type === 'final_year_undergrad'
+                                        ? 'Upgrade Your Access'
+                                        : 'Become a Council Member'}
+                                </h3>
                                 <p style={{ margin:'0 0 0.875rem', color:'rgba(147,197,253,0.85)', fontSize:'0.8rem', lineHeight:'1.6' }}>
-                                    Exclusive research, audit templates, and priority event access.
+                                    {user?.professional_sub_type === 'final_year_undergrad'
+                                        ? 'Upgrade to Working Professional for downloads, or apply for Council Member for full platform access.'
+                                        : 'Unlock content creation, product reviews, and full platform privileges.'}
                                 </p>
                                 <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'1rem' }}>
-                                    {['All audit templates (12+)', 'Member-only research library', 'Priority event registration'].map(f => (
+                                    {(user?.professional_sub_type === 'final_year_undergrad'
+                                        ? ['10 downloads/month (Working Pro)', 'Content creation (Council Member)', 'No extra cost for sub-type upgrade']
+                                        : ['Create events, news & workshops', 'Submit AI product reviews', 'Priority event registration']
+                                    ).map(f => (
                                         <div key={f} style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'0.75rem', color:'rgba(203,213,225,0.85)' }}>
                                             <span style={{ width:'4px', height:'4px', borderRadius:'50%', background:'#FCD34D', flexShrink:0 }}/>{f}
                                         </div>
@@ -301,9 +341,10 @@ const UserDashboard = () => {
                                 </div>
                                 <button onClick={() => navigate('/membership')}
                                     style={{ width:'100%', padding:'0.65rem', background:'#FCD34D', color:'#1E293B', border:'none', borderRadius:'9px', fontWeight:'800', fontSize:'0.85rem', cursor:'pointer', fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
-                                    Upgrade Now <ArrowRight size={14}/>
+                                    View Upgrade Options <ArrowRight size={14}/>
                                 </button>
                             </div>
+                            )}{/* end upgrade card conditional */}
                         </div>
 
                         {/* ── RIGHT CONTENT ── */}
@@ -349,45 +390,72 @@ const UserDashboard = () => {
                                     )}
                                 </div>
 
-                                {/* Latest News */}
+                                {/* My Posts */}
                                 <div className="dash-card">
                                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem' }}>
-                                        <h3 className="sec-title" style={{ margin:0 }}><Bell size={15} color="#003366"/> Latest News</h3>
-                                        <a href="/news" style={{ fontSize:'0.78rem', color:'#003366', fontWeight:'700', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px', flexShrink:0 }}>
-                                            More <ChevronRight size={13}/>
-                                        </a>
+                                        <h3 className="sec-title" style={{ margin:0 }}><MessageSquare size={15} color="#003366"/> My Posts</h3>
+                                        <button onClick={() => setShowPostsModal(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.78rem', color:'#003366', fontWeight:'700', display:'flex', alignItems:'center', gap:'3px', padding:0, fontFamily:'var(--font-sans)' }}>
+                                            All <ChevronRight size={13}/>
+                                        </button>
                                     </div>
                                     {loading ? (
                                         <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
-                                            {[1,2,3].map(i => <div key={i} className="skel" style={{ height:'60px' }}/>)}
+                                            {[1,2].map(i => <div key={i} className="skel" style={{ height:'75px' }}/>)}
                                         </div>
-                                    ) : news.length === 0 ? (
+                                    ) : posts.length === 0 ? (
                                         <div style={{ textAlign:'center', padding:'2rem 1rem', color:'#94A3B8' }}>
-                                            <Bell size={32} style={{ opacity:0.25, marginBottom:'0.5rem' }}/>
-                                            <p style={{ fontSize:'0.85rem', margin:0 }}>No news yet.</p>
+                                            <MessageSquare size={32} style={{ opacity:0.25, marginBottom:'0.5rem' }}/>
+                                            <p style={{ fontSize:'0.85rem', margin:0 }}>You haven't published any posts yet.</p>
                                         </div>
                                     ) : (
-                                        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                                            {news.slice(0, 4).map(article => (
-                                                <div key={article.id} className="feed-row" style={{ cursor:'default' }}>
-                                                    {article.image_url ? (
-                                                        <img src={article.image_url} alt="" style={{ width:'38px', height:'38px', borderRadius:'8px', objectFit:'cover', flexShrink:0 }}/>
-                                                    ) : (
-                                                        <div style={{ width:'38px', height:'38px', background:'#FEF3C7', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                                                            <BookOpen size={16} color='#D97706'/>
-                                                        </div>
-                                                    )}
+                                        <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                                            {posts.slice(0, 4).map(post => (
+                                                <div key={post.id} className="feed-row" onClick={() => navigate(`/community-qna/${post.id}`)} style={{ alignItems:'flex-start' }}>
                                                     <div style={{ flex:1, minWidth:0 }}>
-                                                        <p style={{ margin:0, fontWeight:'600', fontSize:'0.85rem', color:'#1E293B', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{article.title}</p>
-                                                        <p style={{ margin:'2px 0 0', fontSize:'0.73rem', color:'#94A3B8' }}>{fmtDate(article.published_at || article.created_at)}</p>
+                                                        <p style={{ margin:'0 0 0.35rem', fontSize:'0.84rem', color:'#1E293B', lineHeight:'1.5', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{post.content}</p>
+                                                        <div style={{ display:'flex', gap:'0.85rem', flexWrap:'wrap' }}>
+                                                            <span style={{ fontSize:'0.7rem', color:'#94A3B8' }}>{timeAgo(post.created_at)}</span>
+                                                            <span style={{ fontSize:'0.7rem', color:'#94A3B8' }}>♥ {post.like_count}</span>
+                                                            <span style={{ fontSize:'0.7rem', color:'#94A3B8' }}>💬 {post.comment_count}</span>
+                                                            <span style={{ fontSize:'0.7rem', color:'#94A3B8' }}>🔖 {post.save_count}</span>
+                                                            {!!post.is_hidden && <span style={{ fontSize:'0.7rem', color:'#EF4444', fontWeight:'700' }}>Hidden</span>}
+                                                        </div>
                                                     </div>
-                                                    {article.source_url && (
-                                                        <a href={article.source_url} target="_blank" rel="noopener noreferrer" style={{ color:'#94A3B8', flexShrink:0 }} onClick={e => e.stopPropagation()}><ExternalLink size={13}/></a>
-                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="dash-card">
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.25rem' }}>
+                                    <h3 className="sec-title" style={{ margin:0 }}><BarChart2 size={16} color="#003366"/> My Stats</h3>
+                                    <button onClick={() => setShowStatsModal(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.78rem', color:'#003366', fontWeight:'700', display:'flex', alignItems:'center', gap:'3px', padding:0, fontFamily:'var(--font-sans)' }}>
+                                        Details <ChevronRight size={13}/>
+                                    </button>
+                                </div>
+                                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(min(140px,100%),1fr))', gap:'0.875rem' }}>
+                                    {[
+                                        { label: 'Comments Made', value: stats?.comments_made ?? '—', icon: MessageSquare, color: '#0369A1', bg: '#EFF6FF' },
+                                        { label: 'Likes Given',   value: stats?.likes_given   ?? '—', icon: Heart,         color: '#DC2626', bg: '#FEF2F2' },
+                                        { label: 'Posts Saved',   value: stats?.posts_saved   ?? '—', icon: Bookmark,      color: '#7C3AED', bg: '#FAF5FF' },
+                                        { label: 'Downloads Used', value: usage?.unlimited ? '∞' : (usage?.used ?? '—'), icon: Download, color: '#059669', bg: '#ECFDF5' },
+                                        ...(user?.role === 'founding_member' || user?.role === 'council_member' ? [
+                                            { label: 'Total Posts', value: stats?.total_posts ?? '—', icon: FileText, color: '#003366', bg: '#EFF6FF' }
+                                        ] : [])
+                                    ].map((s, i) => (
+                                        <div key={i} style={{ background:'white', borderRadius:'10px', border:'1px solid #E2E8F0', padding:'0.85rem', display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                                            <div style={{ width:34, height:34, borderRadius:'8px', background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                                <s.icon size={15} color={s.color}/>
+                                            </div>
+                                            <div style={{ minWidth:0 }}>
+                                                <p style={{ margin:0, fontSize:'1.1rem', fontWeight:'800', color:'#1E293B', lineHeight:1 }}>{loading ? '—' : s.value}</p>
+                                                <p style={{ margin:'2px 0 0', fontSize:'0.65rem', color:'#94A3B8', fontWeight:'700', textTransform:'uppercase', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -472,6 +540,10 @@ const UserDashboard = () => {
                     </div>{/* end dash-grid */}
                 </div>{/* end dash-body */}
             </div>
+
+            {/* Modals */}
+            <MyPostsModal isOpen={showPostsModal} onClose={() => setShowPostsModal(false)} />
+            <MyStatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} usage={usage} user={user} loading={loading} />
         </>
     );
 };

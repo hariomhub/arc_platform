@@ -103,4 +103,7 @@ router.get(
 // PATCH /api/auth/complete-profile — for LinkedIn OAuth users to set sub-category
 router.patch('/complete-profile', auth, authController.completeProfile);
 
+// PATCH /api/auth/request-upgrade — final_year_undergrad requests upgrade to working_professional (pending admin)
+router.patch('/request-upgrade', auth, authController.requestSubTypeUpgrade);
+
 export default router;

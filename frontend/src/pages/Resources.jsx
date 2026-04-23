@@ -8,12 +8,19 @@ import {
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getResources, uploadResource, updateResource, deleteResource, downloadResource } from '../api/resources.js';
+import { requestSubTypeUpgrade } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import StarRating from '../components/resources/StarRating.jsx';
 
 const TYPE_OPTIONS = ['article', 'whitepaper', 'video', 'tool', 'news', 'homepage video', 'lab result', 'product'];
 const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
+// Helper: working_professional sub-type also gets download access
+const canDownloadResources = (u) =>
+    u && (
+        DOWNLOAD_ROLES.includes(u.role) ||
+        (u.role === 'professional' && u.professional_sub_type === 'working_professional')
+    );
 
 const getUploadableTypes = (role) => {
     if (role === 'founding_member') return TYPE_OPTIONS;
@@ -259,9 +266,10 @@ const DeleteDialog = ({ onConfirm, onCancel }) => (
 );
 
 // ─── Resource Card ────────────────────────────────────────────────────────────
-const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, downloading }) => {
+const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, downloading, onUpgradeRequest, upgradeRequested }) => {
     const accent      = TYPE_COLORS[resource.type] || '#003366';
-    const canDownload = DOWNLOAD_ROLES.includes(currentUser?.role);
+    const canDownload = canDownloadResources(currentUser);
+    const isUndergrad = currentUser?.role === 'professional' && currentUser?.professional_sub_type === 'final_year_undergrad';
     const canEdit     = currentUser?.role === 'founding_member';
     const canDelete   = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
     const hasRating   = resource.avg_rating > 0;
@@ -398,8 +406,8 @@ const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, dow
                         </a>
                     ) : !canDownload ? (
                         <a href="/membership" className="rc2-dl"
-                            style={{ background: '#f0fdf4', color: '#0f766e', border: '1.5px solid #bbf7d0' }}>
-                            <Lock size={11} /> Upgrade
+                            style={{ background: '#FFFBEB', color: '#92400E', border: '1.5px solid #FCD34D' }}>
+                            <Lock size={11} /> {isUndergrad ? 'Request Upgrade' : 'Upgrade'}
                         </a>
                     ) : (
                         <button onClick={() => onDownload(resource)} disabled={downloading} className="rc2-dl"
@@ -450,6 +458,8 @@ const Resources = () => {
     const [modal,        setModal]        = useState(null);
     const [deleteId,     setDeleteId]     = useState(null);
     const [downloading,  setDownloading]  = useState({});
+    // Upgrade request state for final_year_undergrad
+    const [upgradeRequested, setUpgradeRequested] = useState(!!user?.pending_sub_type_upgrade);
 
     useEffect(() => { document.title = 'Research & Resources | ARC'; }, []);
 
@@ -522,6 +532,16 @@ const Resources = () => {
         if (isEdit) setResources(prev => prev.map(r => r.id === saved.id ? saved : r));
         else        setResources(prev => [saved, ...prev]);
         setModal(null);
+    };
+
+    const handleUpgradeRequest = async () => {
+        try {
+            await requestSubTypeUpgrade();
+            setUpgradeRequested(true);
+            showToast('Upgrade request submitted! Admin will review within 24–48 hours.', 'success');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
+        }
     };
 
     return (
@@ -815,6 +835,8 @@ const Resources = () => {
                                     onEdit={res => setModal({ mode: 'edit', resource: res })}
                                     onDelete={setDeleteId}
                                     downloading={downloading[r.id]}
+                                    onUpgradeRequest={handleUpgradeRequest}
+                                    upgradeRequested={upgradeRequested}
                                 />
                             ))}
                         </div>

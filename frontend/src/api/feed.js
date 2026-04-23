@@ -140,3 +140,16 @@ export const unsavePost = (postId) =>
  */
 export const getSavedPosts = (params = {}) =>
     api.get('/qna/saved', { params });
+
+/**
+ * Get current user's own posts (for Profile My Posts tab).
+ * @param {{ page?: number, limit?: number }} params
+ */
+export const getMyPosts = (params = {}) =>
+    api.get('/qna/my-posts', { params });
+
+/**
+ * Get aggregate stats for the current user (for Profile Stats tab).
+ */
+export const getMyStats = () =>
+    api.get('/qna/my-stats');

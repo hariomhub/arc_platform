@@ -13,6 +13,7 @@ import {
     FileText, Trash2, AlertCircle, Loader2, RefreshCw,
     Upload, ShieldCheck, ArrowLeft, CheckCircle2,
     Bookmark, BookmarkX, ExternalLink,
+    BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -20,7 +21,9 @@ import {
     getProfile, updateProfile, changePassword,
     getMyResources, deleteMyResource,
 } from '../api/profile.js';
-import { getSavedPosts, unsavePost } from '../api/feed.js';
+import { getSavedPosts, unsavePost, getMyPosts, getMyStats } from '../api/feed.js';
+import { getMyDownloadUsage } from '../api/resources.js';
+import { requestSubTypeUpgrade } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate, timeAgo } from '../utils/dateFormatter.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
@@ -460,6 +463,8 @@ const SavedPostsSection = ({ showToast }) => {
     );
 };
 
+
+
 // ─── Profile Page ─────────────────────────────────────────────────────────────
 const Profile = () => {
     const navigate      = useNavigate();
@@ -490,12 +495,14 @@ const Profile = () => {
     const roleLabel = ROLE_LABELS[user.role]  || user.role;
     const initial   = user.name?.charAt(0).toUpperCase() || '?';
 
+    const canPost = ['founding_member','council_member'].includes(user.role);
+
     const TABS = [
-        { key: 'info',     label: 'Profile Info', icon: User      },
-        { key: 'password', label: 'Password',     icon: ShieldCheck },
-        { key: 'uploads',  label: 'My Uploads',   icon: FileText   },
-        { key: 'saved',    label: 'Saved Posts',  icon: Bookmark   },
-    ];
+        { key: 'info',     label: 'Profile Info', icon: User,         show: true   },
+        { key: 'password', label: 'Password',     icon: ShieldCheck,  show: true   },
+        { key: 'uploads',  label: 'My Uploads',   icon: FileText,     show: canPost },
+        { key: 'saved',    label: 'Saved Posts',  icon: Bookmark,     show: true   },
+    ].filter(t => t.show);
 
     return (
         <>
@@ -546,10 +553,15 @@ const Profile = () => {
                                     {user.name}
                                 </h1>
                                 <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
-                                    <div>
+                                    <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', alignItems:'center' }}>
                                         <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'800', color:roleColor, background:'rgba(255,255,255,0.95)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
                                             {roleLabel}
                                         </span>
+                                        {user.role === 'professional' && user.professional_sub_type && (
+                                            <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.68rem', fontWeight:'700', color:'white', background:'rgba(255,255,255,0.18)', border:'1px solid rgba(255,255,255,0.25)' }}>
+                                                {user.professional_sub_type === 'working_professional' ? '💼 Working Professional' : '🎓 Final Year Undergraduate'}
+                                            </span>
+                                        )}
                                     </div>
                                     {user.organisation && (
                                         <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem', color:'rgba(255,255,255,0.7)' }}>

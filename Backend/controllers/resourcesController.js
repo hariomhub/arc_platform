@@ -107,7 +107,7 @@ export const getResourceById = async (req, res, next) => {
     }
 };
 
-// GET /api/resources/:id/download  (RBAC enforced)
+// GET /api/resources/:id/download  (RBAC + sub-type + monthly limit enforced)
 export const downloadResource = async (req, res, next) => {
     try {
         const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
@@ -116,17 +116,139 @@ export const downloadResource = async (req, res, next) => {
         }
 
         const resource = rows[0];
+        const { role, professional_sub_type } = req.user;
 
-        if (!DOWNLOAD_ROLES.includes(req.user.role)) {
+        // ── Step 1: Role gate ──────────────────────────────────────────────────
+        if (!DOWNLOAD_ROLES.includes(role)) {
             return res.status(403).json({ success: false, message: 'Upgrade your plan to access this resource.' });
         }
 
+        // ── Step 2: Sub-type gate for professional members ─────────────────────
+        if (role === 'professional' && professional_sub_type !== 'working_professional') {
+            return res.status(403).json({
+                success: false,
+                message: 'Resource downloads are available to Working Professionals only. Please request an upgrade to unlock downloads.',
+                code: 'UPGRADE_REQUIRED',
+            });
+        }
+
+        // ── Step 3: Monthly limit (founding_member is unlimited) ───────────────
+        if (role !== 'founding_member') {
+            const MONTHLY_LIMIT = 10;
+            const userId = req.user.id;
+
+            // Fetch current counter row
+            const [[userRow]] = await pool.query(
+                'SELECT monthly_downloads, monthly_downloads_reset FROM users WHERE id = ?',
+                [userId]
+            );
+
+            // Determine if we need to reset (first download ever, or new calendar month)
+            const now = new Date();
+            const currentMonthStr = now.toISOString().slice(0, 7); // 'YYYY-MM'
+            let needsReset = true;
+            if (userRow.monthly_downloads_reset) {
+                const lastResetDate = new Date(userRow.monthly_downloads_reset);
+                if (!isNaN(lastResetDate)) {
+                    const lastResetStr = lastResetDate.toISOString().slice(0, 7);
+                    if (lastResetStr === currentMonthStr) needsReset = false;
+                }
+            }
+
+            let currentCount = needsReset ? 0 : userRow.monthly_downloads;
+
+            if (currentCount >= MONTHLY_LIMIT) {
+                // Calculate first day of next month for reset info
+                const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                return res.status(429).json({
+                    success: false,
+                    message: `You have reached your download limit of ${MONTHLY_LIMIT} per month. Your limit resets on ${nextMonth.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+                    code: 'DOWNLOAD_LIMIT_REACHED',
+                    used: currentCount,
+                    limit: MONTHLY_LIMIT,
+                    resets_on: nextMonth.toISOString(),
+                });
+            }
+
+            // Increment counter (reset if needed)
+            if (needsReset) {
+                await pool.query(
+                    'UPDATE users SET monthly_downloads = 1, monthly_downloads_reset = ? WHERE id = ?',
+                    [now.toISOString().slice(0, 10), userId]
+                );
+            } else {
+                await pool.query(
+                    'UPDATE users SET monthly_downloads = monthly_downloads + 1 WHERE id = ?',
+                    [userId]
+                );
+            }
+            currentCount++;
+        }
+
+        // ── Step 4: File check & return SAS URL ────────────────────────────────
         if (!resource.file_url) {
             return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
         }
 
         const sasUrl = getBlobSasUrl(resource.file_url, 2);
+
+        // Increment the global download counter for the resource
+        await pool.query('UPDATE resources SET download_count = download_count + 1 WHERE id = ?', [req.params.id]);
+
         return res.json({ success: true, url: sasUrl });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/resources/my-download-usage  — returns current month usage for the logged-in user
+export const getMyDownloadUsage = async (req, res, next) => {
+    try {
+        const { role, professional_sub_type } = req.user;
+
+        // founding_member = unlimited
+        if (role === 'founding_member') {
+            return res.json({ success: true, data: { used: 0, limit: null, unlimited: true, can_download: true } });
+        }
+
+        // final_year_undergrad = no access
+        if (role === 'professional' && professional_sub_type !== 'working_professional') {
+            return res.json({ success: true, data: { used: 0, limit: 10, unlimited: false, can_download: false, code: 'UPGRADE_REQUIRED' } });
+        }
+
+        const MONTHLY_LIMIT = 10;
+        const userId = req.user.id;
+
+        const [[userRow]] = await pool.query(
+            'SELECT monthly_downloads, monthly_downloads_reset FROM users WHERE id = ?',
+            [userId]
+        );
+
+        const now = new Date();
+        const currentMonthStr = now.toISOString().slice(0, 7);
+        let needsReset = true;
+        if (userRow.monthly_downloads_reset) {
+            const lastResetDate = new Date(userRow.monthly_downloads_reset);
+            if (!isNaN(lastResetDate)) {
+                const lastResetStr = lastResetDate.toISOString().slice(0, 7);
+                if (lastResetStr === currentMonthStr) needsReset = false;
+            }
+        }
+        
+        const used = needsReset ? 0 : (userRow.monthly_downloads || 0);
+
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        return res.json({
+            success: true,
+            data: {
+                used,
+                limit: MONTHLY_LIMIT,
+                unlimited: false,
+                can_download: used < MONTHLY_LIMIT,
+                resets_on: nextMonth.toISOString(),
+            },
+        });
     } catch (err) {
         next(err);
     }

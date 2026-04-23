@@ -63,10 +63,20 @@ export const AuthProvider = ({ children }) => {
     const isExecutive        = () => user?.role === 'council_member';
     const isProfessional     = () => user?.role === 'professional';
     const isMember           = () => !!user;
+    // Sub-type helpers (professional members only)
+    const isWorkingProfessional = () =>
+        user?.role === 'professional' && user?.professional_sub_type === 'working_professional';
+    const isFinalYearUndergrad = () =>
+        user?.role === 'professional' && user?.professional_sub_type === 'final_year_undergrad';
     // Professionals can view but NOT download resources/framework
     const canDownloadFramework = () => ['founding_member', 'council_member'].includes(user?.role);
     const canUploadWhitepaper  = () => ['founding_member', 'council_member'].includes(user?.role);
     const canUploadProduct     = () => ['founding_member', 'council_member'].includes(user?.role);
+    // Resources: council_member, founding_member, and working_professional can download
+    const canDownloadResources = () =>
+        user?.role === 'founding_member' ||
+        user?.role === 'council_member'  ||
+        (user?.role === 'professional' && user?.professional_sub_type === 'working_professional');
 
 
     const API       = 'http://localhost:5000/api';
@@ -86,7 +96,10 @@ export const AuthProvider = ({ children }) => {
                 isExecutive,        // legacy alias — same as isCouncilMember
                 isProfessional,
                 isMember,
+                isWorkingProfessional,
+                isFinalYearUndergrad,
                 canDownloadFramework,
+                canDownloadResources,
                 canUploadWhitepaper,
                 canUploadProduct,
                 isLoggedIn: !!user,

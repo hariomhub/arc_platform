@@ -154,7 +154,7 @@ export default function News() {
                         }}>
                             <Newspaper size={40} strokeWidth={2} />
                         </div>
-                        <h1 style={{ fontSize: '3rem', fontWeight: '900', margin: 0, letterSpacing: '-0.02em' }}>
+                        <h1 style={{ fontSize: '3rem', fontWeight: '900', margin: 0, letterSpacing: '-0.02em', color:'white'}}>
                             Latest AI News & Updates
                         </h1>
                     </div>
@@ -165,6 +165,7 @@ export default function News() {
                         margin: '0 auto 2rem',
                         lineHeight: '1.6',
                         animation: 'fadeInUp 0.6s ease-out 0.2s backwards',
+                        color:'white'
                     }}>
                         Stay informed with cutting-edge developments in AI governance, regulation, and risk management from trusted global sources
                     </p>

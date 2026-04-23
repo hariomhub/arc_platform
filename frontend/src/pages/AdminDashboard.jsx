@@ -13,7 +13,7 @@ import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
 import AutomatedNewsManagement from '../components/AutomatedNewsManagement.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
-import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication } from '../api/admin.js';
+import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
@@ -165,6 +165,15 @@ const PendingTab = ({ showToast, onApproved }) => {
     const [appPage, setAppPage] = useState(1);
     const [appTotalPages, setAppTotalPages] = useState(1);
 
+    // Sub-type upgrade state (final_year_undergrad → working_professional)
+    const [subUpgrades, setSubUpgrades]               = useState([]);
+    const [subUpgradesLoading, setSubUpgradesLoading] = useState(true);
+    const [subUpgradesError, setSubUpgradesError]     = useState('');
+    const [subActioning, setSubActioning]             = useState({});
+    const [subFilter, setSubFilter]                   = useState('pending');
+    const [subPage, setSubPage]                       = useState(1);
+    const [subTotalPages, setSubTotalPages]           = useState(1);
+
     const fetch = useCallback(async () => {
         setLoading(true); setError('');
         try {
@@ -186,8 +195,39 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setAppsLoading(false); }
     }, [appFilter, appPage]);
 
+    const loadSubUpgrades = useCallback(async () => {
+        setSubUpgradesLoading(true); setSubUpgradesError('');
+        try {
+            const res = await getPendingSubTypeUpgrades({ status: subFilter, page: subPage, limit: 20 });
+            setSubUpgrades(Array.isArray(res.data?.data) ? res.data.data : []);
+            setSubTotalPages(res.data?.totalPages || 1);
+        } catch (err) { setSubUpgradesError(getErrorMessage(err) || 'Failed to load upgrade requests.'); }
+        finally { setSubUpgradesLoading(false); }
+    }, [subFilter, subPage]);
+
     useEffect(() => { fetch(); }, [fetch]);
     useEffect(() => { loadApps(); }, [loadApps]);
+    useEffect(() => { loadSubUpgrades(); }, [loadSubUpgrades]);
+
+    const handleSubApprove = async (userId, name) => {
+        setSubActioning(p => ({ ...p, [userId]: 'approving' }));
+        try {
+            await approveSubTypeUpgrade(userId);
+            setSubUpgrades(prev => prev.filter(u => u.id !== userId));
+            showToast(`${name} upgraded to Working Professional!`, 'success');
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setSubActioning(p => ({ ...p, [userId]: null })); }
+    };
+
+    const handleSubReject = async (userId, name) => {
+        setSubActioning(p => ({ ...p, [userId]: 'rejecting' }));
+        try {
+            await rejectSubTypeUpgrade(userId);
+            setSubUpgrades(prev => prev.filter(u => u.id !== userId));
+            showToast(`${name}'s upgrade request rejected.`, 'info');
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setSubActioning(p => ({ ...p, [userId]: null })); }
+    };
 
     const handleApprove = async (userId) => {
         setActioning((p) => ({ ...p, [userId]: 'approve' }));
@@ -410,6 +450,78 @@ const PendingTab = ({ showToast, onApproved }) => {
                             );
                         })}
                         <Pagination page={appPage} totalPages={appTotalPages} onPageChange={setAppPage} />
+                    </div>
+                )}
+            </div>
+
+            {/* ── Sub-type Upgrade Requests (final_year_undergrad → working_professional) ── */}
+            <div style={{ marginTop: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: '36px', height: '36px', background: '#78350F', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <UserCheck size={16} color='#FCD34D' />
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>Working Professional Upgrade Requests</h3>
+                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Final Year Undergrad → Working Professional (requires admin approval)</p>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {['pending', 'approved', 'rejected'].map(s => (
+                            <button key={s} onClick={() => { setSubFilter(s); setSubPage(1); }}
+                                style={{ padding: '0.4rem 0.85rem', border: `1.5px solid ${subFilter === s ? '#003366' : '#E2E8F0'}`, borderRadius: '7px', background: subFilter === s ? '#003366' : 'white', color: subFilter === s ? 'white' : '#64748B', fontWeight: '600', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>
+                                {s}
+                            </button>
+                        ))}
+                        <button onClick={loadSubUpgrades} style={{ padding: '0.4rem 0.6rem', border: '1.5px solid #E2E8F0', borderRadius: '7px', background: 'white', cursor: 'pointer', color: '#64748B', fontFamily: 'inherit' }}><RefreshCw size={13} /></button>
+                    </div>
+                </div>
+
+                {subUpgradesLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1,2].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '80px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
+                {subUpgradesError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.85rem 1rem', color: '#DC2626', fontSize: '0.875rem' }}>{subUpgradesError}</div>}
+                {!subUpgradesLoading && !subUpgradesError && subUpgrades.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
+                        <UserCheck size={28} style={{ margin: '0 auto 0.6rem', display: 'block', opacity: 0.3, color: '#94A3B8' }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8', fontWeight: '600' }}>No {subFilter} upgrade requests</p>
+                    </div>
+                )}
+                {!subUpgradesLoading && subUpgrades.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                        {subUpgrades.map(u => {
+                            const statusBadge = { pending: { color:'#92400E', bg:'#FFFBEB' }, approved: { color:'#15803D', bg:'#F0FDF4' }, rejected: { color:'#991B1B', bg:'#FEF2F2' } }[u.sub_type_upgrade_status || 'pending'] || {};
+                            return (
+                            <div key={u.id} style={{ background: 'white', borderRadius: '14px', border: '1.5px solid #FDE68A', padding: '1.1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '1 1 200px', minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                        <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{u.name}</span>
+                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#FFFBEB', color: '#92400E' }}>Final Year Undergrad</span>
+                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#F0FDF4', color: '#15803D' }}>→ Working Professional</span>
+                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{u.sub_type_upgrade_status || 'pending'}</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Mail size={11} /> {u.email}
+                                        {u.organization_name && <><span style={{ margin: '0 4px' }}>·</span><Building size={11} /> {u.organization_name}</>}
+                                    </span>
+                                    <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Requested: {formatDate(u.created_at)}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                                    {subFilter === 'pending' && (
+                                        <>
+                                            <button onClick={() => handleSubApprove(u.id, u.name)} disabled={!!subActioning[u.id]}
+                                                style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {subActioning[u.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
+                                            </button>
+                                            <button onClick={() => handleSubReject(u.id, u.name)} disabled={!!subActioning[u.id]}
+                                                style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#dc2626', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <X size={13} /> Reject
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            );
+                        })}
+                        <Pagination page={subPage} totalPages={subTotalPages} onPageChange={setSubPage} />
                     </div>
                 )}
             </div>

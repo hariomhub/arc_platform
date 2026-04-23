@@ -52,8 +52,9 @@ const reviewValidation = [
 ];
 
 // ── IMPORTANT: static routes before /:id ────────────────────────────────────
-router.get('/recent-videos',  resourcesController.getRecentVideos);
-router.get('/admin/pending',  auth, requireRole('founding_member'), resourcesController.getPendingResources);
+router.get('/recent-videos',      resourcesController.getRecentVideos);
+router.get('/admin/pending',      auth, requireRole('founding_member'), resourcesController.getPendingResources);
+router.get('/my-download-usage',  auth, resourcesController.getMyDownloadUsage);
 
 // ── Public / optionalAuth resource routes ────────────────────────────────────
 router.get('/',       optionalAuth, resourcesController.getResources);

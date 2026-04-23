@@ -1123,3 +1123,115 @@ export const recalculateFeedScores = async () => {
         console.error('[FeedScoreJob] Score recalculation failed:', err.message);
     }
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// MY POSTS — for Profile "My Posts" tab (council_member + founding_member)
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET /api/qna/my-posts
+export const getMyPosts = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 10 } = req.query;
+        const parsedLimit  = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+        const parsedPage   = Math.max(1, parseInt(page, 10) || 1);
+        const offset = (parsedPage - 1) * parsedLimit;
+
+        const [[{ total }]] = await pool.query(
+            'SELECT COUNT(*) AS total FROM feed_posts WHERE author_id = ?',
+            [userId]
+        );
+
+        const [rows] = await pool.query(
+            `SELECT fp.id, fp.content, fp.tags, fp.like_count, fp.comment_count, fp.save_count,
+                    fp.is_hidden, fp.is_edited, fp.created_at, fp.score
+             FROM feed_posts fp
+             WHERE fp.author_id = ?
+             ORDER BY fp.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [userId, parsedLimit, offset]
+        );
+
+        const data = rows.map(p => ({ ...p, tags: parseTags(p.tags) }));
+
+        return res.json({
+            success: true,
+            data,
+            total,
+            page: parsedPage,
+            limit: parsedLimit,
+            totalPages: Math.ceil(total / parsedLimit),
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// MY STATS — for Profile "Stats" tab (all roles)
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET /api/qna/my-stats
+export const getMyStats = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+
+        // Aggregate stats from own posts (council/founding)
+        const [[postStats]] = await pool.query(
+            `SELECT
+                COUNT(*)            AS total_posts,
+                COALESCE(SUM(like_count), 0)    AS total_likes_received,
+                COALESCE(SUM(comment_count), 0) AS total_comments_received,
+                COALESCE(SUM(save_count), 0)    AS total_saves_received
+             FROM feed_posts
+             WHERE author_id = ?`,
+            [userId]
+        );
+
+        // Most liked post
+        const [topPost] = await pool.query(
+            `SELECT id, content, like_count
+             FROM feed_posts
+             WHERE author_id = ? AND is_hidden = 0
+             ORDER BY like_count DESC
+             LIMIT 1`,
+            [userId]
+        );
+
+        // Engagement as a community member (likes given, comments made — all roles)
+        const [[commentsMade]] = await pool.query(
+            'SELECT COUNT(*) AS total FROM feed_comments WHERE author_id = ?',
+            [userId]
+        );
+        const [[likesGiven]] = await pool.query(
+            `SELECT COUNT(*) AS total FROM feed_likes WHERE user_id = ? AND target_type = 'post'`,
+            [userId]
+        );
+        const [[postsSaved]] = await pool.query(
+            'SELECT COUNT(*) AS total FROM feed_saves WHERE user_id = ?',
+            [userId]
+        );
+
+        return res.json({
+            success: true,
+            data: {
+                // Authorship stats (will be 0 for professional members who can't post)
+                total_posts:             parseInt(postStats.total_posts,             10),
+                total_likes_received:    parseInt(postStats.total_likes_received,    10),
+                total_comments_received: parseInt(postStats.total_comments_received, 10),
+                total_saves_received:    parseInt(postStats.total_saves_received,    10),
+                most_liked_post: topPost.length ? {
+                    id:         topPost[0].id,
+                    content:    topPost[0].content,
+                    like_count: topPost[0].like_count,
+                } : null,
+                // Community engagement stats (all roles)
+                comments_made: parseInt(commentsMade.total, 10),
+                likes_given:   parseInt(likesGiven.total,   10),
+                posts_saved:   parseInt(postsSaved.total,   10),
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+};

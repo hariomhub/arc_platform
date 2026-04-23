@@ -397,3 +397,108 @@ export const rejectMembershipApplication = async (req, res, next) => {
         next(err);
     }
 };
+
+// ─── Sub-Type Upgrade Requests (final_year_undergrad → working_professional) ──
+
+// GET /api/admin/sub-type-upgrades?status=pending&page=1&limit=20
+export const getPendingSubTypeUpgrades = async (req, res, next) => {
+    try {
+        const status = ['pending','approved','rejected'].includes(req.query.status) ? req.query.status : 'pending';
+        const page   = Math.max(1, parseInt(req.query.page,  10) || 1);
+        const limit  = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+        const offset = (page - 1) * limit;
+
+        // Build WHERE clause based on requested status
+        let where;
+        if (status === 'pending')  where = `WHERE pending_sub_type_upgrade = 1`;
+        else                       where = `WHERE sub_type_upgrade_status = '${status}'`;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM users ${where}`);
+        const [rows] = await pool.query(
+            `SELECT id, name, email, organization_name, linkedin_url, created_at,
+                    professional_sub_type, sub_type_upgrade_status
+             FROM users ${where}
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?`,
+            [limit, offset]
+        );
+        const totalPages = Math.ceil(total / limit) || 1;
+        return res.json({ success: true, data: rows, total, page, totalPages });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/sub-type-upgrades/:id/approve
+export const approveSubTypeUpgrade = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade FROM users WHERE id = ?',
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ success: false, message: 'User not found.' });
+
+        const u = rows[0];
+        if (u.role !== 'professional' || u.professional_sub_type !== 'final_year_undergrad') {
+            return res.status(409).json({ success: false, message: 'User is not a final_year_undergrad professional.' });
+        }
+        if (!u.pending_sub_type_upgrade) {
+            return res.status(409).json({ success: false, message: 'No pending upgrade request for this user.' });
+        }
+
+        await pool.query(
+            `UPDATE users
+             SET professional_sub_type = 'working_professional',
+                 pending_sub_type_upgrade = 0,
+                 sub_type_upgrade_status = 'approved'
+             WHERE id = ?`,
+            [req.params.id]
+        );
+
+        notifyUser(
+            parseInt(req.params.id, 10),
+            NOTIF_TYPES.ACCOUNT_APPROVED,
+            'Upgrade approved!',
+            'Your account has been upgraded to Working Professional. You can now download resources.',
+            { url: '/resources' }
+        );
+
+        return res.json({ success: true, message: 'Sub-type upgrade approved. User is now a Working Professional.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/sub-type-upgrades/:id/reject
+export const rejectSubTypeUpgrade = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, name, email, pending_sub_type_upgrade FROM users WHERE id = ?',
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ success: false, message: 'User not found.' });
+        if (!rows[0].pending_sub_type_upgrade) {
+            return res.status(409).json({ success: false, message: 'No pending upgrade request for this user.' });
+        }
+
+        await pool.query(
+            `UPDATE users
+             SET pending_sub_type_upgrade = 0,
+                 sub_type_upgrade_status = 'rejected'
+             WHERE id = ?`,
+            [req.params.id]
+        );
+
+        notifyUser(
+            parseInt(req.params.id, 10),
+            NOTIF_TYPES.ACCOUNT_REJECTED,
+            'Upgrade request not approved',
+            'Your Working Professional upgrade request was not approved at this time. Contact us for more information.',
+            { url: '/contact' }
+        );
+
+        return res.json({ success: true, message: 'Sub-type upgrade rejected.' });
+    } catch (err) {
+        next(err);
+    }
+};

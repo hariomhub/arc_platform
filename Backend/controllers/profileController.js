@@ -6,7 +6,7 @@ import { uploadToBlob } from '../services/azureBlobService.js';
 export const getProfile = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -56,7 +56,7 @@ export const updateProfile = async (req, res, next) => {
         );
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 

@@ -140,7 +140,7 @@ export const login = async (req, res, next) => {
         const { email, password } = req.body;
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, password_hash, role, status, membership_expires_at FROM users WHERE email = ?',
+            'SELECT id, name, email, password_hash, role, professional_sub_type, status, membership_expires_at FROM users WHERE email = ?',
             [email.trim().toLowerCase()]
         );
 
@@ -169,7 +169,7 @@ export const login = async (req, res, next) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, name: user.name, email: user.email, role: user.role },
+            { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -179,7 +179,7 @@ export const login = async (req, res, next) => {
         return res.json({
             success: true,
             data: {
-                user: { id: user.id, name: user.name, email: user.email, role: user.role },
+                user: { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
             },
         });
     } catch (err) {
@@ -202,7 +202,7 @@ export const getMe = async (req, res, next) => {
         }
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -237,7 +237,7 @@ export const linkedinCallback = async (req, res, next) => {
 
         // ── Upsert: find by linkedin_id OR email ─────────────────────────────
         let [rows] = await pool.query(
-            'SELECT id, name, email, role, status, membership_expires_at FROM users WHERE linkedin_id = ? OR email = ?',
+            'SELECT id, name, email, role, professional_sub_type, status, membership_expires_at FROM users WHERE linkedin_id = ? OR email = ?',
             [linkedinId, email]
         );
 
@@ -259,7 +259,7 @@ export const linkedinCallback = async (req, res, next) => {
                 [name, email, linkedinId, photo_url]
             );
             const [newRows] = await pool.query(
-                'SELECT id, name, email, role, status, membership_expires_at FROM users WHERE id = ?',
+                'SELECT id, name, email, role, professional_sub_type, status, membership_expires_at FROM users WHERE id = ?',
                 [result.insertId]
             );
             user = newRows[0];
@@ -267,7 +267,7 @@ export const linkedinCallback = async (req, res, next) => {
 
             // Issue a short-lived temp token so the complete-profile page can call PATCH /auth/complete-profile
             const tempToken = jwt.sign(
-                { id: user.id, name: user.name, email: user.email, role: user.role },
+                { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
                 process.env.JWT_SECRET,
                 { expiresIn: '1h' }
             );
@@ -290,7 +290,7 @@ export const linkedinCallback = async (req, res, next) => {
 
         // ── Issue JWT cookie (same as regular login) ──────────────────────────
         const token = jwt.sign(
-            { id: user.id, name: user.name, email: user.email, role: user.role },
+            { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -323,6 +323,46 @@ export const completeProfile = async (req, res, next) => {
         );
 
         return res.json({ success: true, data: { message: 'Profile completed successfully.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/auth/request-upgrade
+// Allows a final_year_undergrad professional to request upgrade to working_professional.
+// Requires admin approval — sets pending_sub_type_upgrade = 1.
+export const requestSubTypeUpgrade = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated.' });
+
+        const [rows] = await pool.query(
+            'SELECT role, professional_sub_type, pending_sub_type_upgrade FROM users WHERE id = ?',
+            [userId]
+        );
+        if (!rows.length) return res.status(404).json({ success: false, message: 'User not found.' });
+
+        const u = rows[0];
+
+        if (u.role !== 'professional') {
+            return res.status(403).json({ success: false, message: 'Only Professional members can request a sub-type upgrade.' });
+        }
+        if (u.professional_sub_type !== 'final_year_undergrad') {
+            return res.status(409).json({ success: false, message: 'You are already a Working Professional.' });
+        }
+        if (u.pending_sub_type_upgrade) {
+            return res.status(409).json({ success: false, message: 'You already have an upgrade request pending admin review.' });
+        }
+
+        await pool.query(
+            `UPDATE users
+             SET pending_sub_type_upgrade = 1,
+                 sub_type_upgrade_status  = 'pending'
+             WHERE id = ?`,
+            [userId]
+        );
+
+        return res.json({ success: true, data: { message: 'Upgrade request submitted. An admin will review it within 24–48 hours.' } });
     } catch (err) {
         next(err);
     }

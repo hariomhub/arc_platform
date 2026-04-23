@@ -28,6 +28,12 @@ const TYPE_ICONS = {
 const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
 const VIEW_ROLES     = ['founding_member', 'council_member', 'professional'];
 const VIDEO_TYPES    = ['video', 'homepage video'];
+// working_professional sub-type also gets download access
+const canDownloadResources = (u) =>
+    u && (
+        DOWNLOAD_ROLES.includes(u.role) ||
+        (u.role === 'professional' && u.professional_sub_type === 'working_professional')
+    );
 
 // Detect file type from URL extension
 const getFileType = (url) => {
@@ -227,7 +233,7 @@ const ResourceDetail = () => {
         finally { setDownloading(false); }
     };
 
-    const canDownload = DOWNLOAD_ROLES.includes(user?.role);
+    const canDownload = canDownloadResources(user);
     const canView     = VIEW_ROLES.includes(user?.role);
     const canViewFile = VIEW_ROLES.includes(user?.role); // all logged-in members can preview
     const isVideo     = resource && VIDEO_TYPES.includes(resource.type);
