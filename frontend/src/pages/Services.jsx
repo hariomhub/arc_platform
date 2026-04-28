@@ -92,7 +92,7 @@ const Services = () => {
                     <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(255,255,255,0.1)', borderRadius:'999px', padding:'0.4rem 1rem', marginBottom:'1.5rem', color:'#93C5FD', fontSize:'0.85rem', fontWeight:'600' }}>
                         <Globe size={14}/> Professional Services
                     </div>
-                    <h1 className="svc-hero h1" style={{ color:'white', fontSize:'clamp(1.75rem,4vw,2.75rem)', fontWeight:'800', marginBottom:'1.25rem', lineHeight:'1.15', fontFamily:'var(--font-serif)' }}>
+                    <h1 style={{ color:'white', fontSize:'clamp(1.75rem,4vw,2.75rem)', fontWeight:'800', marginBottom:'1.25rem', lineHeight:'1.15', fontFamily:'var(--font-serif)' }}>
                         AI Governance, Tested &amp; Trusted
                     </h1>
                     <p style={{ fontSize:'clamp(0.95rem,1.5vw,1.15rem)', color:'#CBD5E1', lineHeight:'1.7', margin:0 }}>

@@ -328,8 +328,9 @@ const CommentThread = ({ postId, initialCount = 0 }) => {
         setLoading(true); setError('');
         try {
             const res = await getComments(postId);
-            setComments(res.data?.data || []);
-            setCount(res.data?.data?.length || 0);
+            const all = res.data?.data || [];
+            setComments(all.slice(0, 20));  // cap display at 20
+            setCount(all.length);
         } catch (err) {
             setError(getErrorMessage(err) || 'Failed to load comments.');
         } finally {

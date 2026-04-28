@@ -187,4 +187,29 @@ router.patch(
 // ── POST /api/qna/comments/:id/like  — toggle like on comment ────────────────
 router.post('/comments/:id/like', auth, feedController.toggleCommentLike);
 
+// ── POST /api/qna/:id/reaction  — toggle reaction (ai_product / event / troubleshooting) ──
+router.post(
+    '/:id/reaction',
+    idParam,
+    validate,
+    auth,
+    body('reaction_type')
+        .notEmpty().withMessage('reaction_type is required.')
+        .isIn(['interested', 'not_interested', 'attending', 'not_attending', 'faced_this'])
+        .withMessage('Invalid reaction type.'),
+    validate,
+    feedController.togglePostReaction
+);
+
+// ── POST /api/qna/:id/poll-vote  — cast / change / remove poll vote ───────────
+router.post(
+    '/:id/poll-vote',
+    idParam,
+    validate,
+    auth,
+    body('option_index').isInt({ min: 0 }).withMessage('option_index must be a non-negative integer.'),
+    validate,
+    feedController.castPollVote
+);
+
 export default router;

@@ -180,9 +180,9 @@ const Certifications = () => {
             `}</style>
 
             {/* ── Hero ── */}
-            <div style={{ background:'linear-gradient(135deg,#000e22 0%,#001e4a 40%,#002d66 70%,#001429 100%)', padding:'clamp(2rem,5vw,2.5rem) clamp(1rem,4vw,2rem)', position:'relative', overflow:'hidden' }}>
-                <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(rgba(255,255,255,0.08) 1px,transparent 1px)', backgroundSize:'32px 32px', pointerEvents:'none' }}/>
-                <div style={{ position:'absolute', top:'-80px', right:'-60px', width:'420px', height:'420px', borderRadius:'50%', background:'radial-gradient(circle,rgba(59,130,246,0.12) 0%,transparent 65%)', pointerEvents:'none' }}/>
+            <div style={{ background:'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding:'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)', position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
+                <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
                 <div style={{ maxWidth:'860px', margin:'0 auto', textAlign:'center', position:'relative', zIndex:1 }}>
                     <span style={{ display:'inline-block', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', color:'rgba(255,255,255,0.85)', fontSize:'0.68rem', fontWeight:'700', letterSpacing:'0.12em', textTransform:'uppercase', padding:'5px 16px', borderRadius:'100px', marginBottom:'1.25rem' }}>
                         Globally Recognised

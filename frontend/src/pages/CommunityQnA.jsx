@@ -131,9 +131,10 @@ const CommunityQnA = () => {
     const { user, isCouncilMember, isAdmin } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const sort      = searchParams.get('sort')  || 'trending';
-    const tagFilter = searchParams.get('tag')   || '';
-    const page      = parseInt(searchParams.get('page') || '1', 10);
+    const sort           = searchParams.get('sort')      || 'trending';
+    const tagFilter      = searchParams.get('tag')        || '';
+    const postTypeFilter = searchParams.get('post_type')  || '';
+    const page           = parseInt(searchParams.get('page') || '1', 10);
 
     const [searchInput,   setSearchInput]   = useState(searchParams.get('q') || '');
     const debouncedSearch = useDebounce(searchInput, 380);
@@ -164,8 +165,9 @@ const CommunityQnA = () => {
         setError('');
         try {
             const params = { sort, page: pageNum, limit: ITEMS_PER_PAGE };
-            if (debouncedSearch) params.search = debouncedSearch;
-            if (tagFilter)       params.tags   = tagFilter;
+            if (debouncedSearch) params.search    = debouncedSearch;
+            if (tagFilter)       params.tags      = tagFilter;
+            if (postTypeFilter)  params.post_type = postTypeFilter;
             const res = await getFeedPosts(params);
             if (res.data?.success) {
                 const incoming = res.data.data || [];
@@ -186,12 +188,12 @@ const CommunityQnA = () => {
             setLoading(false);
             setLoadingMore(false);
         }
-    }, [sort, debouncedSearch, tagFilter]);
+    }, [sort, debouncedSearch, tagFilter, postTypeFilter]);
 
     useEffect(() => {
         setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', '1'); return n; }, { replace: true });
         fetchPosts(1, false);
-    }, [sort, debouncedSearch, tagFilter]);
+    }, [sort, debouncedSearch, tagFilter, postTypeFilter]);
 
     const handleLoadMore   = () => { fetchPosts(page + 1, true); setParam('page', String(page + 1)); };
     const handlePostCreated = useCallback((p)  => { setPosts(prev => [p, ...prev]); setTotalCount(c => c + 1); }, []);
@@ -213,28 +215,31 @@ const CommunityQnA = () => {
 
                 /* ── Compact hero ── */
                 .cf-hero {
-                    background: linear-gradient(135deg, #000d1a 0%, #001433 30%, #002266 65%, #003399 100%);
-                    padding: clamp(1.25rem,3vw,2rem) clamp(1rem,4vw,2rem) clamp(2.5rem,5vw,4rem);
+                    background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
+                    padding: clamp(1.25rem,2.5vw,2rem) clamp(1rem,4vw,2rem) clamp(2.5rem,4vw,3rem);
                     position: relative; overflow: hidden;
                 }
 
                 /* ── Body ── */
                 .cf-body {
                     max-width: 1100px; margin: -2.5rem auto 0;
-                    padding: 0 clamp(0.75rem,3vw,1.5rem) 4rem;
+                    padding: 0 clamp(0.5rem,2.5vw,1.5rem) 4rem;
                     display: grid;
                     grid-template-columns: 1fr 272px;
                     gap: 14px; align-items: start;
                     position: relative; z-index: 1;
                 }
                 @media (max-width: 860px) {
-                    .cf-body { grid-template-columns: 1fr; gap: 12px; }
+                    .cf-body { grid-template-columns: 1fr; gap: 12px; margin-top: -2rem; }
                     .cf-sidebar { order: 2; }
                     .cf-main { order: 1; }
                 }
-                @media (max-width: 480px) {
+                @media (max-width: 540px) {
                     .cf-hero { padding: 1rem 1rem 2.5rem; }
-                    .cf-body { padding: 0 0.75rem 3rem; margin-top: -2rem; }
+                    .cf-body { padding: 0 0.625rem 3rem; margin-top: -1.75rem; }
+                }
+                @media (max-width: 380px) {
+                    .cf-body { padding: 0 0.5rem 2.5rem; margin-top: -1.5rem; }
                 }
 
                 /* ── Individual Post Card ── */
@@ -283,9 +288,8 @@ const CommunityQnA = () => {
 
                 {/* ── Hero — kept but tighter ── */}
                 <div className="cf-hero">
-                    <div style={{ position:'absolute', top:'15%', right:'6%', width:110, height:110, borderRadius:'30% 70% 70% 30% / 30% 30% 70% 70%', background:'rgba(245,158,11,0.06)', animation:'cf-hero-float 8s ease-in-out infinite', pointerEvents:'none' }} />
-                    <div style={{ position:'absolute', bottom:'8%', left:'4%', width:70, height:70, borderRadius:'50%', background:'rgba(255,255,255,0.03)', animation:'cf-hero-float 6s ease-in-out infinite 2s', pointerEvents:'none' }} />
-                    <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(ellipse at 80% 50%, rgba(0,85,170,0.25) 0%, transparent 60%)', pointerEvents:'none' }} />
+                    <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
+                    <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
 
                     <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
                         <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:100, padding:'3px 10px', marginBottom:'0.75rem' }}>
@@ -351,6 +355,8 @@ const CommunityQnA = () => {
                             onSearchChange={v => { setSearchInput(v); setParam('q', v); }}
                             tagFilter={tagFilter}
                             onTagFilterChange={v => setParam('tag', v)}
+                            postTypeFilter={postTypeFilter}
+                            onPostTypeFilterChange={v => setParam('post_type', v)}
                         />
 
                         {loading ? (

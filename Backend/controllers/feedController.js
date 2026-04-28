@@ -75,7 +75,7 @@ const getYoutubeEmbedUrl = (url) => {
     return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 };
 
-// Attach media + author info to post rows
+// Attach media + author info + reactions + poll votes to post rows
 const enrichPosts = async (posts, currentUserId) => {
     if (!posts.length) return posts;
     const postIds = posts.map(p => p.id);
@@ -87,9 +87,11 @@ const enrichPosts = async (posts, currentUserId) => {
         postIds
     );
 
-    // If user is logged in, fetch their likes and saves for these posts
-    let likedSet = new Set();
-    let savedSet = new Set();
+    // If user is logged in, fetch likes, saves, reactions, poll votes
+    let likedSet    = new Set();
+    let savedSet    = new Set();
+    let reactionMap = {};  // postId -> reaction_type
+    let pollVoteMap = {};  // postId -> option_index
 
     if (currentUserId) {
         const [likeRows] = await pool.query(
@@ -104,6 +106,41 @@ const enrichPosts = async (posts, currentUserId) => {
             [currentUserId, ...postIds]
         );
         savedSet = new Set(saveRows.map(r => r.post_id));
+
+        // Fetch typed reactions (ai_product, event, troubleshooting)
+        const [reactionRows] = await pool.query(
+            `SELECT post_id, reaction_type FROM feed_reactions
+             WHERE user_id = ? AND post_id IN (${placeholders})`,
+            [currentUserId, ...postIds]
+        );
+        reactionRows.forEach(r => { reactionMap[r.post_id] = r.reaction_type; });
+
+        // Fetch poll votes
+        const [pollVoteRows] = await pool.query(
+            `SELECT post_id, option_index FROM feed_poll_votes
+             WHERE user_id = ? AND post_id IN (${placeholders})`,
+            [currentUserId, ...postIds]
+        );
+        pollVoteRows.forEach(r => { pollVoteMap[r.post_id] = r.option_index; });
+    }
+
+    // Fetch poll vote counts for all poll posts
+    const pollPostIds = posts.filter(p => p.post_type === 'poll').map(p => p.id);
+    const pollPostIdSet = new Set(pollPostIds);
+    const pollCountsMap = {}; // postId -> { optionIndex: count }
+
+    if (pollPostIds.length > 0) {
+        const pollPh = pollPostIds.map(() => '?').join(',');
+        const [pollCountRows] = await pool.query(
+            `SELECT post_id, option_index, COUNT(*) AS cnt
+             FROM feed_poll_votes WHERE post_id IN (${pollPh})
+             GROUP BY post_id, option_index`,
+            pollPostIds
+        );
+        pollCountRows.forEach(r => {
+            if (!pollCountsMap[r.post_id]) pollCountsMap[r.post_id] = {};
+            pollCountsMap[r.post_id][r.option_index] = parseInt(r.cnt, 10);
+        });
     }
 
     // Group media by post_id
@@ -113,13 +150,32 @@ const enrichPosts = async (posts, currentUserId) => {
         mediaByPost[m.post_id].push(m);
     }
 
-    return posts.map(p => ({
-        ...p,
-        tags: parseTags(p.tags),
-        media: mediaByPost[p.id] || [],
-        is_liked: likedSet.has(p.id),
-        is_saved: savedSet.has(p.id),
-    }));
+    return posts.map(p => {
+        // Safely parse JSON columns
+        let parsedPollOptions = null;
+        if (p.poll_options) {
+            try { parsedPollOptions = typeof p.poll_options === 'string' ? JSON.parse(p.poll_options) : p.poll_options; }
+            catch { parsedPollOptions = null; }
+        }
+        let parsedReactionCounts = null;
+        if (p.reaction_counts) {
+            try { parsedReactionCounts = typeof p.reaction_counts === 'string' ? JSON.parse(p.reaction_counts) : p.reaction_counts; }
+            catch { parsedReactionCounts = null; }
+        }
+
+        return {
+            ...p,
+            tags:              parseTags(p.tags),
+            poll_options:      parsedPollOptions,
+            reaction_counts:   parsedReactionCounts,
+            media:             mediaByPost[p.id] || [],
+            is_liked:          likedSet.has(p.id),
+            is_saved:          savedSet.has(p.id),
+            user_reaction:     reactionMap[p.id] || null,
+            user_poll_vote:    pollVoteMap[p.id] !== undefined ? pollVoteMap[p.id] : null,
+            poll_vote_counts:  pollPostIdSet.has(p.id) ? (pollCountsMap[p.id] || {}) : null,
+        };
+    });
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -144,6 +200,7 @@ export const getFeed = async (req, res, next) => {
         let dataSql = `
             SELECT fp.*,
                    u.name AS author_name,
+                   u.email AS author_email,
                    u.role AS author_role,
                    u.photo_url AS author_photo,
                    u.organization_name AS author_org
@@ -178,6 +235,13 @@ export const getFeed = async (req, res, next) => {
             countSql += clause; dataSql += clause;
             params.push(`%${search}%`);
         }
+        // Filter by post type
+        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general'];
+        if (req.query.post_type && validPostTypes.includes(req.query.post_type)) {
+            const clause = ` AND fp.post_type = ?`;
+            countSql += clause; dataSql += clause;
+            params.push(req.query.post_type);
+        }
 
         const [[{ total }]] = await pool.query(countSql, params);
         const { page, limit, offset, totalPages } = paginate(req.query, total);
@@ -206,6 +270,7 @@ export const getPostById = async (req, res, next) => {
         const [posts] = await pool.query(
             `SELECT fp.*,
                     u.name AS author_name,
+                    u.email AS author_email,
                     u.role AS author_role,
                     u.photo_url AS author_photo,
                     u.bio AS author_bio,
@@ -237,7 +302,12 @@ export const getPostById = async (req, res, next) => {
 // POST /api/qna  — create post (council_member + founding_member)
 export const createPost = async (req, res, next) => {
     try {
-        const { content, tags, video_url } = req.body;
+        const {
+            content, tags, video_url,
+            post_type = 'general',
+            poll_options, poll_duration,
+            event_link,
+        } = req.body;
 
         if (!content || !content.trim()) {
             return res.status(422).json({ success: false, message: 'Post content is required.' });
@@ -246,16 +316,57 @@ export const createPost = async (req, res, next) => {
             return res.status(422).json({ success: false, message: 'Post content must be 5000 characters or fewer.' });
         }
 
+        // Validate post_type
+        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general'];
+        if (!validPostTypes.includes(post_type)) {
+            return res.status(422).json({ success: false, message: 'Invalid post type.' });
+        }
+
         // Validate YouTube URL if provided
         if (video_url && !isValidYoutubeUrl(video_url)) {
             return res.status(422).json({ success: false, message: 'Only YouTube video links are allowed.' });
         }
 
+        // Handle poll-specific fields
+        let pollOptionsJson = null;
+        let pollEndsAt = null;
+        if (post_type === 'poll') {
+            let opts;
+            try { opts = typeof poll_options === 'string' ? JSON.parse(poll_options) : poll_options; }
+            catch { opts = null; }
+            if (!Array.isArray(opts) || opts.length < 2) {
+                return res.status(422).json({ success: false, message: 'A poll requires at least 2 options.' });
+            }
+            if (opts.length > 5) {
+                return res.status(422).json({ success: false, message: 'A poll allows a maximum of 5 options.' });
+            }
+            const cleanOpts = opts.map(o => String(o).trim()).filter(Boolean);
+            if (cleanOpts.length < 2) {
+                return res.status(422).json({ success: false, message: 'Poll options must not be empty.' });
+            }
+            pollOptionsJson = JSON.stringify(cleanOpts);
+            // Compute poll expiry
+            const durationHours = { '24h': 24, '3d': 72, '7d': 168 };
+            const hours = durationHours[poll_duration];
+            if (hours) {
+                const end = new Date();
+                end.setHours(end.getHours() + hours);
+                pollEndsAt = end.toISOString().slice(0, 19).replace('T', ' ');
+            }
+        }
+
+        // Handle event link
+        let cleanEventLink = null;
+        if (post_type === 'event' && event_link && event_link.trim()) {
+            cleanEventLink = event_link.trim().slice(0, 500);
+        }
+
         const tagsJson = sanitizeTags(tags);
 
         const [result] = await pool.query(
-            `INSERT INTO feed_posts (author_id, content, tags) VALUES (?, ?, ?)`,
-            [req.user.id, content.trim(), tagsJson]
+            `INSERT INTO feed_posts (author_id, post_type, content, tags, poll_options, poll_ends_at, event_link)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [req.user.id, post_type, content.trim(), tagsJson, pollOptionsJson, pollEndsAt, cleanEventLink]
         );
 
         const postId = result.insertId;
@@ -1229,6 +1340,160 @@ export const getMyStats = async (req, res, next) => {
                 comments_made: parseInt(commentsMade.total, 10),
                 likes_given:   parseInt(likesGiven.total,   10),
                 posts_saved:   parseInt(postsSaved.total,   10),
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// REACTIONS — for ai_product, event, troubleshooting post types
+// ════════════════════════════════════════════════════════════════════════════
+
+// POST /api/qna/:id/reaction
+// body: { reaction_type: 'interested'|'not_interested'|'attending'|'not_attending'|'faced_this' }
+export const togglePostReaction = async (req, res, next) => {
+    try {
+        const postId = parseInt(req.params.id, 10);
+        const userId = req.user.id;
+        const { reaction_type } = req.body;
+
+        const validReactions = ['interested', 'not_interested', 'attending', 'not_attending', 'faced_this'];
+        if (!validReactions.includes(reaction_type)) {
+            return res.status(422).json({ success: false, message: 'Invalid reaction type.' });
+        }
+
+        const [posts] = await pool.query(
+            'SELECT id, post_type, reaction_counts FROM feed_posts WHERE id = ?',
+            [postId]
+        );
+        if (!posts.length) {
+            return res.status(404).json({ success: false, message: 'Post not found.' });
+        }
+
+        let currentCounts = {};
+        try {
+            if (posts[0].reaction_counts) {
+                currentCounts = typeof posts[0].reaction_counts === 'string'
+                    ? JSON.parse(posts[0].reaction_counts)
+                    : posts[0].reaction_counts;
+            }
+        } catch { currentCounts = {}; }
+
+        const [existing] = await pool.query(
+            'SELECT id, reaction_type FROM feed_reactions WHERE post_id = ? AND user_id = ?',
+            [postId, userId]
+        );
+
+        if (existing.length) {
+            const old = existing[0].reaction_type;
+            if (old === reaction_type) {
+                // Toggle off
+                await pool.query('DELETE FROM feed_reactions WHERE id = ?', [existing[0].id]);
+                if (currentCounts[old] > 0) currentCounts[old]--;
+                await pool.query('UPDATE feed_posts SET reaction_counts = ? WHERE id = ?',
+                    [JSON.stringify(currentCounts), postId]);
+                return res.json({ success: true, data: { reaction_type: null, reaction_counts: currentCounts } });
+            }
+            // Switch reaction
+            await pool.query('UPDATE feed_reactions SET reaction_type = ? WHERE id = ?',
+                [reaction_type, existing[0].id]);
+            if (currentCounts[old] > 0) currentCounts[old]--;
+            currentCounts[reaction_type] = (currentCounts[reaction_type] || 0) + 1;
+        } else {
+            await pool.query(
+                'INSERT INTO feed_reactions (post_id, user_id, reaction_type) VALUES (?, ?, ?)',
+                [postId, userId, reaction_type]
+            );
+            currentCounts[reaction_type] = (currentCounts[reaction_type] || 0) + 1;
+        }
+
+        await pool.query('UPDATE feed_posts SET reaction_counts = ? WHERE id = ?',
+            [JSON.stringify(currentCounts), postId]);
+
+        return res.json({ success: true, data: { reaction_type, reaction_counts: currentCounts } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// POLL VOTES
+// ════════════════════════════════════════════════════════════════════════════
+
+// POST /api/qna/:id/poll-vote
+// body: { option_index: number } — same index = unvote, different = change vote
+export const castPollVote = async (req, res, next) => {
+    try {
+        const postId = parseInt(req.params.id, 10);
+        const userId = req.user.id;
+        const optionIndex = parseInt(req.body.option_index, 10);
+
+        if (isNaN(optionIndex) || optionIndex < 0) {
+            return res.status(422).json({ success: false, message: 'Invalid option index.' });
+        }
+
+        const [posts] = await pool.query(
+            'SELECT id, post_type, poll_options, poll_ends_at FROM feed_posts WHERE id = ?',
+            [postId]
+        );
+        if (!posts.length) return res.status(404).json({ success: false, message: 'Post not found.' });
+
+        const post = posts[0];
+        if (post.post_type !== 'poll') {
+            return res.status(422).json({ success: false, message: 'This post is not a poll.' });
+        }
+        if (post.poll_ends_at && new Date(post.poll_ends_at) < new Date()) {
+            return res.status(422).json({ success: false, message: 'This poll has ended.' });
+        }
+
+        let pollOptions;
+        try { pollOptions = typeof post.poll_options === 'string' ? JSON.parse(post.poll_options) : post.poll_options; }
+        catch { pollOptions = []; }
+
+        if (optionIndex >= pollOptions.length) {
+            return res.status(422).json({ success: false, message: 'Option does not exist.' });
+        }
+
+        const [existing] = await pool.query(
+            'SELECT id, option_index FROM feed_poll_votes WHERE post_id = ? AND user_id = ?',
+            [postId, userId]
+        );
+
+        if (existing.length) {
+            if (existing[0].option_index === optionIndex) {
+                await pool.query('DELETE FROM feed_poll_votes WHERE id = ?', [existing[0].id]);
+            } else {
+                await pool.query('UPDATE feed_poll_votes SET option_index = ? WHERE id = ?',
+                    [optionIndex, existing[0].id]);
+            }
+        } else {
+            await pool.query(
+                'INSERT INTO feed_poll_votes (post_id, user_id, option_index) VALUES (?, ?, ?)',
+                [postId, userId, optionIndex]
+            );
+        }
+
+        // Return updated counts + user's current vote
+        const [countRows] = await pool.query(
+            `SELECT option_index, COUNT(*) AS cnt FROM feed_poll_votes
+             WHERE post_id = ? GROUP BY option_index`,
+            [postId]
+        );
+        const voteCounts = {};
+        countRows.forEach(r => { voteCounts[r.option_index] = parseInt(r.cnt, 10); });
+
+        const [userVoteRows] = await pool.query(
+            'SELECT option_index FROM feed_poll_votes WHERE post_id = ? AND user_id = ?',
+            [postId, userId]
+        );
+
+        return res.json({
+            success: true,
+            data: {
+                vote_counts: voteCounts,
+                user_vote: userVoteRows.length ? userVoteRows[0].option_index : null,
             },
         });
     } catch (err) {

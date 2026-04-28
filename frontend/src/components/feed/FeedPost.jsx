@@ -4,10 +4,12 @@ import {
     ThumbsUp, MessageSquare, Bookmark, BookmarkCheck,
     Share2, MoreHorizontal, Pencil, Trash2, EyeOff, Eye,
     AlertTriangle, ExternalLink, FileText, Check,
+    Bot, BarChart2, CalendarDays, Wrench, CheckCircle2, XCircle,
+    Users, CalendarCheck, Lightbulb, Mail,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
-import { togglePostLike, savePost, unsavePost, deleteFeedPost, toggleHidePost } from '../../api/feed.js';
+import { togglePostLike, savePost, unsavePost, deleteFeedPost, toggleHidePost, togglePostReaction, castPollVote } from '../../api/feed.js';
 import { getErrorMessage } from '../../utils/apiHelpers.js';
 import { timeAgo } from '../../utils/dateFormatter.js';
 import AuthorHoverCard from './AuthorHoverCard.jsx';
@@ -17,6 +19,84 @@ const ROLE_META = {
     founding_member: { label: 'Founder',        color: '#7C3AED', bg: '#f5f3ff', border: '#ddd6fe' },
     council_member:  { label: 'Council Member', color: '#0369a1', bg: '#eff6ff', border: '#bfdbfe' },
     professional:    { label: 'Professional',   color: '#057642', bg: '#f0fdf4', border: '#bbf7d0' },
+};
+
+const POST_TYPE_META = {
+    ai_product:      { label: 'AI Product',      Icon: Bot,          color: '#7C3AED', bg: '#f5f3ff', border: '#ddd6fe' },
+    poll:            { label: 'Poll',            Icon: BarChart2,    color: '#2563EB', bg: '#eff6ff', border: '#bfdbfe' },
+    event:           { label: 'Event',           Icon: CalendarDays, color: '#059669', bg: '#f0fdf4', border: '#bbf7d0' },
+    troubleshooting: { label: 'Troubleshooting', Icon: Wrench,       color: '#D97706', bg: '#fffbeb', border: '#fde68a' },
+    general:         { label: 'General',         Icon: null,         color: '#003366', bg: '#eef2ff', border: '#c7d2fe' },
+};
+
+// Inline poll component
+const PollBlock = ({ post, user, navigate }) => {
+    const [userVote,   setUserVote]   = useState(post.user_poll_vote ?? null);
+    const [voteCounts, setVoteCounts] = useState(post.poll_vote_counts || {});
+    const [loading,    setLoading]    = useState(false);
+    const options    = post.poll_options || [];
+    const hasVoted   = userVote !== null;
+    const totalVotes = Object.values(voteCounts).reduce((s, v) => s + v, 0);
+    const expired    = post.poll_ends_at && new Date(post.poll_ends_at) < new Date();
+
+    const handleVote = async (idx) => {
+        if (!user) { navigate('/login'); return; }
+        if (expired) return;
+        setLoading(true);
+        try {
+            const res = await castPollVote(post.id, idx);
+            setUserVote(res.data.data.user_vote);
+            setVoteCounts(res.data.data.vote_counts);
+        } catch { /* silent */ }
+        finally { setLoading(false); }
+    };
+
+    const pct = (idx) => {
+        if (!totalVotes) return 0;
+        return Math.round(((voteCounts[idx] || 0) / totalVotes) * 100);
+    };
+
+    return (
+        <div style={{ marginTop: 10, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '0.875rem', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {options.map((opt, i) => (
+                <div key={i}>
+                    {hasVoted || expired ? (
+                        <div style={{ position: 'relative', borderRadius: 7, overflow: 'hidden', border: `1.5px solid ${userVote === i ? '#003366' : '#e2e8f0'}`, background: 'white' }}>
+                            {/* Base Layer: White Background, Dark Text */}
+                            <div style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: userVote === i ? '700' : '500', color: userVote === i ? '#003366' : '#374151' }}>{opt}</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: userVote === i ? '#003366' : '#64748b' }}>{pct(i)}%</span>
+                            </div>
+
+                            {/* Overlay Layer: Dark Blue Background, White Text. Clipped to percentage! */}
+                            <div style={{ position: 'absolute', inset: 0, background: userVote === i ? '#003366' : '#005599', clipPath: `inset(0 ${100 - pct(i)}% 0 0)`, transition: 'clip-path 0.4s ease' }}>
+                                <div style={{ width: '100%', height: '100%', padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }}>
+                                    <span style={{ fontSize: '0.82rem', fontWeight: userVote === i ? '700' : '500', color: 'white', whiteSpace: 'nowrap' }}>{opt}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'white' }}>{pct(i)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <button onClick={() => handleVote(i)} disabled={loading}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '0.45rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 7, background: 'white', cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: '500', color: '#374151', textAlign: 'left', transition: 'all 0.15s' }}
+                            onMouseOver={e => { if (!loading) { e.currentTarget.style.borderColor = '#003366'; e.currentTarget.style.background = '#eff6ff'; }}}
+                            onMouseOut={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = 'white'; }}>
+                            {opt}
+                        </button>
+                    )}
+                </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2, fontSize: '0.72rem', color: '#94a3b8' }}>
+                <span>{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</span>
+                {post.poll_ends_at && (
+                    <><span>·</span><span>{expired ? 'Poll ended' : `Closes ${timeAgo(post.poll_ends_at)}`}</span></>
+                )}
+                {hasVoted && !expired && (
+                    <button onClick={() => handleVote(userVote)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'inherit', textDecoration: 'underline' }}>Remove vote</button>
+                )}
+            </div>
+        </div>
+    );
 };
 
 const Avatar = ({ name, photoUrl, role, size = 40 }) => {
@@ -140,6 +220,10 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
     const [viewer,   setViewer]   = useState(null);
     const [copied,   setCopied]   = useState(false);
     const [likeAnim, setLikeAnim] = useState(false);
+    // Typed reactions (non-general post types)
+    const [reaction,       setReaction]       = useState(post.user_reaction || null);
+    const [reactionCounts, setReactionCounts] = useState(post.reaction_counts || {});
+    const [reacting,       setReacting]       = useState(false);
 
     const isOwner   = user?.id === post.author_id;
     const isFounder = user?.role === 'founding_member';
@@ -153,6 +237,23 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
         try { await togglePostLike(post.id); }
         catch { setLiked(was); setLc(c => was ? c + 1 : c - 1); }
     }, [liked, user, post.id, navigate]);
+
+    const react = useCallback(async (reactionType) => {
+        if (!user) { navigate('/login'); return; }
+        if (reacting) return;
+        setReacting(true);
+        const prev = reaction;
+        const prevCounts = { ...reactionCounts };
+        // Optimistic update
+        const newReaction = prev === reactionType ? null : reactionType;
+        const newCounts = { ...reactionCounts };
+        if (prev) { newCounts[prev] = Math.max(0, (newCounts[prev] || 1) - 1); }
+        if (newReaction) { newCounts[newReaction] = (newCounts[newReaction] || 0) + 1; }
+        setReaction(newReaction); setReactionCounts(newCounts);
+        try { const res = await togglePostReaction(post.id, reactionType); setReaction(res.data.data.reaction_type); setReactionCounts(res.data.data.reaction_counts); }
+        catch { setReaction(prev); setReactionCounts(prevCounts); }
+        finally { setReacting(false); }
+    }, [reaction, reactionCounts, reacting, user, post.id, navigate]);
 
     const save = useCallback(async () => {
         if (!user) { navigate('/login'); return; }
@@ -231,8 +332,13 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                 .fp-mi.danger:hover { background: #fff5f5; }
 
                 @media (max-width: 480px) {
+                    .fp-wrap { padding: 10px 12px; }
                     .fp-act span.act-label { display: none; }
-                    .fp-act { padding: 5px 8px; }
+                    .fp-act { padding: 5px 7px; gap: 4px; font-size: 0.75rem; }
+                }
+                @media (max-width: 380px) {
+                    .fp-wrap { padding: 8px 10px; }
+                    .fp-act { padding: 4px 6px; }
                 }
             `}</style>
 
@@ -283,6 +389,15 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                             )}
                             <span style={{ fontSize: '0.73rem', color: '#9aaab7' }}>{timeAgo(post.created_at)}</span>
                             {!!post.is_edited ? <span style={{ fontSize: '0.68rem', color: '#c4cdd6', fontStyle: 'italic' }}>· edited</span> : null}
+                            {/* Post type badge */}
+                            {post.post_type && post.post_type !== 'general' && (() => {
+                                const ptm = POST_TYPE_META[post.post_type];
+                                return ptm ? (
+                                    <span style={{ fontSize: '0.62rem', fontWeight: '700', padding: '1px 7px', borderRadius: 4, background: ptm.bg, color: ptm.color, border: `1px solid ${ptm.border}`, display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 2 }}>
+                                        {ptm.Icon && <ptm.Icon size={9} />}{ptm.label}
+                                    </span>
+                                ) : null;
+                            })()}
                         </div>
                     </div>
 
@@ -336,6 +451,21 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
 
                     <MediaStrip media={post.media} onOpen={setViewer} />
 
+                    {/* Poll block — rendered inline for poll posts */}
+                    {post.post_type === 'poll' && (
+                        <PollBlock post={post} user={user} navigate={navigate} />
+                    )}
+
+                    {/* Event register link */}
+                    {post.post_type === 'event' && post.event_link && (
+                        <a href={post.event_link} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: '0.78rem', fontWeight: '700', color: '#059669', textDecoration: 'none', border: '1px solid #bbf7d0', background: '#f0fdf4', padding: '5px 12px', borderRadius: 7, transition: 'all 0.15s' }}
+                            onMouseOver={e => { e.currentTarget.style.background = '#dcfce7'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = '#f0fdf4'; }}>
+                            <ExternalLink size={12} /> View event page
+                        </a>
+                    )}
+
                     {post.tags?.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                             {post.tags.map(tag => (
@@ -352,17 +482,57 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                     {/* Action bar */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, marginLeft: -6, flexWrap: 'wrap' }}>
 
-                        {/* Upvote */}
-                        <button className={`fp-act${liked ? ' upvoted' : ''}`} onClick={like}>
-                            <ThumbsUp
-                                size={14}
-                                style={{ animation: likeAnim ? 'upvote-pop 0.5s ease' : 'none', transition: 'all 0.15s' }}
-                                fill={liked ? '#EA580C' : 'none'}
-                                color={liked ? '#EA580C' : 'currentColor'}
-                            />
-                            {lc > 0 && <span style={{ fontVariantNumeric: 'tabular-nums' }}>{lc}</span>}
-                            <span className="act-label">{liked ? 'Upvoted' : 'Upvote'}</span>
-                        </button>
+                        {/* ── Type-specific primary actions ── */}
+                        {post.post_type === 'ai_product' && (<>
+                            <button className={`fp-act${reaction==='interested'?' upvoted':''}`} onClick={() => react('interested')} disabled={reacting}>
+                                <CheckCircle2 size={14} fill={reaction==='interested'?'#EA580C':'none'} color={reaction==='interested'?'#EA580C':'currentColor'} />
+                                {(reactionCounts.interested||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.interested}</span>}
+                                <span className="act-label">Interested</span>
+                            </button>
+                            <button className={`fp-act${reaction==='not_interested'?' upvoted':''}`} onClick={() => react('not_interested')} disabled={reacting}>
+                                <XCircle size={14} />
+                                <span className="act-label">Not For Me</span>
+                            </button>
+                        </>)}
+
+                        {post.post_type === 'event' && (<>
+                            <button className={`fp-act${reaction==='attending'?' upvoted':''}`} onClick={() => react('attending')} disabled={reacting}>
+                                <CalendarCheck size={14} fill={reaction==='attending'?'#EA580C':'none'} color={reaction==='attending'?'#EA580C':'currentColor'} />
+                                {(reactionCounts.attending||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.attending}</span>}
+                                <span className="act-label">Attending</span>
+                            </button>
+                            <button className={`fp-act${reaction==='not_attending'?' upvoted':''}`} onClick={() => react('not_attending')} disabled={reacting}>
+                                <XCircle size={14} />
+                                <span className="act-label">Can't Attend</span>
+                            </button>
+                        </>)}
+
+                        {post.post_type === 'troubleshooting' && (<>
+                            <button className={`fp-act${reaction==='faced_this'?' upvoted':''}`} onClick={() => react('faced_this')} disabled={reacting}>
+                                <Users size={14} fill={reaction==='faced_this'?'#EA580C':'none'} color={reaction==='faced_this'?'#EA580C':'currentColor'} />
+                                {(reactionCounts.faced_this||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.faced_this}</span>}
+                                <span className="act-label">I'm Facing This Too</span>
+                            </button>
+                            {post.author_email && post.author_id !== user?.id && (
+                                <a href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(post.author_email)}&su=${encodeURIComponent('Solution for your troubleshooting post on Risk Council')}&body=${encodeURIComponent(`Hi ${post.author_name},\n\nI saw your troubleshooting post on Risk Council:\n"${post.content.length > 50 ? post.content.substring(0, 50) + '...' : post.content}"\nLink: ${window.location.origin}/community-qna/${post.id}\n\nHere is a solution that might help:\n\n`)}`}
+                                    target="_blank" rel="noopener noreferrer"
+                                    style={{ textDecoration: 'none' }}>
+                                    <button className="fp-act" style={{ color: '#003366' }} title="Email a solution to the author via Gmail">
+                                        <Mail size={14} color="currentColor" />
+                                        <span className="act-label">Provide Solution</span>
+                                    </button>
+                                </a>
+                            )}
+                        </>)}
+
+                        {/* General & poll: Helpful (uses existing like system) */}
+                        {(!post.post_type || post.post_type === 'general' || post.post_type === 'poll') && (
+                            <button className={`fp-act${liked?' upvoted':''}`} onClick={like}>
+                                <ThumbsUp size={14} style={{ animation: likeAnim?'upvote-pop 0.5s ease':'none', transition:'all 0.15s' }} fill={liked?'#EA580C':'none'} color={liked?'#EA580C':'currentColor'} />
+                                {lc > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{lc}</span>}
+                                <span className="act-label">{liked ? 'Helpful' : 'Helpful'}</span>
+                            </button>
+                        )}
 
                         {/* Discuss */}
                         <Link to={`/community-qna/${post.id}#comments`} style={{ textDecoration: 'none' }}>

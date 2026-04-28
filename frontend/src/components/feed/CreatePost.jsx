@@ -1,5 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Image, FileText, Youtube, Tag, X, Send, Loader2, AlertCircle, Plus } from 'lucide-react';
+import {
+    Image, FileText, Youtube, Tag, X, Send, Loader2, AlertCircle, Plus,
+    Bot, BarChart2, CalendarDays, Wrench, MessageSquare, ChevronLeft,
+    ExternalLink,
+} from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
 import { createFeedPost } from '../../api/feed.js';
@@ -36,9 +40,21 @@ const FilePreview = ({ file, onRemove }) => {
     );
 };
 
+const POST_TYPES = [
+    { key: 'ai_product',      label: 'AI Product Showcase', desc: 'Share a product you built or discovered', Icon: Bot,          color: '#7C3AED' },
+    { key: 'poll',            label: 'Community Poll',      desc: 'Ask the community a question with options', Icon: BarChart2,    color: '#2563EB' },
+    { key: 'event',           label: 'Event Announcement',  desc: 'Spread the word about an upcoming event', Icon: CalendarDays, color: '#059669' },
+    { key: 'troubleshooting', label: 'Troubleshooting',     desc: 'Post a problem or share a technical fix',  Icon: Wrench,       color: '#D97706' },
+    { key: 'general',         label: 'General Discussion',  desc: 'Tech, AI, or anything on your mind',       Icon: MessageSquare,color: '#003366' },
+];
+
+const POST_TYPE_LABELS = { ai_product: 'AI Product', poll: 'Poll', event: 'Event', troubleshooting: 'Troubleshooting', general: 'General' };
+
 const CreatePost = ({ onPostCreated }) => {
     const { user }      = useAuth();
     const { showToast } = useToast();
+    const [typeStep,   setTypeStep]   = useState(false);   // show type selector
+    const [postType,   setPostType]   = useState('general');
     const [expanded,   setExpanded]   = useState(false);
     const [content,    setContent]    = useState('');
     const [files,      setFiles]      = useState([]);
@@ -47,6 +63,11 @@ const CreatePost = ({ onPostCreated }) => {
     const [tagInput,   setTagInput]   = useState('');
     const [tags,       setTags]       = useState([]);
     const [showTags,   setShowTags]   = useState(false);
+    // Poll-specific
+    const [pollOptions,  setPollOptions]  = useState(['', '']);
+    const [pollDuration, setPollDuration] = useState('');
+    // Event-specific
+    const [eventLink, setEventLink] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error,      setError]      = useState('');
     const fileRef  = useRef(null);
@@ -54,7 +75,8 @@ const CreatePost = ({ onPostCreated }) => {
     const roleMeta = ROLE_META[user?.role] || ROLE_META.professional;
     const mediaCount = files.length + (videoUrl ? 1 : 0);
     const charsLeft  = MAX_CHARS - content.length;
-    const canSubmit  = content.trim().length > 0 && !submitting;
+    const pollValid  = postType !== 'poll' || pollOptions.filter(o => o.trim()).length >= 2;
+    const canSubmit  = content.trim().length > 0 && !submitting && pollValid;
 
     const handleFiles = useCallback(e => {
         const allowed = ['image/jpeg','image/png','image/gif','image/webp','application/pdf'];
@@ -71,6 +93,13 @@ const CreatePost = ({ onPostCreated }) => {
         setTagInput('');
     }, [tagInput, tags]);
 
+    const resetForm = () => {
+        setContent(''); setFiles([]); setVideoUrl(''); setTags([]);
+        setTagInput(''); setShowVideo(false); setShowTags(false);
+        setExpanded(false); setTypeStep(false); setPostType('general');
+        setPollOptions(['', '']); setPollDuration(''); setEventLink(''); setError('');
+    };
+
     const handleSubmit = async e => {
         e.preventDefault();
         if (!canSubmit) return;
@@ -78,12 +107,20 @@ const CreatePost = ({ onPostCreated }) => {
         try {
             const fd = new FormData();
             fd.append('content', content.trim());
-            if (tags.length)    fd.append('tags', JSON.stringify(tags));
+            fd.append('post_type', postType);
+            if (tags.length)     fd.append('tags', JSON.stringify(tags));
             if (videoUrl.trim()) fd.append('video_url', videoUrl.trim());
             files.forEach(f => fd.append('media', f));
+            if (postType === 'poll') {
+                const cleanOpts = pollOptions.map(o => o.trim()).filter(Boolean);
+                fd.append('poll_options', JSON.stringify(cleanOpts));
+                if (pollDuration) fd.append('poll_duration', pollDuration);
+            }
+            if (postType === 'event' && eventLink.trim()) {
+                fd.append('event_link', eventLink.trim());
+            }
             const res = await createFeedPost(fd);
-            setContent(''); setFiles([]); setVideoUrl(''); setTags([]);
-            setTagInput(''); setShowVideo(false); setShowTags(false); setExpanded(false);
+            resetForm();
             showToast('Post published!', 'success');
             if (onPostCreated) onPostCreated(res.data?.data);
         } catch(err) {
@@ -182,51 +219,127 @@ const CreatePost = ({ onPostCreated }) => {
                     background: #002244;
                 }
                 .cp-submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+                /* ── Responsive ── */
+                .cp-type-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 8px;
+                }
+                @media (max-width: 600px) {
+                    .cp-type-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+                }
+                @media (max-width: 380px) {
+                    .cp-type-grid { grid-template-columns: 1fr; gap: 5px; }
+                }
+
+                .cp-form-pad    { padding: 1rem 1.5rem; }
+                .cp-form-pad-sm { padding: 0.75rem 1rem; }
+                @media (max-width: 480px) {
+                    .cp-form-pad    { padding: 0.75rem 0.875rem; }
+                    .cp-form-pad-sm { padding: 0.5rem 0.875rem; }
+                    .cp-toolbar-btn span { display: none; }
+                    .cp-toolbar-btn { padding: 5px 7px; }
+                    .cp-submit-btn  { padding: 0.55rem 1rem; font-size: 0.8rem; }
+                }
+
+                .cp-author-avatar-lg { width: 44px; height: 44px; font-size: 1rem; }
+                .cp-author-avatar-sm { width: 36px; height: 36px; font-size: 0.85rem; }
+                @media (max-width: 480px) {
+                    .cp-author-avatar-lg { width: 36px; height: 36px; font-size: 0.875rem; }
+                    .cp-author-avatar-sm { width: 30px; height: 30px; font-size: 0.75rem; }
+                }
             `}</style>
 
             <div className="cp-wrap">
-                {!expanded ? (
-                    <div className="cp-trigger" onClick={() => { setExpanded(true); setTimeout(() => textRef.current?.focus(), 60); }}>
-                        {/* Avatar */}
-                        <div style={{ width:'44px', height:'44px', borderRadius:'50%', flexShrink:0, background:`linear-gradient(135deg,${roleMeta.color}e0,${roleMeta.color}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1rem', fontWeight:'800', color:'white', border:`2px solid ${roleMeta.color}30`, boxShadow:`0 0 0 3px ${roleMeta.color}12` }}>
+                {/* ── Collapsed trigger ── */}
+                {!expanded && !typeStep && (
+                    <div className="cp-trigger" onClick={() => setTypeStep(true)}>
+                        <div className="cp-author-avatar-lg" style={{ borderRadius:'50%', flexShrink:0, background: roleMeta.color, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', color:'white', border:`2px solid ${roleMeta.color}` }}>
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
-                        {/* Pill */}
-                        <div className="cp-input-pill">
-                            Share your knowledge with the community…
-                        </div>
-                        {/* Post button */}
-                        <button className="cp-post-btn-collapsed" onClick={e => { e.stopPropagation(); setExpanded(true); setTimeout(() => textRef.current?.focus(), 60); }}>
+                        <div className="cp-input-pill">Share your knowledge with the community…</div>
+                        <button className="cp-post-btn-collapsed" onClick={e => { e.stopPropagation(); setTypeStep(true); }}>
                             <Plus size={14} /> <span className="btn-text">New Post</span>
                         </button>
                     </div>
-                ) : (
-                    <form className="cp-expanded" onSubmit={handleSubmit}>
+                )}
 
-                        {/* Top bar with accent */}
-                        <div style={{ height:'3px', background:`linear-gradient(90deg,${roleMeta.color},${roleMeta.color}60,transparent)` }} />
+                {/* ── Type selector step ── */}
+                {typeStep && !expanded && (
+                    <div className="cp-expanded" style={{ padding: '0' }}>
+                        {/* Solid accent bar */}
+                        <div style={{ height: '3px', background: roleMeta.color }} />
+                        <div className="cp-form-pad">
+                            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'1.1rem' }}>
+                                <p style={{ margin:0, fontSize:'0.875rem', fontWeight:'700', color:'#1e293b' }}>Select post type</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setTypeStep(false)}
+                                    style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:5, padding:'3px', width:24, height:24, flexShrink:0, transition:'background 0.12s, color 0.12s' }}
+                                    onMouseOver={e=>{ e.currentTarget.style.background='#f1f5f9'; e.currentTarget.style.color='#475569'; }}
+                                    onMouseOut={e=>{ e.currentTarget.style.background='none'; e.currentTarget.style.color='#94a3b8'; }}
+                                >
+                                    <X size={15}/>
+                                </button>
+                            </div>
+                            <div className="cp-type-grid">
+                                {POST_TYPES.map(({ key, label, desc, Icon, color }) => (
+                                    <button key={key} type="button"
+                                        onClick={() => { setPostType(key); setTypeStep(false); setExpanded(true); setTimeout(() => textRef.current?.focus(), 60); }}
+                                        style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:8, padding:'0.875rem', border:'1.5px solid #e2e8f0', borderRadius:10, background:'white', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'all 0.15s' }}
+                                        onMouseOver={e=>{ e.currentTarget.style.borderColor=color; e.currentTarget.style.background=`${color}08`; }}
+                                        onMouseOut={e=>{ e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.background='white'; }}>
+                                        <div style={{ width:34, height:34, borderRadius:8, background:`${color}12`, border:`1px solid ${color}25`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                            <Icon size={17} color={color} />
+                                        </div>
+                                        <div>
+                                            <p style={{ margin:'0 0 3px', fontSize:'0.79rem', fontWeight:'700', color:'#1e293b', lineHeight:1.2 }}>{label}</p>
+                                            <p style={{ margin:0, fontSize:'0.69rem', color:'#64748b', lineHeight:1.4 }}>{desc}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Expanded form ── */}
+                {expanded && (
+                    <form className="cp-expanded" onSubmit={handleSubmit}>
+                        {/* Solid accent left-border instead of gradient bar */}
+                        <div style={{ height:'3px', background: roleMeta.color }} />
 
                         {/* Author row */}
                         <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'1rem 1.5rem', borderBottom:'1px solid #f1f5f9' }}>
-                            <div style={{ width:'36px', height:'36px', borderRadius:'50%', flexShrink:0, background:`linear-gradient(135deg,${roleMeta.color}dd,${roleMeta.color}80)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.85rem', fontWeight:'800', color:'white' }}>
+                            <div className="cp-author-avatar-sm" style={{ borderRadius:'50%', flexShrink:0, background: roleMeta.color, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', color:'white' }}>
                                 {user?.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
                                 <p style={{ margin:0, fontFamily:"'Sora',sans-serif", fontSize:'0.875rem', fontWeight:'600', color:'#0f172a' }}>{user?.name}</p>
-                                <span style={{ fontSize:'0.65rem', fontWeight:'700', color:'#64748b' }}>
-                                    {roleMeta.label}
-                                </span>
+                                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:1 }}>
+                                    <span style={{ fontSize:'0.65rem', fontWeight:'700', color:'#64748b' }}>{roleMeta.label}</span>
+                                    <span style={{ fontSize:'0.6rem', color:'#94a3b8' }}>·</span>
+                                    <span style={{ fontSize:'0.65rem', fontWeight:'700', color: POST_TYPES.find(t=>t.key===postType)?.color || '#64748b' }}>{POST_TYPE_LABELS[postType]}</span>
+                                </div>
                             </div>
-                            <button type="button" onClick={() => { setExpanded(false); setContent(''); setFiles([]); setVideoUrl(''); setTags([]); setError(''); }}
-                                style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:'5px', borderRadius:'8px', display:'flex', transition:'all 0.12s' }}
-                                onMouseOver={e => { e.currentTarget.style.background='#f1f5f9'; e.currentTarget.style.color='#1e293b'; }}
-                                onMouseOut={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#94a3b8'; }}>
-                                <X size={17} />
-                            </button>
+                            <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:4 }}>
+                                <button type="button" title="Change post type" onClick={() => { setExpanded(false); setTypeStep(true); }}
+                                    style={{ background:'none', border:'1px solid #e2e8f0', cursor:'pointer', color:'#64748b', padding:'4px 8px', borderRadius:6, display:'flex', alignItems:'center', gap:4, fontSize:'0.72rem', fontWeight:600, fontFamily:'inherit', transition:'all 0.12s' }}
+                                    onMouseOver={e=>{ e.currentTarget.style.background='#f1f5f9'; }} onMouseOut={e=>{ e.currentTarget.style.background='none'; }}>
+                                    <ChevronLeft size={13}/> Change type
+                                </button>
+                                <button type="button" onClick={resetForm}
+                                    style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.12s' }}
+                                    onMouseOver={e => { e.currentTarget.style.background='#f1f5f9'; e.currentTarget.style.color='#475569'; }}
+                                    onMouseOut={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#94a3b8'; }}>
+                                    <X size={15} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Textarea */}
-                        <div style={{ padding:'1rem 1.5rem 0.25rem' }}>
+                        <div className="cp-form-pad" style={{ paddingBottom: '0.25rem' }}>
                             <textarea
                                 ref={textRef}
                                 value={content}
@@ -244,6 +357,60 @@ const CreatePost = ({ onPostCreated }) => {
                             </div>
                         </div>
 
+                        {/* Poll options — only for poll type */}
+                        {postType === 'poll' && (
+                            <div style={{ padding:'0 1.5rem 0.75rem' }}>
+                                <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.875rem' }}>
+                                    <p style={{ margin:'0 0 0.625rem', fontSize:'0.78rem', fontWeight:'700', color:'#1e293b' }}>Poll options <span style={{ color:'#94a3b8', fontWeight:400 }}>(min 2, max 5)</span></p>
+                                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                                        {pollOptions.map((opt, i) => (
+                                            <div key={i} style={{ display:'flex', gap:6, alignItems:'center' }}>
+                                                <span style={{ fontSize:'0.72rem', color:'#94a3b8', fontWeight:700, minWidth:16, textAlign:'right' }}>{i+1}.</span>
+                                                <input value={opt} onChange={e => { const n=[...pollOptions]; n[i]=e.target.value; setPollOptions(n); }}
+                                                    placeholder={`Option ${i+1}`} maxLength={100}
+                                                    style={{ flex:1, padding:'0.45rem 0.75rem', border:'1px solid #e2e8f0', borderRadius:7, fontSize:'0.83rem', fontFamily:'inherit', outline:'none', color:'#1e293b', background:'white', transition:'border-color 0.15s' }}
+                                                    onFocus={e=>e.target.style.borderColor='#003366'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
+                                                {pollOptions.length > 2 && (
+                                                    <button type="button" onClick={() => setPollOptions(p=>p.filter((_,j)=>j!==i))} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', display:'flex', padding:2, borderRadius:4 }} onMouseOver={e=>e.currentTarget.style.color='#dc2626'} onMouseOut={e=>e.currentTarget.style.color='#94a3b8'}><X size={13}/></button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {pollOptions.length < 5 && (
+                                        <button type="button" onClick={() => setPollOptions(p=>[...p,''])}
+                                            style={{ marginTop:8, background:'none', border:'1px dashed #cbd5e1', borderRadius:7, padding:'5px 12px', fontSize:'0.76rem', fontWeight:600, color:'#64748b', cursor:'pointer', fontFamily:'inherit', width:'100%', transition:'all 0.12s' }}
+                                            onMouseOver={e=>{ e.currentTarget.style.borderColor='#003366'; e.currentTarget.style.color='#003366'; }}
+                                            onMouseOut={e=>{ e.currentTarget.style.borderColor='#cbd5e1'; e.currentTarget.style.color='#64748b'; }}>
+                                            + Add option
+                                        </button>
+                                    )}
+                                    <div style={{ marginTop:10, display:'flex', gap:6, alignItems:'center' }}>
+                                        <span style={{ fontSize:'0.73rem', color:'#64748b', fontWeight:600 }}>Duration:</span>
+                                        {['24h','3d','7d'].map(d => (
+                                            <button key={d} type="button" onClick={() => setPollDuration(v=>v===d?'':d)}
+                                                style={{ padding:'3px 10px', border:`1px solid ${pollDuration===d?'#003366':'#e2e8f0'}`, background: pollDuration===d?'#003366':'white', color: pollDuration===d?'white':'#64748b', borderRadius:6, fontSize:'0.72rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.12s' }}>
+                                                {d==='24h'?'24 hours':d==='3d'?'3 days':'7 days'}
+                                            </button>
+                                        ))}
+                                        {pollDuration && <span style={{ fontSize:'0.68rem', color:'#94a3b8' }}>· click again to clear</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Event link — only for event type */}
+                        {postType === 'event' && (
+                            <div style={{ padding:'0 1.5rem 0.75rem' }}>
+                                <div style={{ display:'flex', gap:8, alignItems:'center', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:10, padding:'0.6rem 0.875rem' }}>
+                                    <ExternalLink size={15} color="#059669" style={{ flexShrink:0 }} />
+                                    <input type="url" value={eventLink} onChange={e => setEventLink(e.target.value)}
+                                        placeholder="Link to event page (optional)…"
+                                        style={{ flex:1, border:'none', outline:'none', fontSize:'0.84rem', fontFamily:'inherit', background:'transparent', color:'#1e293b' }} />
+                                    {eventLink && <button type="button" onClick={() => setEventLink('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', width:20, height:20, flexShrink:0 }}><X size={13}/></button>}
+                                </div>
+                            </div>
+                        )}
+
                         {/* File previews */}
                         {files.length > 0 && (
                             <div style={{ padding:'0 1.5rem 0.75rem', display:'flex', gap:'8px', flexWrap:'wrap' }}>
@@ -260,7 +427,7 @@ const CreatePost = ({ onPostCreated }) => {
                                         placeholder="Paste YouTube link here…" autoFocus
                                         style={{ flex:1, border:'none', outline:'none', fontSize:'0.84rem', fontFamily:'inherit', background:'transparent', color:'#1e293b' }} />
                                     <button type="button" onClick={() => { setVideoUrl(''); setShowVideo(false); }}
-                                        style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', display:'flex' }}>
+                                        style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', width:22, height:22, flexShrink:0 }}>
                                         <X size={14} />
                                     </button>
                                 </div>
@@ -270,22 +437,32 @@ const CreatePost = ({ onPostCreated }) => {
                         {/* Tags input */}
                         {showTags && (
                             <div style={{ padding:'0 1.5rem 0.75rem' }}>
-                                <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', padding:'0.6rem 0.875rem', border:'1.5px solid #e2e8f0', borderRadius:'12px', alignItems:'center', cursor:'text', minHeight:'44px' }}
-                                    onClick={() => document.getElementById('cp-tag-inp')?.focus()}>
+                                <div
+                                    style={{ display:'flex', flexWrap:'wrap', gap:'6px', padding:'0.5rem 0.75rem', border:'1.5px solid #e2e8f0', borderRadius:'8px', alignItems:'center', cursor:'text', minHeight:'38px', background:'white', transition:'border-color 0.15s' }}
+                                    onClick={() => document.getElementById('cp-tag-inp')?.focus()}
+                                >
                                     {tags.map(tag => (
-                                        <span key={tag} style={{ display:'inline-flex', alignItems:'center', gap:'4px', background:'#eff6ff', color:'#1D4ED8', border:'1px solid #bfdbfe', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'700', padding:'3px 9px' }}>
+                                        <span key={tag} style={{ display:'inline-flex', alignItems:'center', gap:'3px', background:'#f1f5f9', color:'#0f172a', border:'1px solid #e2e8f0', borderRadius:'100px', fontSize:'0.73rem', fontWeight:'600', padding:'3px 5px 3px 9px', lineHeight:1 }}>
                                             #{tag}
-                                            <button type="button" onClick={() => setTags(p => p.filter(t => t !== tag))} style={{ background:'none', border:'none', cursor:'pointer', padding:'0 1px', color:'#1D4ED8', display:'flex' }}><X size={10} /></button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setTags(p => p.filter(t => t !== tag))}
+                                                style={{ background:'none', border:'none', cursor:'pointer', padding:0, color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', width:14, height:14, flexShrink:0, borderRadius:'50%', transition:'background 0.1s, color 0.1s' }}
+                                                onMouseOver={e => { e.currentTarget.style.background='#e2e8f0'; e.currentTarget.style.color='#475569'; }}
+                                                onMouseOut={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#94a3b8'; }}
+                                            >
+                                                <X size={9} />
+                                            </button>
                                         </span>
                                     ))}
                                     {tags.length < MAX_TAGS && (
                                         <input id="cp-tag-inp" value={tagInput} onChange={e => setTagInput(e.target.value)}
                                             onKeyDown={e => { if(e.key==='Enter'||e.key===','){e.preventDefault();addTag();} if(e.key==='Backspace'&&!tagInput&&tags.length) setTags(p=>p.slice(0,-1)); }}
-                                            placeholder={tags.length?'':'Add tags (press Enter)…'}
-                                            style={{ border:'none', outline:'none', fontSize:'0.83rem', fontFamily:'inherit', background:'transparent', color:'#1e293b', minWidth:'110px', flex:1 }} />
+                                            placeholder={tags.length ? '' : 'Add tags…'}
+                                            style={{ border:'none', outline:'none', fontSize:'0.78rem', fontFamily:'inherit', background:'transparent', color:'#1e293b', minWidth:'80px', flex:1, padding:'1px 0' }} />
                                     )}
                                 </div>
-                                <p style={{ margin:'4px 0 0', fontSize:'0.68rem', color:'#94a3b8' }}>{tags.length}/{MAX_TAGS} tags · press Enter or comma</p>
+                                <p style={{ margin:'3px 0 0', fontSize:'0.67rem', color:'#94a3b8' }}>{tags.length}/{MAX_TAGS} · Enter or comma to add</p>
                             </div>
                         )}
 

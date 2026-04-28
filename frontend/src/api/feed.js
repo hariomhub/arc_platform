@@ -153,3 +153,24 @@ export const getMyPosts = (params = {}) =>
  */
 export const getMyStats = () =>
     api.get('/qna/my-stats');
+
+// ── Reactions ─────────────────────────────────────────────────────────────────
+
+/**
+ * Toggle a typed reaction on a post (ai_product / event / troubleshooting).
+ * @param {number} postId
+ * @param {'interested'|'not_interested'|'attending'|'not_attending'|'faced_this'} reactionType
+ */
+export const togglePostReaction = (postId, reactionType) =>
+    api.post(`/qna/${postId}/reaction`, { reaction_type: reactionType });
+
+// ── Poll Votes ────────────────────────────────────────────────────────────────
+
+/**
+ * Cast, change, or remove a vote on a poll post.
+ * Sending the same option_index the user already voted for will remove the vote.
+ * @param {number} postId
+ * @param {number} optionIndex
+ */
+export const castPollVote = (postId, optionIndex) =>
+    api.post(`/qna/${postId}/poll-vote`, { option_index: optionIndex });

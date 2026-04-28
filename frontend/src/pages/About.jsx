@@ -128,10 +128,12 @@ const About = () => {
             <style>{`@keyframes skeleton-pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
 
             {/* Hero */}
-            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 100%)', padding: 'clamp(1.5rem,3.5vw,2.5rem) clamp(1rem,4vw,2rem)', textAlign: 'center' }}>
-                <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)', position: 'relative', overflow: 'hidden', textAlign: 'center' }}>
+                <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
+                <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
+                <div style={{ maxWidth: '720px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                     <h1 style={{ color: 'white', fontSize: 'clamp(1.75rem,5vw,2.75rem)', fontWeight: '800', marginBottom: '1rem', fontFamily: 'var(--font-serif)' }}>About the Council</h1>
-                    <p style={{ fontSize: 'clamp(0.95rem,1.5vw,1.2rem)', color: '#CBD5E1', lineHeight: '1.7' }}>
+                    <p style={{ fontSize: 'clamp(0.95rem,1.5vw,1.2rem)', color: '#CBD5E1', lineHeight: '1.7', margin: 0 }}>
                         Advancing the global standard for Artificial Intelligence governance through independent research, rigorous assessment frameworks, and expert collaboration.
                     </p>
                 </div>
