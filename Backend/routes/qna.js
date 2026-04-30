@@ -195,7 +195,16 @@ router.post(
     auth,
     body('reaction_type')
         .notEmpty().withMessage('reaction_type is required.')
-        .isIn(['interested', 'not_interested', 'attending', 'not_attending', 'faced_this'])
+        .isIn([
+            // AI Product
+            'org_interest', 'request_poc', 'have_alternative',
+            // Event
+            'attending',
+            // Troubleshooting
+            'faced_this',
+            // Legacy
+            'interested', 'not_interested', 'not_attending',
+        ])
         .withMessage('Invalid reaction type.'),
     validate,
     feedController.togglePostReaction

@@ -1352,14 +1352,23 @@ export const getMyStats = async (req, res, next) => {
 // ════════════════════════════════════════════════════════════════════════════
 
 // POST /api/qna/:id/reaction
-// body: { reaction_type: 'interested'|'not_interested'|'attending'|'not_attending'|'faced_this' }
+// body: { reaction_type: 'org_interest'|'request_poc'|'have_alternative'|'attending'|'faced_this' }
 export const togglePostReaction = async (req, res, next) => {
     try {
         const postId = parseInt(req.params.id, 10);
         const userId = req.user.id;
         const { reaction_type } = req.body;
 
-        const validReactions = ['interested', 'not_interested', 'attending', 'not_attending', 'faced_this'];
+        const validReactions = [
+            // AI Product reactions
+            'org_interest', 'request_poc', 'have_alternative',
+            // Event reactions (attending only — "Can't Attend" removed)
+            'attending',
+            // Troubleshooting reactions
+            'faced_this',
+            // Legacy (kept for backward compat with existing data)
+            'interested', 'not_interested', 'not_attending',
+        ];
         if (!validReactions.includes(reaction_type)) {
             return res.status(422).json({ success: false, message: 'Invalid reaction type.' });
         }

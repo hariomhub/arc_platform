@@ -4,8 +4,8 @@ import {
     ThumbsUp, MessageSquare, Bookmark, BookmarkCheck,
     Share2, MoreHorizontal, Pencil, Trash2, EyeOff, Eye,
     AlertTriangle, ExternalLink, FileText, Check,
-    Bot, BarChart2, CalendarDays, Wrench, CheckCircle2, XCircle,
-    Users, CalendarCheck, Lightbulb, Mail,
+    Bot, BarChart2, CalendarDays, Wrench,
+    Users, CalendarCheck, Building2, FlaskConical, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
@@ -319,6 +319,10 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                 .fp-act.saved { color: #7C3AED; background: #F5F3FF; border-color: #DDD6FE; }
                 .fp-act.saved:hover { background: #EDE9FE; border-color: #C4B5FD; }
                 .fp-act.shared { color: #057642; background: #f0fdf4; border-color: #bbf7d0; }
+                .fp-act.poc-active { color: #2563EB; background: #eff6ff; border-color: #bfdbfe; }
+                .fp-act.poc-active:hover { background: #dbeafe; border-color: #93c5fd; }
+                .fp-act.alt-active { color: #057642; background: #f0fdf4; border-color: #bbf7d0; }
+                .fp-act.alt-active:hover { background: #dcfce7; border-color: #86efac; }
 
                 .fp-mi {
                     display: flex; align-items: center; gap: 8px;
@@ -484,45 +488,44 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
 
                         {/* ── Type-specific primary actions ── */}
                         {post.post_type === 'ai_product' && (<>
-                            <button className={`fp-act${reaction==='interested'?' upvoted':''}`} onClick={() => react('interested')} disabled={reacting}>
-                                <CheckCircle2 size={14} fill={reaction==='interested'?'#EA580C':'none'} color={reaction==='interested'?'#EA580C':'currentColor'} />
-                                {(reactionCounts.interested||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.interested}</span>}
-                                <span className="act-label">Interested</span>
+                            <button className={`fp-act${reaction==='org_interest'?' upvoted':''}`} onClick={() => react('org_interest')} disabled={reacting} title="Relevant to Our Organization">
+                                <Building2 size={14} fill={reaction==='org_interest'?'#EA580C':'none'} color={reaction==='org_interest'?'#EA580C':'currentColor'} />
+                                {(reactionCounts.org_interest||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.org_interest}</span>}
+                                <span className="act-label">Org Relevant</span>
                             </button>
-                            <button className={`fp-act${reaction==='not_interested'?' upvoted':''}`} onClick={() => react('not_interested')} disabled={reacting}>
-                                <XCircle size={14} />
-                                <span className="act-label">Not For Me</span>
+                            <button className={`fp-act${reaction==='request_poc'?' poc-active':''}`} onClick={() => react('request_poc')} disabled={reacting} title="Request a Proof of Concept">
+                                <FlaskConical size={14} fill={reaction==='request_poc'?'#2563EB':'none'} color={reaction==='request_poc'?'#2563EB':'currentColor'} />
+                                {(reactionCounts.request_poc||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.request_poc}</span>}
+                                <span className="act-label">Need a POC</span>
+                            </button>
+                            <button className={`fp-act${reaction==='have_alternative'?' alt-active':''}`} onClick={() => react('have_alternative')} disabled={reacting} title="We Already Have Alternative Products">
+                                <ShieldCheck size={14} fill={reaction==='have_alternative'?'#057642':'none'} color={reaction==='have_alternative'?'#057642':'currentColor'} />
+                                {(reactionCounts.have_alternative||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.have_alternative}</span>}
+                                <span className="act-label">Have Alternative</span>
                             </button>
                         </>)}
 
-                        {post.post_type === 'event' && (<>
-                            <button className={`fp-act${reaction==='attending'?' upvoted':''}`} onClick={() => react('attending')} disabled={reacting}>
+                        {post.post_type === 'event' && (
+                            <button className={`fp-act${reaction==='attending'?' upvoted':''}`} onClick={() => react('attending')} disabled={reacting} title="Mark yourself as attending">
                                 <CalendarCheck size={14} fill={reaction==='attending'?'#EA580C':'none'} color={reaction==='attending'?'#EA580C':'currentColor'} />
                                 {(reactionCounts.attending||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.attending}</span>}
                                 <span className="act-label">Attending</span>
                             </button>
-                            <button className={`fp-act${reaction==='not_attending'?' upvoted':''}`} onClick={() => react('not_attending')} disabled={reacting}>
-                                <XCircle size={14} />
-                                <span className="act-label">Can't Attend</span>
-                            </button>
-                        </>)}
+                        )}
 
                         {post.post_type === 'troubleshooting' && (<>
-                            <button className={`fp-act${reaction==='faced_this'?' upvoted':''}`} onClick={() => react('faced_this')} disabled={reacting}>
+                            <button className={`fp-act${reaction==='faced_this'?' upvoted':''}`} onClick={() => react('faced_this')} disabled={reacting} title="We Face This Too">
                                 <Users size={14} fill={reaction==='faced_this'?'#EA580C':'none'} color={reaction==='faced_this'?'#EA580C':'currentColor'} />
                                 {(reactionCounts.faced_this||0) > 0 && <span style={{fontVariantNumeric:'tabular-nums'}}>{reactionCounts.faced_this}</span>}
-                                <span className="act-label">I'm Facing This Too</span>
+                                <span className="act-label">Face This Too</span>
                             </button>
-                            {post.author_email && post.author_id !== user?.id && (
-                                <a href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(post.author_email)}&su=${encodeURIComponent('Solution for your troubleshooting post on Risk Council')}&body=${encodeURIComponent(`Hi ${post.author_name},\n\nI saw your troubleshooting post on Risk Council:\n"${post.content.length > 50 ? post.content.substring(0, 50) + '...' : post.content}"\nLink: ${window.location.origin}/community-qna/${post.id}\n\nHere is a solution that might help:\n\n`)}`}
-                                    target="_blank" rel="noopener noreferrer"
-                                    style={{ textDecoration: 'none' }}>
-                                    <button className="fp-act" style={{ color: '#003366' }} title="Email a solution to the author via Gmail">
-                                        <Mail size={14} color="currentColor" />
-                                        <span className="act-label">Provide Solution</span>
-                                    </button>
-                                </a>
-                            )}
+                            <Link to={`/community-qna/${post.id}#comments`} style={{ textDecoration: 'none' }}>
+                                <button className="fp-act" title="Share your experience in the discussion">
+                                    <MessageSquare size={14} color="currentColor" />
+                                    {post.comment_count > 0 && <span style={{ fontVariantNumeric: 'tabular-nums' }}>{post.comment_count}</span>}
+                                    <span className="act-label">Share Experience</span>
+                                </button>
+                            </Link>
                         </>)}
 
                         {/* General & poll: Helpful (uses existing like system) */}
@@ -534,14 +537,16 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                             </button>
                         )}
 
-                        {/* Discuss */}
-                        <Link to={`/community-qna/${post.id}#comments`} style={{ textDecoration: 'none' }}>
-                            <button className="fp-act">
-                                <MessageSquare size={14} color="currentColor" />
-                                {post.comment_count > 0 && <span style={{ fontVariantNumeric: 'tabular-nums' }}>{post.comment_count}</span>}
-                                <span className="act-label">Discuss</span>
-                            </button>
-                        </Link>
+                        {/* Discuss — hidden for troubleshooting since "Share Experience" covers it */}
+                        {post.post_type !== 'troubleshooting' && (
+                            <Link to={`/community-qna/${post.id}#comments`} style={{ textDecoration: 'none' }}>
+                                <button className="fp-act">
+                                    <MessageSquare size={14} color="currentColor" />
+                                    {post.comment_count > 0 && <span style={{ fontVariantNumeric: 'tabular-nums' }}>{post.comment_count}</span>}
+                                    <span className="act-label">Discuss</span>
+                                </button>
+                            </Link>
+                        )}
 
                         {/* Save */}
                         <button className={`fp-act${saved ? ' saved' : ''}`} onClick={save}>
