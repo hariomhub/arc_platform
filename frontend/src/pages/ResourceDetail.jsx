@@ -15,19 +15,19 @@ import StarRating from '../components/resources/StarRating.jsx';
 import ReviewSection from '../components/resources/ReviewSection.jsx';
 
 const TYPE_COLORS = {
-    article: '#3B82F6', whitepaper: '#8B5CF6', video: '#EC4899',
+    article: '#3B82F6', whitepaper: '#8B5CF6', tech_reels: '#EC4899',
     tool: '#10B981', news: '#F59E0B', product: '#0EA5E9',
-    framework: '#003366', 'lab result': '#6366F1', 'homepage video': '#EF4444',
+    framework: '#003366', 'lab_result': '#6366F1', 'homepage_video': '#EF4444',
 };
 const TYPE_ICONS = {
-    article: FileText, whitepaper: BookOpen, video: Video,
+    article: FileText, whitepaper: BookOpen, tech_reels: Video,
     tool: Globe, news: FileText, product: Globe,
-    framework: FileText, 'lab result': FileText, 'homepage video': Video,
+    framework: FileText, 'lab_result': FileText, 'homepage_video': Video,
 };
 
 const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
 const VIEW_ROLES     = ['founding_member', 'council_member', 'professional'];
-const VIDEO_TYPES    = ['video', 'homepage video'];
+const VIDEO_TYPES    = ['tech_reels', 'homepage_video'];
 // working_professional sub-type also gets download access
 const canDownloadResources = (u) =>
     u && (
@@ -47,7 +47,7 @@ const getFileType = (url) => {
 };
 
 // ── Video player ──────────────────────────────────────────────────────────────
-const VideoPlayer = ({ resourceId, title }) => {
+const VideoPlayer = ({ resourceId, title, demoUrl }) => {
     const [url,     setUrl]     = useState('');
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
@@ -67,6 +67,33 @@ const VideoPlayer = ({ resourceId, title }) => {
             <Loader2 size={28} color="rgba(255,255,255,0.35)" style={{ animation:'spin 1s linear infinite' }} />
         </div>
     );
+
+    // If stream fetching failed but we have a YouTube demoUrl, show YouTube embed
+    const getYoutubeId = (link) => {
+        if (!link) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = link.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+    const ytId = (error || !url) ? getYoutubeId(demoUrl) : null;
+
+    if (ytId) {
+        return (
+            <div style={{ background:'#0f172a', borderRadius:12, overflow:'hidden', aspectRatio:'16/9' }}>
+                <iframe
+                    width="100%"
+                    height="100%"
+                    src={`https://www.youtube.com/embed/${ytId}`}
+                    title={title}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ display:'block' }}
+                ></iframe>
+            </div>
+        );
+    }
+
     if (error || !url) return (
         <div style={{ background:'#0f172a', borderRadius:12, aspectRatio:'16/9', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8 }}>
             <Play size={32} color="rgba(255,255,255,0.2)" />
@@ -169,7 +196,7 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                             </p>
                             <p style={{ margin:0, fontSize:'0.8rem', color:'#9aaab7', lineHeight:'1.5' }}>
                                 This file type cannot be previewed in the browser.
-                                {canDownload ? ' Download it using the button above.' : ' Council Members can download it.'}
+                                {canDownload ? ' Download it using the button above.' : ' Chapter Leads can download it.'}
                             </p>
                         </div>
                     )}
@@ -188,7 +215,7 @@ const ViewGate = ({ type }) => (
         </p>
         <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7', lineHeight:'1.5' }}>
             All members can preview {type === 'pdf' ? 'PDFs' : type === 'image' ? 'images' : 'files'} on the portal.
-            Council Members can also download.
+            Chapter Leads can also download.
         </p>
         <Link to="/login"
             style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#003366', color:'white', padding:'8px 18px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
@@ -281,8 +308,8 @@ const ResourceDetail = () => {
     // (file_url is stripped server-side so we use type instead)
     const fileType = (() => {
         const t = resource.type?.toLowerCase() || '';
-        if (['video','homepage video'].includes(t))          return 'video';
-        if (['whitepaper','framework','lab result','article','news'].includes(t)) return 'pdf';
+        if (['tech_reels','homepage_video'].includes(t))          return 'video';
+        if (['whitepaper','framework','lab_result','article','news'].includes(t)) return 'pdf';
         if (['product','tool'].includes(t))                  return 'other';
         return 'pdf'; // safe default
     })();
@@ -292,11 +319,69 @@ const ResourceDetail = () => {
             <style>{`
                 @keyframes spin   { from{transform:rotate(0)} to{transform:rotate(360deg)} }
                 @keyframes fadeup { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+                /* ── Base (mobile < 480px): single column ── */
+                .rd-grid {
+                    display: grid;
+                    gap: 16px;
+                    grid-template-columns: 1fr;
+                    grid-template-areas:
+                        'thumb'
+                        'content'
+                        'reviews';
+                }
+                .rd-left        { grid-area: content; min-width: 0; }
+                .rd-thumb-col   { grid-area: thumb; }
+                .rd-reviews-col { grid-area: reviews; }
+
+                /* File viewer: always centered & max readable width */
+                .rd-file-viewer { max-width: 860px; margin: 0 auto; }
+
+                /* ── Large mobile / small tablet (480–767px): still single col, more gap ── */
+                @media (min-width: 480px) {
+                    .rd-grid { gap: 20px; }
+                }
+
+                /* ── Tablet (768–1023px): two columns, right = 280px ── */
+                @media (min-width: 768px) {
+                    .rd-grid {
+                        grid-template-columns: 1fr 280px;
+                        grid-template-rows: auto 1fr;
+                        grid-template-areas:
+                            'content thumb'
+                            'content reviews';
+                        gap: 20px;
+                    }
+                }
+
+                /* ── Medium desktop (1024–1279px): right = 360px ── */
+                @media (min-width: 1024px) {
+                    .rd-grid {
+                        grid-template-columns: 1fr 360px;
+                        gap: 24px;
+                    }
+                }
+
+                /* ── Large desktop (1280–1535px): right = 440px ── */
+                @media (min-width: 1280px) {
+                    .rd-grid {
+                        grid-template-columns: 1fr 440px;
+                        gap: 28px;
+                    }
+                }
+
+                /* ── XL desktop (1536px+): right = 520px ── */
+                @media (min-width: 1536px) {
+                    .rd-grid {
+                        grid-template-columns: 1fr 520px;
+                        gap: 32px;
+                    }
+                }
             `}</style>
 
             <div style={{ height:3, background:accent }} />
 
-            <div style={{ maxWidth:860, margin:'0 auto', padding:'clamp(1.25rem,3vw,2rem) clamp(0.875rem,3vw,1.5rem) 4rem' }}>
+            <div style={{ maxWidth:'100%', margin:'0 auto', padding:'clamp(1rem,2vw,1.5rem) clamp(1rem,3vw,2rem) 4rem' }}>
 
                 {/* Back */}
                 <Link to="/resources"
@@ -306,150 +391,151 @@ const ResourceDetail = () => {
                     <ArrowLeft size={14} /> Back to Resources
                 </Link>
 
-                {/* ── Video player ── */}
-                {isVideo && user && (
-                    <div style={{ marginBottom:14, animation:'fadeup 0.3s ease' }}>
-                        <VideoPlayer resourceId={parseInt(id,10)} title={resource.title} />
-                    </div>
-                )}
+                {/* ── Grid layout: left=content, right=thumbnail+reviews ── */}
+                <div className="rd-grid">
 
-                {/* Not logged in + video */}
-                {isVideo && !user && (
-                    <div style={{ marginBottom:14, background:'#0f172a', borderRadius:12, aspectRatio:'16/9', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, animation:'fadeup 0.3s ease' }}>
-                        <Play size={40} color="rgba(255,255,255,0.15)" />
-                        <p style={{ margin:0, fontSize:'0.84rem', color:'rgba(255,255,255,0.45)' }}>Sign in to watch this video</p>
-                        <Link to="/login" style={{ display:'inline-flex', alignItems:'center', gap:5, background:'white', color:'#003366', padding:'7px 16px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
-                            Sign In
-                        </Link>
-                    </div>
-                )}
+                    {/* THUMBNAIL — order 1 mobile, order 2 desktop (right col top) */}
+                    {resource.thumbnail_url && !isVideo && (
+                        <div className="rd-thumb-col" style={{ borderRadius:16, overflow:'hidden', boxShadow:'0 4px 20px rgba(0,0,0,0.10)', animation:'fadeup 0.3s ease' }}>
+                            <img src={resource.thumbnail_url} alt={resource.title}
+                                style={{ width:'100%', display:'block', objectFit:'cover', maxHeight:320 }} />
+                        </div>
+                    )}
 
-                {/* ── Main info card ── */}
-                <div style={{ background:'white', borderRadius:16, border:'1px solid rgba(0,51,102,0.08)', boxShadow:'0 2px 16px rgba(0,51,102,0.06)', overflow:'hidden', marginBottom:14, animation:'fadeup 0.3s ease' }}>
+                    {/* LEFT CONTENT — order 2 mobile, order 1 desktop */}
+                    <div className="rd-left">
 
-                    <div style={{ padding:'clamp(1.25rem,3vw,1.75rem)', borderBottom:'1px solid #f0f3f7' }}>
-                        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-                            <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:'0.7rem', fontWeight:'700', color:accent, background:`${accent}14`, padding:'3px 10px', borderRadius:100, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.06em' }}>
-                                    <TypeIcon size={12} /> {resource.type}
-                                </div>
-                                <h1 style={{ margin:'0 0 10px', fontSize:'clamp(1.1rem,2.5vw,1.5rem)', fontWeight:'800', color:'#1a1a2e', lineHeight:1.25 }}>
-                                    {resource.title}
-                                </h1>
-                                <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', fontSize:'0.76rem', color:'#9aaab7' }}>
-                                    {resource.uploader_name && (
-                                        <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                                            <User size={12} /> {resource.uploader_name}
-                                        </span>
-                                    )}
-                                    <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                                        <Calendar size={12} /> {formatDate(resource.created_at)}
-                                    </span>
-                                    {resource.avg_rating > 0 && (
-                                        <StarRating value={parseFloat(resource.avg_rating)} size={13} color="#f59e0b" showLabel count={resource.review_count} />
-                                    )}
+                        {/* Video player */}
+                        {isVideo && user && (
+                            <div style={{ marginBottom:14, animation:'fadeup 0.3s ease' }}>
+                                <VideoPlayer resourceId={parseInt(id,10)} title={resource.title} demoUrl={resource.demo_url} />
+                            </div>
+                        )}
+                        {isVideo && !user && (
+                            <div style={{ marginBottom:14, background:'#0f172a', borderRadius:12, aspectRatio:'16/9', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, animation:'fadeup 0.3s ease' }}>
+                                <Play size={40} color="rgba(255,255,255,0.15)" />
+                                <p style={{ margin:0, fontSize:'0.84rem', color:'rgba(255,255,255,0.45)' }}>Sign in to watch this video</p>
+                                <Link to="/login" style={{ display:'inline-flex', alignItems:'center', gap:5, background:'white', color:'#003366', padding:'7px 16px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
+                                    Sign In
+                                </Link>
+                            </div>
+                        )}
+
+                        {/* Info card */}
+                        <div style={{ background:'white', borderRadius:16, border:'1px solid rgba(0,51,102,0.08)', boxShadow:'0 2px 16px rgba(0,51,102,0.06)', overflow:'hidden', marginBottom:14, animation:'fadeup 0.3s ease' }}>
+                            <div style={{ padding:'clamp(1.25rem,3vw,1.75rem)', borderBottom:'1px solid #f0f3f7' }}>
+                                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                                    <div style={{ flex:1, minWidth:0 }}>
+                                        <div style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:'0.7rem', fontWeight:'700', color:accent, background:`${accent}14`, padding:'3px 10px', borderRadius:100, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                                            <TypeIcon size={12} /> {resource.type}
+                                        </div>
+                                        <h1 style={{ margin:'0 0 10px', fontSize:'clamp(1.1rem,2.5vw,1.5rem)', fontWeight:'800', color:'#1a1a2e', lineHeight:1.25 }}>
+                                            {resource.title}
+                                        </h1>
+                                        <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', fontSize:'0.76rem', color:'#9aaab7' }}>
+                                            {resource.uploader_name && (
+                                                <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                                    <User size={12} /> {resource.uploader_name}
+                                                </span>
+                                            )}
+                                            <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                                <Calendar size={12} /> {formatDate(resource.created_at)}
+                                            </span>
+                                            {resource.avg_rating > 0 && (
+                                                <StarRating value={parseFloat(resource.avg_rating)} size={13} color="#f59e0b" showLabel count={resource.review_count} />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ display:'flex', flexDirection:'column', gap:8, flexShrink:0, alignItems:'flex-end' }}>
+                                        {!user ? (
+                                            <Link to="/login"
+                                                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:'#5e6e82', color:'white', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', textDecoration:'none' }}>
+                                                <Lock size={14} /> Sign in
+                                            </Link>
+                                        ) : canDownload ? (
+                                            <button onClick={handleDownload} disabled={downloading}
+                                                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:downloading?'#94a3b8':'#003366', color:'white', border:'none', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', cursor:downloading?'not-allowed':'pointer', fontFamily:'inherit', transition:'background 0.15s' }}
+                                                onMouseOver={e => { if(!downloading) e.currentTarget.style.background='#002244'; }}
+                                                onMouseOut={e => { if(!downloading) e.currentTarget.style.background='#003366'; }}>
+                                                {downloading
+                                                    ? <><Loader2 size={14} style={{ animation:'spin 1s linear infinite' }} /> Preparing…</>
+                                                    : <><Download size={14} /> Download</>
+                                                }
+                                            </button>
+                                        ) : (
+                                            <div style={{ textAlign:'right' }}>
+                                                <Link to="/membership"
+                                                    style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:'#0f766e', color:'white', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', textDecoration:'none' }}>
+                                                    <Lock size={14} /> Upgrade to Download
+                                                </Link>
+                                                <p style={{ margin:'4px 0 0', fontSize:'0.7rem', color:'#9aaab7' }}>Chapter Leads only</p>
+                                            </div>
+                                        )}
+                                        {user && !isVideo && (
+                                            <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:'0.72rem', color: canViewFile ? '#057642' : '#9aaab7', fontWeight:'600' }}>
+                                                {canViewFile
+                                                    ? <><Eye size={12} /> Preview available below</>
+                                                    : <><Lock size={12} /> Sign in to preview</>
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* ── Action buttons ── */}
-                            <div style={{ display:'flex', flexDirection:'column', gap:8, flexShrink:0, alignItems:'flex-end' }}>
-
-                                {/* Download — council + founding only */}
-                                {!user ? (
-                                    <Link to="/login"
-                                        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:'#5e6e82', color:'white', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', textDecoration:'none' }}>
-                                        <Lock size={14} /> Sign in
-                                    </Link>
-                                ) : canDownload ? (
-                                    <button onClick={handleDownload} disabled={downloading}
-                                        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:downloading?'#94a3b8':'#003366', color:'white', border:'none', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', cursor:downloading?'not-allowed':'pointer', fontFamily:'inherit', transition:'background 0.15s' }}
-                                        onMouseOver={e => { if(!downloading) e.currentTarget.style.background='#002244'; }}
-                                        onMouseOut={e => { if(!downloading) e.currentTarget.style.background='#003366'; }}>
-                                        {downloading
-                                            ? <><Loader2 size={14} style={{ animation:'spin 1s linear infinite' }} /> Preparing…</>
-                                            : <><Download size={14} /> Download</>
-                                        }
-                                    </button>
-                                ) : (
-                                    <div style={{ textAlign:'right' }}>
-                                        <Link to="/membership"
-                                            style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:'#0f766e', color:'white', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', textDecoration:'none' }}>
-                                            <Lock size={14} /> Upgrade to Download
-                                        </Link>
-                                        <p style={{ margin:'4px 0 0', fontSize:'0.7rem', color:'#9aaab7' }}>Council Members only</p>
+                            <div style={{ padding:'clamp(1rem,3vw,1.5rem)' }}>
+                                {resource.description && (
+                                    <p style={{ margin:`0 0 ${resource.abstract?'16px':'0'}`, fontSize:'0.9rem', color:'#374151', lineHeight:'1.7', whiteSpace:'pre-line' }}>
+                                        {resource.description}
+                                    </p>
+                                )}
+                                {resource.abstract && (
+                                    <div style={{ background:'#f8fafc', border:'1px solid #e8ecf0', borderRadius:10, padding:'12px 14px' }}>
+                                        <p style={{ margin:'0 0 6px', fontSize:'0.7rem', fontWeight:'800', color:'#9aaab7', textTransform:'uppercase', letterSpacing:'0.08em' }}>Abstract</p>
+                                        <p style={{ margin:0, fontSize:'0.875rem', color:'#374151', lineHeight:'1.7', whiteSpace:'pre-line' }}>{resource.abstract}</p>
                                     </div>
                                 )}
-
-                                {/* View access label */}
-                                {user && !isVideo && (
-                                    <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:'0.72rem', color: canViewFile ? '#057642' : '#9aaab7', fontWeight:'600' }}>
-                                        {canViewFile
-                                            ? <><Eye size={12} /> Preview available below</>
-                                            : <><Lock size={12} /> Sign in to preview</>
-                                        }
+                                {resource.demo_url && (
+                                    <div style={{ marginTop:14 }}>
+                                        <a href={resource.demo_url} target="_blank" rel="noopener noreferrer"
+                                            style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:'0.82rem', color:'#003366', fontWeight:'700', textDecoration:'none' }}
+                                            onMouseOver={e => e.currentTarget.style.textDecoration='underline'}
+                                            onMouseOut={e => e.currentTarget.style.textDecoration='none'}>
+                                            <ExternalLink size={13} /> View live / source
+                                        </a>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    </div>
 
-                    {/* Description / Abstract */}
-                    <div style={{ padding:'clamp(1rem,3vw,1.5rem)' }}>
-                        {resource.description && (
-                            <p style={{ margin:`0 0 ${resource.abstract?'16px':'0'}`, fontSize:'0.9rem', color:'#374151', lineHeight:'1.7' }}>
-                                {resource.description}
-                            </p>
-                        )}
-                        {resource.abstract && (
-                            <div style={{ background:'#f8fafc', border:'1px solid #e8ecf0', borderRadius:10, padding:'12px 14px' }}>
-                                <p style={{ margin:'0 0 6px', fontSize:'0.7rem', fontWeight:'800', color:'#9aaab7', textTransform:'uppercase', letterSpacing:'0.08em' }}>Abstract</p>
-                                <p style={{ margin:0, fontSize:'0.875rem', color:'#374151', lineHeight:'1.7' }}>{resource.abstract}</p>
+                        {/* File viewer */}
+                        {!isVideo && user && (
+                            <div className="rd-file-viewer" style={{ marginBottom:14, animation:'fadeup 0.35s ease 0.05s both' }}>
+                                {canViewFile
+                                    ? <FileViewer resourceId={parseInt(id,10)} fileType={fileType || 'pdf'} title={resource.title} />
+                                    : <ViewGate type={fileType || 'pdf'} />
+                                }
                             </div>
                         )}
-                        {resource.demo_url && (
-                            <div style={{ marginTop:14 }}>
-                                <a href={resource.demo_url} target="_blank" rel="noopener noreferrer"
-                                    style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:'0.82rem', color:'#003366', fontWeight:'700', textDecoration:'none' }}
-                                    onMouseOver={e => e.currentTarget.style.textDecoration='underline'}
-                                    onMouseOut={e => e.currentTarget.style.textDecoration='none'}>
-                                    <ExternalLink size={13} /> View live / source
-                                </a>
+                        {!isVideo && !user && (
+                            <div style={{ marginBottom:14, background:'white', border:'1.5px dashed #e2e8f0', borderRadius:12, padding:'2rem', textAlign:'center', animation:'fadeup 0.35s ease 0.05s both' }}>
+                                <Lock size={28} color="#c4cdd6" style={{ margin:'0 auto 10px', display:'block' }} />
+                                <p style={{ margin:'0 0 4px', fontSize:'0.9rem', fontWeight:'700', color:'#1a1a2e' }}>Sign in to view this resource</p>
+                                <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7' }}>Chapter Leads can also download it.</p>
+                                <Link to="/login"
+                                    style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#003366', color:'white', padding:'8px 18px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
+                                    Sign In
+                                </Link>
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* ── Inline file viewer (non-video) ── */}
-                {!isVideo && user && (
-                    <div style={{ marginBottom:14, animation:'fadeup 0.35s ease 0.05s both' }}>
-                        {canViewFile ? (
-                            <FileViewer
-                                resourceId={parseInt(id,10)}
-                                fileType={fileType || 'pdf'}
-                                title={resource.title}
-                            />
-                        ) : (
-                            <ViewGate type={fileType || 'pdf'} />
-                        )}
+                    {/* REVIEWS — order 3 mobile (bottom), order 3 desktop (right col bottom) */}
+                    <div className="rd-reviews-col">
+                        <div style={{ background:'white', borderRadius:16, border:'1px solid rgba(0,51,102,0.08)', boxShadow:'0 2px 16px rgba(0,51,102,0.06)', padding:'clamp(1rem,3vw,1.5rem)', animation:'fadeup 0.4s ease 0.1s both' }}>
+                            <ReviewSection resourceId={parseInt(id,10)} />
+                        </div>
                     </div>
-                )}
 
-                {/* Not logged in + non-video */}
-                {!isVideo && !user && (
-                    <div style={{ marginBottom:14, background:'white', border:'1.5px dashed #e2e8f0', borderRadius:12, padding:'2rem', textAlign:'center', animation:'fadeup 0.35s ease 0.05s both' }}>
-                        <Lock size={28} color="#c4cdd6" style={{ margin:'0 auto 10px', display:'block' }} />
-                        <p style={{ margin:'0 0 4px', fontSize:'0.9rem', fontWeight:'700', color:'#1a1a2e' }}>Sign in to view this resource</p>
-                        <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7' }}>Council Members can also download it.</p>
-                        <Link to="/login"
-                            style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#003366', color:'white', padding:'8px 18px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
-                            Sign In
-                        </Link>
-                    </div>
-                )}
-
-                {/* ── Reviews ── */}
-                <div style={{ background:'white', borderRadius:16, border:'1px solid rgba(0,51,102,0.08)', boxShadow:'0 2px 16px rgba(0,51,102,0.06)', padding:'clamp(1rem,3vw,1.5rem)', animation:'fadeup 0.4s ease 0.1s both' }}>
-                    <ReviewSection resourceId={parseInt(id,10)} />
                 </div>
             </div>
         </div>

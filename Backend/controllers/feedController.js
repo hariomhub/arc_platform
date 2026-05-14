@@ -203,7 +203,8 @@ export const getFeed = async (req, res, next) => {
                    u.email AS author_email,
                    u.role AS author_role,
                    u.photo_url AS author_photo,
-                   u.organization_name AS author_org
+                   u.organization_name AS author_org,
+                   u.profile_badge AS author_badge
             FROM feed_posts fp
             JOIN users u ON fp.author_id = u.id
             WHERE 1=1
@@ -274,7 +275,8 @@ export const getPostById = async (req, res, next) => {
                     u.role AS author_role,
                     u.photo_url AS author_photo,
                     u.bio AS author_bio,
-                    u.organization_name AS author_org
+                    u.organization_name AS author_org,
+                    u.profile_badge AS author_badge
              FROM feed_posts fp
              JOIN users u ON fp.author_id = u.id
              WHERE fp.id = ?`,
@@ -422,7 +424,7 @@ export const createPost = async (req, res, next) => {
         // Fetch the created post with author info
         const [rows] = await pool.query(
             `SELECT fp.*, u.name AS author_name, u.role AS author_role,
-                    u.photo_url AS author_photo, u.organization_name AS author_org
+                    u.photo_url AS author_photo, u.organization_name AS author_org, u.profile_badge AS author_badge
              FROM feed_posts fp JOIN users u ON fp.author_id = u.id
              WHERE fp.id = ?`,
             [postId]
@@ -466,7 +468,7 @@ export const updatePost = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT fp.*, u.name AS author_name, u.role AS author_role,
-                    u.photo_url AS author_photo, u.organization_name AS author_org
+                    u.photo_url AS author_photo, u.organization_name AS author_org, u.profile_badge AS author_badge
              FROM feed_posts fp JOIN users u ON fp.author_id = u.id
              WHERE fp.id = ?`,
             [req.params.id]
@@ -807,7 +809,8 @@ export const getComments = async (req, res, next) => {
             `SELECT fc.*,
                     u.name AS author_name,
                     u.role AS author_role,
-                    u.photo_url AS author_photo
+                    u.photo_url AS author_photo,
+                    u.profile_badge AS author_badge
              FROM feed_comments fc
              JOIN users u ON fc.author_id = u.id
              WHERE fc.post_id = ? AND fc.is_hidden = 0
@@ -909,7 +912,7 @@ export const createComment = async (req, res, next) => {
         );
 
         const [rows] = await pool.query(
-            `SELECT fc.*, u.name AS author_name, u.role AS author_role, u.photo_url AS author_photo
+            `SELECT fc.*, u.name AS author_name, u.role AS author_role, u.photo_url AS author_photo, u.profile_badge AS author_badge
              FROM feed_comments fc JOIN users u ON fc.author_id = u.id
              WHERE fc.id = ?`,
             [result.insertId]

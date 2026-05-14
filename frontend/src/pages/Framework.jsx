@@ -247,7 +247,7 @@ const AuditTemplatesSection = ({ auditTemplates = AUDIT_TEMPLATES }) => {
             </div>
             <div style={{ marginTop: '1.5rem', background: 'linear-gradient(135deg,#002855 0%,#003d80 100%)', borderRadius: '12px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Lock size={18} color="#93C5FD" /></div>
-                <div style={{ flex: 1, minWidth: '160px' }}><p style={{ fontWeight: '700', color: 'white', margin: '0 0 3px', fontSize: '0.88rem' }}>Full templates available to Council Members</p><p style={{ margin: 0, fontSize: '0.78rem', color: '#93C5FD' }}>Join the AI Risk Council to download editable versions in Excel, Word, and PDF formats.</p></div>
+                <div style={{ flex: 1, minWidth: '160px' }}><p style={{ fontWeight: '700', color: 'white', margin: '0 0 3px', fontSize: '0.88rem' }}>Full templates available to Chapter Leads</p><p style={{ margin: 0, fontSize: '0.78rem', color: '#93C5FD' }}>Join the AI Risk Council to download editable versions in Excel, Word, and PDF formats.</p></div>
                 <Link to="/membership" style={{ textDecoration: 'none', background: '#f9a825', color: '#003366', border: 'none', padding: '9px 18px', borderRadius: '7px', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-block' }}>Join the Council</Link>
             </div>
         </div>
@@ -303,7 +303,7 @@ const PlaybooksSection = () => {
 
     const handleDownload = async (pb) => {
         if (!isLoggedIn) { alert('Please sign in to download playbooks.'); return; }
-        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available for Council Member and Founding Member plans.'); return; }
+        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available for Chapter Lead and Founding Member plans.'); return; }
         try {
             const res = await fetch(`/api/playbooks/${pb.id}/download`, { headers: { Authorization: `Bearer ${token}` } });
             if (!res.ok) throw new Error();
@@ -323,8 +323,8 @@ const PlaybooksSection = () => {
             <div style={{ marginBottom: '1.75rem' }}>
                 <h2 style={{ fontSize: 'clamp(1.2rem,2.5vw,1.6rem)', fontWeight: '800', color: '#1E293B', marginBottom: '6px' }}>Governance Playbooks</h2>
                 <p style={{ color: '#64748B', fontSize: '0.9rem', lineHeight: '1.65', maxWidth: '600px' }}>Download comprehensive governance playbooks aligned with major AI risk frameworks.</p>
-                {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require a Council Member or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
-                {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download — available for Council Member &amp; Founding Member plans.</span></div>}
+                {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require a Chapter Lead or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
+                {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download — available for Chapter Lead &amp; Founding Member plans.</span></div>}
             </div>
             {loading && <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8' }}><BookOpen size={32} style={{ marginBottom: '8px', opacity: 0.4 }} /><p style={{ margin: 0, fontSize: '0.875rem' }}>Loading playbooks...</p></div>}
             {!loading && Object.entries(grouped).map(([framework, items]) => {

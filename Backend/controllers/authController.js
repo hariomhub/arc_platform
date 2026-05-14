@@ -19,11 +19,22 @@ export const register = async (req, res, next) => {
         const allowedSelfRoles = ['professional'];
         const assignedRole = allowedSelfRoles.includes(role) ? role : 'professional';
 
-        // Validate and assign professional sub-type (only for professional role)
         const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
-        const subType = assignedRole === 'professional' && allowedSubTypes.includes(professional_sub_type)
-            ? professional_sub_type
-            : (assignedRole === 'professional' ? 'working_professional' : null);
+        
+        if (!organization_name || !organization_name.trim()) {
+            return res.status(400).json({ success: false, message: 'Organisation / University name is required.' });
+        }
+
+        if (assignedRole === 'professional') {
+            if (!professional_sub_type || !allowedSubTypes.includes(professional_sub_type)) {
+                return res.status(400).json({ success: false, message: 'Membership sub-type is required (working_professional or final_year_undergrad).' });
+            }
+            if (!linkedin_url || !linkedin_url.trim()) {
+                return res.status(400).json({ success: false, message: 'LinkedIn profile URL is required.' });
+            }
+        }
+        
+        const subType = assignedRole === 'professional' ? professional_sub_type : null;
 
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
@@ -311,15 +322,23 @@ export const completeProfile = async (req, res, next) => {
         if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated.' });
 
         const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
-        const { professional_sub_type, linkedin_url } = req.body;
+        const { professional_sub_type, linkedin_url, organization_name } = req.body;
 
         if (!allowedSubTypes.includes(professional_sub_type)) {
             return res.status(400).json({ success: false, message: 'Invalid sub-category. Choose working_professional or final_year_undergrad.' });
         }
+        
+        if (!organization_name || !organization_name.trim()) {
+            return res.status(400).json({ success: false, message: 'Organisation / University name is required.' });
+        }
+        
+        if (!linkedin_url || !linkedin_url.trim()) {
+            return res.status(400).json({ success: false, message: 'LinkedIn profile URL is required.' });
+        }
 
         await pool.query(
-            `UPDATE users SET professional_sub_type = ?, linkedin_url = COALESCE(NULLIF(?, ''), linkedin_url) WHERE id = ?`,
-            [professional_sub_type, linkedin_url || null, userId]
+            `UPDATE users SET professional_sub_type = ?, linkedin_url = COALESCE(NULLIF(?, ''), linkedin_url), organization_name = COALESCE(NULLIF(?, ''), organization_name) WHERE id = ?`,
+            [professional_sub_type, linkedin_url.trim(), organization_name.trim(), userId]
         );
 
         return res.json({ success: true, data: { message: 'Profile completed successfully.' } });

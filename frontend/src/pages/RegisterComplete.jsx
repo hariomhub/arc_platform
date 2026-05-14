@@ -28,6 +28,7 @@ const RegisterComplete = () => {
 
     const [selectedSubCat,  setSelectedSubCat]  = useState('working_professional');
     const [linkedinUrl,     setLinkedinUrl]     = useState('');
+    const [organizationName,setOrganizationName]= useState('');
     const [submitting,      setSubmitting]       = useState(false);
     const [error,           setError]           = useState('');
     const [success,         setSuccess]         = useState(false);
@@ -48,11 +49,26 @@ const RegisterComplete = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        
+        if (!organizationName.trim()) {
+            setError('Organisation / University Name is required.');
+            return;
+        }
+        
+        if (!linkedinUrl.trim()) {
+            setError('LinkedIn Profile URL is required.');
+            return;
+        } else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(linkedinUrl.trim())) {
+            setError('Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).');
+            return;
+        }
+
         setSubmitting(true);
         try {
             await axios.patch('/auth/complete-profile', {
                 professional_sub_type: selectedSubCat,
-                linkedin_url: linkedinUrl.trim() || undefined,
+                organization_name: organizationName.trim(),
+                linkedin_url: linkedinUrl.trim(),
             });
             setSuccess(true);
         } catch (err) {
@@ -188,9 +204,31 @@ const RegisterComplete = () => {
 
                             {/* LinkedIn URL */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                <label htmlFor="rc-org" style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>
+                                    Organisation / University Name <span style={{ color: '#EF4444' }}>*</span>
+                                </label>
+                                <input
+                                    id="rc-org"
+                                    type="text"
+                                    value={organizationName}
+                                    onChange={e => setOrganizationName(e.target.value)}
+                                    placeholder="e.g. Acme AI Corp or Stanford University"
+                                    disabled={submitting}
+                                    style={{
+                                        width: '100%', padding: '0.7rem 0.9rem',
+                                        border: '1.5px solid #E2E8F0', borderRadius: '10px',
+                                        fontSize: '0.875rem', boxSizing: 'border-box',
+                                        fontFamily: 'var(--font-sans)', outline: 'none',
+                                        background: '#FAFBFC', color: '#0F172A',
+                                        transition: 'border-color 0.15s',
+                                        marginBottom: '0.8rem',
+                                    }}
+                                    onFocus={e => e.target.style.borderColor = '#003366'}
+                                    onBlur={e => e.target.style.borderColor = '#E2E8F0'}
+                                />
                                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                                     <label htmlFor="rc-linkedin" style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>
-                                        LinkedIn Profile URL
+                                        LinkedIn Profile URL <span style={{ color: '#EF4444' }}>*</span>
                                     </label>
                                     <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Helps admin verify your background</span>
                                 </div>
@@ -213,7 +251,7 @@ const RegisterComplete = () => {
                                     onBlur={e => e.target.style.borderColor = '#E2E8F0'}
                                 />
                                 <p style={{ margin: 0, fontSize: '0.7rem', color: '#94A3B8', lineHeight: 1.5 }}>
-                                    Since you signed up via LinkedIn, this may already be known — you can still provide it for admin convenience.
+                                    Since you signed up via LinkedIn, this may already be known — you must still provide it for admin validation.
                                 </p>
                             </div>
 

@@ -48,7 +48,12 @@ router.post(
 );
 
 // PATCH /api/admin/users/:id/approve
-router.patch('/users/:id/approve', adminController.approveUser);
+router.patch(
+    '/users/:id/approve',
+    [body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')],
+    validate,
+    adminController.approveUser
+);
 
 // PATCH /api/admin/users/:id/reject
 router.patch('/users/:id/reject', adminController.rejectUser);
@@ -85,7 +90,10 @@ router.get('/membership-applications', adminController.getMembershipApplications
 // PATCH /api/admin/membership-applications/:id/approve
 router.patch(
     '/membership-applications/:id/approve',
-    [body('admin_notes').optional().trim().isLength({ max: 1000 })],
+    [
+        body('admin_notes').optional().trim().isLength({ max: 1000 }),
+        body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')
+    ],
     validate,
     adminController.approveMembershipApplication
 );
@@ -103,7 +111,12 @@ router.patch(
 router.get('/sub-type-upgrades', adminController.getPendingSubTypeUpgrades);
 
 // PATCH /api/admin/sub-type-upgrades/:id/approve
-router.patch('/sub-type-upgrades/:id/approve', adminController.approveSubTypeUpgrade);
+router.patch(
+    '/sub-type-upgrades/:id/approve',
+    [body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')],
+    validate,
+    adminController.approveSubTypeUpgrade
+);
 
 // PATCH /api/admin/sub-type-upgrades/:id/reject
 router.patch('/sub-type-upgrades/:id/reject', adminController.rejectSubTypeUpgrade);

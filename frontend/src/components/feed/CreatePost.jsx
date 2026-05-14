@@ -15,7 +15,7 @@ const MAX_TAGS  = 5;
 
 const ROLE_META = {
     founding_member: { color:'#7C3AED', label:'Founding Member' },
-    council_member:  { color:'#003366', label:'Council Member'  },
+    council_member:  { color:'#003366', label:'Chapter Lead'  },
     professional:    { color:'#059669', label:'Professional'    },
 };
 

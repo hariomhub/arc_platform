@@ -94,7 +94,7 @@ export const changePassword = async (req, res, next) => {
 export const getMyResources = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
-            `SELECT r.id, r.title, r.description, r.abstract, r.demo_url, r.type, r.created_at
+            `SELECT r.id, r.title, r.description, r.abstract, r.demo_url, r.type, r.status, r.created_at
              FROM resources r
              WHERE r.uploader_id = ?
              ORDER BY r.created_at DESC`,

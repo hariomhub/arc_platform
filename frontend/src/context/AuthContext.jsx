@@ -36,9 +36,19 @@ export const AuthProvider = ({ children }) => {
         return () => { cancelled = true; };
     }, []);
 
-    // ── login: called after successful POST /auth/login ───────────────────────
+    // ── login: called after successful POST /auth/login ────────────────────────────────────
     const login = useCallback((userData) => {
         setUser(userData);
+    }, []);
+
+    // ── refreshUser: re-fetches the full user profile from the server ───────────────
+    const refreshUser = useCallback(async () => {
+        try {
+            const res = await getMe();
+            if (res.data?.success) setUser(res.data.data);
+        } catch {
+            // Ignore errors — keep existing user state
+        }
     }, []);
 
     // ── logout: remove FCM token first, then clear cookie + state ────────────
@@ -57,7 +67,7 @@ export const AuthProvider = ({ children }) => {
     // ── Role helpers ─────────────────────────────────────────────────
     const isAdmin            = () => user?.role === 'founding_member';
     const isFoundingMember   = () => user?.role === 'founding_member';
-    // Council Member (was Executive) — primary helper name
+    // Chapter Lead (was Executive) — primary helper name
     const isCouncilMember    = () => user?.role === 'council_member';
     // Legacy alias — kept so any existing component refs still work
     const isExecutive        = () => user?.role === 'council_member';
@@ -103,6 +113,7 @@ export const AuthProvider = ({ children }) => {
                 canUploadWhitepaper,
                 canUploadProduct,
                 isLoggedIn: !!user,
+                refreshUser,
                 API,
                 token,
                 authFetch,

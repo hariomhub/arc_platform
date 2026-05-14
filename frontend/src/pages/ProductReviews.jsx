@@ -107,7 +107,7 @@ const ProductReviews = () => {
                         Product Reviews
                     </h1>
                     <p style={{ fontSize: 'clamp(0.88rem,1.5vw,1.05rem)', color: '#CBD5E1', lineHeight: '1.7', marginBottom: '2rem' }}>
-                        Independent security assessments from our expert council members. Each product has been reviewed by paid members, executives, and product companies for real-world effectiveness.
+                        Independent security assessments from our expert chapter leads. Each product has been reviewed by paid members, executives, and product companies for real-world effectiveness.
                     </p>
                     {/* Search — flex, wraps on very small screens */}
                     <form onSubmit={handleSearch} style={{ display: 'flex', maxWidth: '480px', margin: '0 auto', gap: '8px', flexWrap: 'wrap' }}>

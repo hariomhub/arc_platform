@@ -14,7 +14,7 @@ import { getMyPosts } from '../api/feed.js';
 import MyPostsModal from '../components/modals/MyPostsModal.jsx';
 import MyStatsModal from '../components/modals/MyStatsModal.jsx';
 
-const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Council Member', executive: 'Council Member', professional: 'Professional' };
+const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Chapter Lead', executive: 'Chapter Lead', professional: 'Professional' };
 const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#B45309', executive: '#B45309', professional: '#0369A1' };
 const ROLE_BG     = { founding_member: 'rgba(124,58,237,0.12)', council_member: 'rgba(180,83,9,0.12)', executive: 'rgba(180,83,9,0.12)', professional: 'rgba(3,105,161,0.12)' };
 
@@ -90,10 +90,10 @@ const UserDashboard = () => {
     ];
 
     const PLATFORM_FEATURES = [
-        { icon: Newspaper,  label: 'Manage News',       desc: 'Create & publish news articles',        path: '/news',                                  allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
-        { icon: Calendar,   label: 'Manage Events',     desc: 'Create & publish events',               path: '/events',                                allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
-        { icon: BookOpen,   label: 'Auto-News',         desc: 'Approve automated news feed',           path: '/admin-dashboard?tab=auto_news',         allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
-        { icon: FileText,   label: 'Approve Resources', desc: 'Review pending resource uploads',       path: '/admin-dashboard?tab=pending_resources', allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Council Member / Founding Member only' },
+        { icon: Newspaper,  label: 'Manage News',       desc: 'Create & publish news articles',        path: '/news',                                  allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
+        { icon: Calendar,   label: 'Manage Events',     desc: 'Create & publish events',               path: '/events',                                allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
+        { icon: BookOpen,   label: 'Auto-News',         desc: 'Approve automated news feed',           path: '/admin-dashboard?tab=auto_news',         allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
+        { icon: FileText,   label: 'Approve Resources', desc: 'Review pending resource uploads',       path: '/admin-dashboard?tab=pending_resources', allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
         { icon: Users,      label: 'Approve Members',   desc: 'Review membership applications',        path: '/admin-dashboard?tab=pending',           allowed: isAdmin?.(),                          lockMsg: 'Founding Member only' },
         { icon: Award,      label: 'Manage Awards',     desc: 'Manage nominees & voting',              path: '/admin-dashboard?tab=nominations',       allowed: isAdmin?.(),                          lockMsg: 'Founding Member only' },
     ];
@@ -322,16 +322,16 @@ const UserDashboard = () => {
                                 <h3 style={{ margin:'0 0 0.45rem', color:'white', fontWeight:'800', fontSize:'1rem' }}>
                                     {user?.professional_sub_type === 'final_year_undergrad'
                                         ? 'Upgrade Your Access'
-                                        : 'Become a Council Member'}
+                                        : 'Become a Chapter Lead'}
                                 </h3>
                                 <p style={{ margin:'0 0 0.875rem', color:'rgba(147,197,253,0.85)', fontSize:'0.8rem', lineHeight:'1.6' }}>
                                     {user?.professional_sub_type === 'final_year_undergrad'
-                                        ? 'Upgrade to Working Professional for downloads, or apply for Council Member for full platform access.'
+                                        ? 'Upgrade to Working Professional for downloads, or apply for Chapter Lead for full platform access.'
                                         : 'Unlock content creation, product reviews, and full platform privileges.'}
                                 </p>
                                 <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'1rem' }}>
                                     {(user?.professional_sub_type === 'final_year_undergrad'
-                                        ? ['10 downloads/month (Working Pro)', 'Content creation (Council Member)', 'No extra cost for sub-type upgrade']
+                                        ? ['10 downloads/month (Working Pro)', 'Content creation (Chapter Lead)', 'No extra cost for sub-type upgrade']
                                         : ['Create events, news & workshops', 'Submit AI product reviews', 'Priority event registration']
                                     ).map(f => (
                                         <div key={f} style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'0.75rem', color:'rgba(203,213,225,0.85)' }}>

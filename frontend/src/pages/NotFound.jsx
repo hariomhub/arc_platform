@@ -10,34 +10,102 @@ const SUGGESTIONS = [
 
 const NotFound = () => {
     const navigate = useNavigate();
-    useEffect(() => { document.title = '404 Not Found | ARC'; }, []);
+    useEffect(() => { document.title = '404 Not Found | AI Risk Council'; }, []);
 
     return (
-        <div className="min-h-[75vh] flex flex-col items-center justify-center text-center px-8 py-16 bg-slate-50">
+        <div style={{
+            minHeight: '75vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '4rem 2rem',
+            background: '#F8FAFC',
+            fontFamily: 'var(--font-sans)',
+        }}>
             {/* Large 404 */}
             <div
-                className="text-[8rem] font-black leading-none text-slate-200 mb-4 select-none font-serif"
+                style={{
+                    fontSize: 'clamp(6rem, 15vw, 9rem)',
+                    fontWeight: '900',
+                    lineHeight: '1',
+                    color: '#E2E8F0',
+                    marginBottom: '1rem',
+                    userSelect: 'none',
+                    letterSpacing: '-0.05em',
+                }}
                 aria-hidden="true"
             >
                 404
             </div>
 
-            <h1 className="font-serif text-[#003366] text-4xl mb-3">Page Not Found</h1>
-            <p className="text-slate-500 max-w-md mb-10 text-base leading-relaxed">
+            <h1 style={{
+                color: '#003366',
+                fontSize: 'clamp(2rem, 5vw, 2.5rem)',
+                fontWeight: '800',
+                marginBottom: '0.75rem',
+                letterSpacing: '-0.02em',
+            }}>
+                Page Not Found
+            </h1>
+            <p style={{
+                color: '#64748B',
+                maxWidth: '450px',
+                marginBottom: '2.5rem',
+                fontSize: '1rem',
+                lineHeight: '1.6',
+            }}>
                 The page you're looking for doesn't exist or may have been moved. Let's get you back on track.
             </p>
 
             {/* Action buttons */}
-            <div className="flex gap-4 flex-wrap justify-center mb-12">
+            <div style={{
+                display: 'flex',
+                gap: '1rem',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                marginBottom: '3rem',
+            }}>
                 <Link
                     to="/"
-                    className="inline-flex items-center gap-2 bg-[#003366] text-white px-7 py-3 rounded-md font-bold text-sm no-underline hover:opacity-90 transition-opacity"
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: '#003366',
+                        color: 'white',
+                        padding: '0.75rem 1.75rem',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        fontSize: '0.9rem',
+                        textDecoration: 'none',
+                        transition: 'opacity 0.2s',
+                    }}
+                    onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
+                    onMouseOut={e => e.currentTarget.style.opacity = '1'}
                 >
                     <Home size={16} /> Go Home
                 </Link>
                 <button
                     onClick={() => navigate(-1)}
-                    className="inline-flex items-center gap-2 bg-white text-slate-500 border border-slate-300 px-7 py-3 rounded-md font-semibold text-sm cursor-pointer font-sans hover:border-slate-400 transition-colors"
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'white',
+                        color: '#64748B',
+                        border: '1.5px solid #CBD5E1',
+                        padding: '0.75rem 1.75rem',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '0.9rem',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'border-color 0.2s, color 0.2s',
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = '#94A3B8'; e.currentTarget.style.color = '#475569'; }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.color = '#64748B'; }}
                 >
                     <ArrowLeft size={16} /> Go Back
                 </button>
@@ -45,13 +113,43 @@ const NotFound = () => {
 
             {/* Suggested links */}
             <div>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Explore</p>
-                <div className="flex gap-3 flex-wrap justify-center">
+                <p style={{
+                    fontSize: '0.75rem',
+                    color: '#94A3B8',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    marginBottom: '1rem',
+                }}>
+                    Explore
+                </p>
+                <div style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                }}>
                     {SUGGESTIONS.map(({ label, href, icon: Icon }) => (
                         <Link
                             key={href}
                             to={href}
-                            className="inline-flex items-center gap-1.5 bg-white text-[#003366] border border-slate-200 px-4 py-2 rounded-md font-semibold text-sm no-underline shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: 'white',
+                                color: '#003366',
+                                border: '1px solid #E2E8F0',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '8px',
+                                fontWeight: '600',
+                                fontSize: '0.85rem',
+                                textDecoration: 'none',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }}
+                            onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)'; }}
                         >
                             <Icon size={14} /> {label}
                         </Link>

@@ -17,7 +17,7 @@ export const getUsers = async (req, res, next) => {
         const { role, status, search } = req.query;
 
         let countSql = 'SELECT COUNT(*) AS total FROM users WHERE 1=1';
-        let dataSql  = 'SELECT id, name, email, role, status, organization_name, linkedin_url, created_at FROM users WHERE 1=1';
+        let dataSql  = 'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, created_at FROM users WHERE 1=1';
         const params = [];
 
         if (role) {
@@ -52,7 +52,7 @@ export const getUsers = async (req, res, next) => {
 export const getPendingUsers = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
-            `SELECT id, name, email, role, status, organization_name, linkedin_url, created_at
+            `SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, created_at
              FROM users WHERE status = 'pending' ORDER BY created_at ASC`
         );
         return res.json({ success: true, data: rows });
@@ -74,13 +74,20 @@ export const approveUser = async (req, res, next) => {
             : role === 'council_member'                 ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
             : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
 
-        await pool.query(
-            "UPDATE users SET status = 'approved', membership_expires_at = ? WHERE id = ?",
-            [expiresAt, req.params.id]
-        );
+        if (req.body.profile_badge) {
+            await pool.query(
+                "UPDATE users SET status = 'approved', membership_expires_at = ?, profile_badge = ? WHERE id = ?",
+                [expiresAt, req.body.profile_badge, req.params.id]
+            );
+        } else {
+            await pool.query(
+                "UPDATE users SET status = 'approved', membership_expires_at = ? WHERE id = ?",
+                [expiresAt, req.params.id]
+            );
+        }
 
         // Email notification
-        sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role });
+        sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role, profile_badge: req.body.profile_badge });
 
         // Push notification — immediate
         notifyUser(
@@ -319,10 +326,17 @@ export const approveMembershipApplication = async (req, res, next) => {
             : requestedRole === 'council_member'                 ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
             : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
 
-        await pool.query(
-            `UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?`,
-            [requestedRole, expiresAt, app.user_id]
-        );
+        if (req.body.profile_badge) {
+            await pool.query(
+                `UPDATE users SET role = ?, membership_expires_at = ?, profile_badge = ? WHERE id = ?`,
+                [requestedRole, expiresAt, req.body.profile_badge, app.user_id]
+            );
+        } else {
+            await pool.query(
+                `UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?`,
+                [requestedRole, expiresAt, app.user_id]
+            );
+        }
         await pool.query(
             `UPDATE membership_applications SET status = 'approved', processed_at = NOW(), admin_notes = ? WHERE id = ?`,
             [req.body.admin_notes || null, req.params.id]
@@ -334,11 +348,12 @@ export const approveMembershipApplication = async (req, res, next) => {
             email:         app.email,
             requestedRole: requestedRole,
             status:        'approved',
+            profile_badge: req.body.profile_badge,
         });
 
         // Push notification — immediate
         const roleLabel = requestedRole === 'founding_member' ? 'Founding Member'
-            : requestedRole === 'council_member' ? 'Council Member' : 'Professional';
+            : requestedRole === 'council_member' ? 'Chapter Lead' : 'Professional';
         notifyUser(
             app.user_id,
             NOTIF_TYPES.MEMBERSHIP_APPROVED,
@@ -446,14 +461,26 @@ export const approveSubTypeUpgrade = async (req, res, next) => {
             return res.status(409).json({ success: false, message: 'No pending upgrade request for this user.' });
         }
 
-        await pool.query(
-            `UPDATE users
-             SET professional_sub_type = 'working_professional',
-                 pending_sub_type_upgrade = 0,
-                 sub_type_upgrade_status = 'approved'
-             WHERE id = ?`,
-            [req.params.id]
-        );
+        if (req.body.profile_badge) {
+            await pool.query(
+                `UPDATE users
+                 SET professional_sub_type = 'working_professional',
+                     pending_sub_type_upgrade = 0,
+                     sub_type_upgrade_status = 'approved',
+                     profile_badge = ?
+                 WHERE id = ?`,
+                [req.body.profile_badge, req.params.id]
+            );
+        } else {
+            await pool.query(
+                `UPDATE users
+                 SET professional_sub_type = 'working_professional',
+                     pending_sub_type_upgrade = 0,
+                     sub_type_upgrade_status = 'approved'
+                 WHERE id = ?`,
+                [req.params.id]
+            );
+        }
 
         notifyUser(
             parseInt(req.params.id, 10),

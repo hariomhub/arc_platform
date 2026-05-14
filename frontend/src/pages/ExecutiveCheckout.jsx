@@ -59,7 +59,7 @@ export default function ExecutiveCheckout() {
                     </div>
                     <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Application Submitted!</h2>
                     <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                        Your Council Member application is now under review.
+                        Your Chapter Lead application is now under review.
                         You will receive an email once an admin approves or rejects your application.
                         Your Professional membership remains fully active in the meantime.
                     </p>
@@ -193,7 +193,7 @@ export default function ExecutiveCheckout() {
                             <div className="space-y-2 text-xs text-gray-500">
                                 {[
                                     'No credit card required',
-                                    '2-year Council Member access on approval',
+                                    '2-year Chapter Lead access on approval',
                                     'Professional membership stays active during review',
                                 ].map((txt) => (
                                     <div key={txt} className="flex items-center gap-2">

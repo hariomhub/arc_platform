@@ -13,7 +13,7 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import StarRating from '../components/resources/StarRating.jsx';
 
-const TYPE_OPTIONS = ['article', 'whitepaper', 'video', 'tool', 'news', 'homepage video', 'lab result', 'product'];
+const TYPE_OPTIONS = ['article', 'whitepaper', 'tech_reels', 'tool', 'news', 'homepage_video', 'lab_result', 'product'];
 const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
 // Helper: working_professional sub-type also gets download access
 const canDownloadResources = (u) =>
@@ -24,22 +24,29 @@ const canDownloadResources = (u) =>
 
 const getUploadableTypes = (role) => {
     if (role === 'founding_member') return TYPE_OPTIONS;
-    return ['article', 'whitepaper', 'tool', 'video', 'lab result'];
+    return TYPE_OPTIONS.filter(t => t !== 'homepage_video');
 };
 
 const TYPE_ICONS = {
-    article: <FileText size={12} />, whitepaper: <BookOpen size={12} />, video: <Video size={12} />,
-    tool: <Globe size={12} />, news: <FileText size={12} />, 'homepage video': <Video size={12} />,
-    'lab result': <FileText size={12} />, product: <Globe size={12} />,
+    article: <FileText size={12} />, whitepaper: <BookOpen size={12} />, tech_reels: <Video size={12} />,
+    tool: <Globe size={12} />, news: <FileText size={12} />, 'homepage_video': <Video size={12} />,
+    'lab_result': <FileText size={12} />, product: <Globe size={12} />,
 };
 const TYPE_COMPONENTS = {
-    article: FileText, whitepaper: BookOpen, video: Video,
-    tool: Globe, news: FileText, 'homepage video': Video,
-    'lab result': FileText, product: Globe,
+    article: FileText, whitepaper: BookOpen, tech_reels: Video,
+    tool: Globe, news: FileText, 'homepage_video': Video,
+    'lab_result': FileText, product: Globe,
 };
 const TYPE_COLORS = {
-    article: '#3B82F6', whitepaper: '#8B5CF6', video: '#EC4899', tool: '#10B981',
-    news: '#F59E0B', 'homepage video': '#EF4444', 'lab result': '#6366F1', product: '#0EA5E9',
+    article: '#3B82F6', whitepaper: '#8B5CF6', tech_reels: '#EC4899', tool: '#10B981',
+    news: '#F59E0B', 'homepage_video': '#EF4444', 'lab_result': '#6366F1', product: '#0EA5E9',
+};
+
+const formatType = (t) => {
+    if (t === 'tech_reels') return 'Tech Reels';
+    if (t === 'homepage_video') return 'Homepage Video';
+    if (t === 'lab_result') return 'Lab Result';
+    return t.charAt(0).toUpperCase() + t.slice(1);
 };
 
 const S = {
@@ -60,6 +67,7 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
         access_level: resource?.access_level || 'public',
     });
     const [file, setFile] = useState(null);
+    const [thumbnail, setThumbnail] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -73,6 +81,7 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
             const fd = new FormData();
             Object.entries(form).forEach(([k, v]) => fd.append(k, v));
             if (file) fd.append('file', file);
+            if (thumbnail) fd.append('thumbnail', thumbnail);
             let saved;
             if (isEdit) { const res = await updateResource(resource.id, fd); saved = res.data?.data || res.data; }
             else        { const res = await uploadResource(fd);              saved = res.data?.data || res.data; }
@@ -147,7 +156,7 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
                             <label style={lbl}>Type</label>
                             <select name="type" value={form.type} onChange={handleChange}
                                 style={{ ...inp, cursor: 'pointer' }}>
-                                {allowedTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                                {allowedTypes.map(t => <option key={t} value={t}>{formatType(t)}</option>)}
                             </select>
                         </div>
                         <div>
@@ -214,6 +223,40 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
                         )}
                     </div>
 
+                    {/* Thumbnail upload — styled drop area feel */}
+                    <div>
+                        <label style={lbl}>Thumbnail Image <span style={{ color: '#9aaab7', fontWeight: '500' }}>(optional)</span></label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '1.5px dashed #c8d3e0', borderRadius: '8px', cursor: 'pointer', background: '#f8fafc', transition: 'border-color 0.15s' }}
+                            onMouseOver={e => e.currentTarget.style.borderColor = '#003366'}
+                            onMouseOut={e => e.currentTarget.style.borderColor = '#c8d3e0'}>
+                            <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <FileText size={15} color="#003366" />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '600', color: '#374151' }}>
+                                    {thumbnail ? thumbnail.name : 'Click to choose image'}
+                                </p>
+                                <p style={{ margin: '1px 0 0', fontSize: '0.7rem', color: '#9aaab7' }}>
+                                    {thumbnail ? `${(thumbnail.size / 1024 / 1024).toFixed(1)} MB` : 'JPG, PNG, WEBP · max 5MB'}
+                                </p>
+                            </div>
+                            {thumbnail && (
+                                <button type="button" onClick={e => { e.preventDefault(); setThumbnail(null); }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aaab7', display: 'flex', padding: '2px', flexShrink: 0 }}>
+                                    <X size={14} />
+                                </button>
+                            )}
+                            <input type="file" accept=".jpg,.jpeg,.png,.webp"
+                                onChange={e => setThumbnail(e.target.files[0])}
+                                style={{ display: 'none' }} />
+                        </label>
+                        {resource?.thumbnail_url && !thumbnail && (
+                            <div style={{ marginTop: '8px', width: '80px', height: '45px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                                <img src={resource.thumbnail_url} alt="Current thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                        )}
+                    </div>
+
                     {error && (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: '8px', padding: '10px 12px', color: '#dc2626', fontSize: '0.83rem' }}>
                             <AlertCircle size={14} style={{ flexShrink: 0 }} />{error}
@@ -274,7 +317,7 @@ const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, dow
     const canDelete   = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
     const hasRating   = resource.avg_rating > 0;
     const reviewCount = resource.review_count || 0;
-    const isVideo     = ['video', 'homepage video'].includes(resource.type);
+    const isVideo     = ['tech_reels', 'homepage_video'].includes(resource.type);
     const TypeIcon    = TYPE_COMPONENTS[resource.type] || FileText;
 
     return (
@@ -291,6 +334,9 @@ const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, dow
                 .rc2:hover {
                     box-shadow: 0 4px 20px rgba(0,51,102,0.09);
                     border-color: rgba(0,51,102,0.18);
+                }
+                .rc2:hover .rc-thumb {
+                    transform: scale(1.05);
                 }
                 .rc2-view {
                     display: flex; align-items: center; justify-content: center;
@@ -322,22 +368,31 @@ const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, dow
 
                 {/* ── Unified card header — same height for all types ── */}
                 <Link to={`/resources/${resource.id}`} style={{ display: 'block', textDecoration: 'none' }}>
-                    <div style={{ height: 100, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: isVideo ? '#0f172a' : `${accent}0d`, borderBottom: isVideo ? 'none' : `3px solid ${accent}` }}>
-                        {/* Dot pattern */}
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(${isVideo ? 'rgba(255,255,255,0.03)' : `${accent}18`} 1.5px, transparent 1.5px)`, backgroundSize: '18px 18px' }} />
-                        {/* Icon circle */}
-                        <div style={{ width: 42, height: 42, borderRadius: '50%', background: isVideo ? accent : `${accent}22`, border: isVideo ? 'none' : `2px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-                            <TypeIcon size={18} color={isVideo ? 'white' : accent} />
-                        </div>
+                    <div style={{ height: 180, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: isVideo ? '#0f172a' : `${accent}0d`, borderBottom: resource.thumbnail_url || isVideo ? 'none' : `3px solid ${accent}` }} className="rc-img-container">
+                        {resource.thumbnail_url ? (
+                            <>
+                                <img src={resource.thumbnail_url} alt={resource.title} className="rc-thumb" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }} />
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%)' }} />
+                            </>
+                        ) : (
+                            <>
+                                {/* Dot pattern */}
+                                <div style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(${isVideo ? 'rgba(255,255,255,0.03)' : `${accent}18`} 1.5px, transparent 1.5px)`, backgroundSize: '18px 18px' }} />
+                                {/* Icon circle */}
+                                <div style={{ width: 42, height: 42, borderRadius: '50%', background: isVideo ? accent : `${accent}22`, border: isVideo ? 'none' : `2px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+                                    <TypeIcon size={18} color={isVideo ? 'white' : accent} />
+                                </div>
+                            </>
+                        )}
                         {/* Type label bottom-left */}
-                        <div style={{ position: 'absolute', bottom: 8, left: 12, fontSize: '0.62rem', fontWeight: '800', letterSpacing: '0.09em', textTransform: 'uppercase', color: isVideo ? 'rgba(255,255,255,0.6)' : `${accent}cc`, background: isVideo ? 'rgba(0,0,0,0.45)' : `${accent}14`, padding: '2px 8px', borderRadius: 100 }}>
-                            {resource.type}
+                        <div style={{ position: 'absolute', bottom: 8, left: 12, fontSize: '0.62rem', fontWeight: '800', letterSpacing: '0.09em', textTransform: 'uppercase', color: resource.thumbnail_url ? 'white' : (isVideo ? 'rgba(255,255,255,0.6)' : `${accent}cc`), background: resource.thumbnail_url || isVideo ? 'rgba(0,0,0,0.5)' : `${accent}14`, padding: '2px 8px', borderRadius: 100, backdropFilter: 'blur(4px)' }}>
+                            {formatType(resource.type)}
                         </div>
                         {/* Rating badge top-right if rated */}
                         {hasRating && (
-                            <div style={{ position: 'absolute', top: 8, right: 10, display: 'flex', alignItems: 'center', gap: 4, background: isVideo ? 'rgba(0,0,0,0.5)' : 'white', padding: '3px 8px', borderRadius: 100, border: isVideo ? 'none' : '1px solid #f0f3f7' }}>
+                            <div style={{ position: 'absolute', top: 8, right: 10, display: 'flex', alignItems: 'center', gap: 4, background: resource.thumbnail_url || isVideo ? 'rgba(0,0,0,0.5)' : 'white', padding: '3px 8px', borderRadius: 100, border: resource.thumbnail_url || isVideo ? 'none' : '1px solid #f0f3f7', backdropFilter: 'blur(4px)' }}>
                                 <StarRating value={parseFloat(resource.avg_rating)} size={11} color="#f59e0b" />
-                                <span style={{ fontSize: '0.68rem', fontWeight: '700', color: isVideo ? 'white' : '#1a1a2e' }}>{parseFloat(resource.avg_rating).toFixed(1)}</span>
+                                <span style={{ fontSize: '0.68rem', fontWeight: '700', color: resource.thumbnail_url || isVideo ? 'white' : '#1a1a2e' }}>{parseFloat(resource.avg_rating).toFixed(1)}</span>
                             </div>
                         )}
                     </div>
@@ -639,7 +694,7 @@ const Resources = () => {
                                 {TYPE_OPTIONS.map(t => (
                                     <button key={t} className={`res-filter-btn${filterType === t ? ' active' : ''}`} onClick={() => setFilterType(t)}>
                                         {TYPE_ICONS[t]}
-                                        <span style={{ flex: 1 }}>{t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                                        <span style={{ flex: 1 }}>{formatType(t)}</span>
                                         <span style={{ fontSize: '0.72rem', opacity: 0.65 }}>{typeCounts[t] || 0}</span>
                                         {filterType === t && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', flexShrink: 0 }} />}
                                     </button>
@@ -709,7 +764,7 @@ const Resources = () => {
                         {TYPE_OPTIONS.map(t => (
                             <button key={t} onClick={() => setFilterType(filterType === t ? 'all' : t)}
                                 style={{ padding: '5px 12px', borderRadius: '20px', border: '1px solid', borderColor: filterType === t ? '#003366' : '#CBD5E1', background: filterType === t ? '#003366' : 'white', color: filterType === t ? 'white' : '#475569', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                {t.charAt(0).toUpperCase() + t.slice(1)}
+                                {formatType(t)}
                             </button>
                         ))}
                     </div>
@@ -757,8 +812,8 @@ const Resources = () => {
                                 </div>
                             )}
                         </div>
-                        {/* Upload button — council_member (pending review) and founding_member (auto-approved) only */}
-                        {user && ['founding_member', 'council_member'].includes(user.role) && (
+                        {/* Upload button — council_member, founding_member, and working_professional only */}
+                        {user && (['founding_member', 'council_member'].includes(user.role) || (user.role === 'professional' && user.professional_sub_type === 'working_professional')) && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                                 <button onClick={() => setModal({ mode: 'create' })}
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', background: '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', boxShadow: '0 2px 8px rgba(0,51,102,0.2)', transition: 'background 0.15s,transform 0.15s', whiteSpace: 'nowrap' }}
@@ -766,7 +821,7 @@ const Resources = () => {
                                     onMouseLeave={e => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.transform = 'none'; }}>
                                     <Plus size={15} />Upload Resource
                                 </button>
-                                {user.role === 'council_member' && (
+                                {user.role !== 'founding_member' && (
                                     <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Pending admin review before publishing</span>
                                 )}
                             </div>
@@ -778,7 +833,7 @@ const Resources = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '1rem', padding: '8px 12px', background: '#f8fafc', border: '1px solid #e8ecf0', borderRadius: '9px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#5e6e82', marginRight: 2 }}>Active:</span>
                             {search         && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#f1f5f9', color:'#374151', padding:'3px 8px', borderRadius:100, fontWeight:'600' }}>Search: "{search}" <button onClick={() => setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}
-                            {filterType !== 'all'   && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#eef2ff', color:'#003366', padding:'3px 8px', borderRadius:100, fontWeight:'700' }}>{filterType.charAt(0).toUpperCase()+filterType.slice(1)} <button onClick={() => setFilterType('all')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}
+                            {filterType !== 'all'   && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#eef2ff', color:'#003366', padding:'3px 8px', borderRadius:100, fontWeight:'700' }}>{formatType(filterType)} <button onClick={() => setFilterType('all')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}
                             {filterAccess !== 'all' && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#f0fdf4', color:'#15803d', padding:'3px 8px', borderRadius:100, fontWeight:'700' }}>{filterAccess === 'public' ? 'Public' : 'Member Only'} <button onClick={() => setFilterAccess('all')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}
                             {filterRating !== 'all' && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#fffbeb', color:'#d97706', padding:'3px 8px', borderRadius:100, fontWeight:'700' }}>{filterRating === 'unreviewed' ? 'Unreviewed' : filterRating+'★+'} <button onClick={() => setFilterRating('all')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}
                             {sortBy !== 'newest'    && <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:'0.72rem', background:'#f5f3ff', color:'#7c3aed', padding:'3px 8px', borderRadius:100, fontWeight:'700' }}>{{'oldest':'Oldest','most_downloaded':'Most Downloaded','highest_rated':'Highest Rated','most_reviewed':'Most Reviewed'}[sortBy]} <button onClick={() => setSortBy('newest')} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:0, display:'flex', lineHeight:1 }}><X size={10}/></button></span>}

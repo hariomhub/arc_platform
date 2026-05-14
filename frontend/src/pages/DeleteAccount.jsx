@@ -4,7 +4,7 @@ import { Trash2, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, Mail, Arrow
 
 const FAQS = [
   { q: 'Can I recover my account after deletion?', a: 'No. Once permanently deleted (after the 30-day grace period), all associated data is removed and cannot be recovered. Contact our support team before submitting if you have concerns.' },
-  { q: 'What happens to my community posts?', a: 'Professional member posts are deleted with your account. Council Member and Founding Member posts are retained but anonymized — displayed as "Former Council Member" — to preserve community knowledge continuity.' },
+  { q: 'What happens to my community posts?', a: 'Professional member posts are deleted with your account. Chapter Lead and Founding Member posts are retained but anonymized — displayed as "Former Chapter Lead" — to preserve community knowledge continuity.' },
   { q: 'How long does the deletion process take?', a: 'Your account is deactivated immediately upon confirmation. Permanent deletion occurs after a 30-day grace period, during which you can cancel by contacting support.' },
   { q: 'Will I receive a confirmation?', a: 'Yes. You will receive a confirmation email when your request is received and again when permanent deletion is complete.' },
   { q: 'What if I signed in with LinkedIn?', a: 'Deleting your Risk AI Council account does not affect your LinkedIn account. Your OAuth connection will be removed. You can also revoke app access from LinkedIn\'s security settings.' },
@@ -115,7 +115,7 @@ export default function DeleteAccount() {
               </div>
               <div>
                 <p style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#2e7d32', marginBottom: '0.65rem' }}>What Is Retained</p>
-                {['Posts by Council / Founding Members (anonymized as "Former Council Member")', 'Payment records (7 years — legal requirement)', 'Server logs (30 days — security)', 'Anonymized aggregate analytics'].map((item, i) => (
+                {['Posts by Council / Founding Members (anonymized as "Former Chapter Lead")', 'Payment records (7 years — legal requirement)', 'Server logs (30 days — security)', 'Anonymized aggregate analytics'].map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', alignItems: 'flex-start' }}>
                     <CheckCircle size={13} color="#2e7d32" style={{ flexShrink: 0, marginTop: '3px' }} />
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.87rem' }}>{item}</span>
@@ -129,9 +129,9 @@ export default function DeleteAccount() {
           <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderLeft: '4px solid var(--primary)', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}>
             <ShieldAlert size={20} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '0.3rem', fontSize: '0.92rem' }}>Council Member & Founding Member — Post Retention Policy</strong>
+              <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '0.3rem', fontSize: '0.92rem' }}>Chapter Lead & Founding Member — Post Retention Policy</strong>
               <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.87rem', lineHeight: 1.65 }}>
-                If you are (or were) a <strong>Council Member</strong> or <strong>Founding Member</strong>, your community posts form part of the permanent knowledge base of the Risk AI Council. Upon deletion, posts are <strong>not</strong> removed — your name is anonymized to <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Council Member"</em> to preserve community integrity.
+                If you are (or were) a <strong>Chapter Lead</strong> or <strong>Founding Member</strong>, your community posts form part of the permanent knowledge base of the Risk AI Council. Upon deletion, posts are <strong>not</strong> removed — your name is anonymized to <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Chapter Lead"</em> to preserve community integrity.
               </p>
             </div>
           </div>

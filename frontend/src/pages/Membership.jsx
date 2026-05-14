@@ -17,7 +17,7 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 const PROFESSIONAL_FEATURES = [
     { label: 'Public news & resources',            included: true  },
     { label: 'Events calendar & registration',     included: true  },
-    { label: 'Community Q&A (read & post)',         included: true  },
+    { label: 'Community Q&A (read only)',           included: true  },
     { label: 'Monthly newsletter',                  included: true  },
     { label: 'Vote in AI Risk Awards / Initiatives',included: true  },
     { label: 'View frameworks & resources online',  included: true  },
@@ -28,8 +28,9 @@ const PROFESSIONAL_FEATURES = [
 
 const COUNCIL_FEATURES = [
     { label: 'Everything in Professional',                  included: true },
+    { label: 'Community Q&A (post)',                        included: true },
     { label: 'Framework & resource downloads',              included: true },
-    { label: 'Upload resources (pending admin approval)',            included: true },
+    { label: 'Upload resources (pending admin approval)',              included: true },
     { label: 'Create events (pending admin approval)',      included: true },
     { label: 'Create news articles (pending approval)',     included: true },
     { label: 'Create workshops (pending approval)',         included: true },
@@ -42,12 +43,13 @@ const COUNCIL_FEATURES = [
 const COMPARISON_ROWS = [
     { feature: 'Public news & resources',             pro: true,  council: true  },
     { feature: 'Events calendar & registration',      pro: true,  council: true  },
-    { feature: 'Community Q&A (read & post)',         pro: true,  council: true  },
+    { feature: 'Community Q&A (read only)',           pro: true,  council: true  },
+    { feature: 'Community Q&A (post)',                pro: false, council: true  },
     { feature: 'Monthly newsletter',                  pro: true,  council: true  },
     { feature: 'Vote in AI Risk Awards / Initiatives', pro: true, council: true },
     { feature: 'View frameworks & resources online',  pro: true,  council: true  },
     { feature: 'Downloads',                            pro: 'subtype', council: true  },
-    { feature: 'Upload resources (auto-approved)',    pro: false, council: true  },
+    { feature: 'Upload resources (pending approval)', pro: 'subtype', council: true  },
     { feature: 'Submit AI Product Reviews (pending approval)', pro: false, council: true  },
     { feature: 'Create events (pending approval)',    pro: false, council: true  },
     { feature: 'Create news (pending approval)',      pro: false, council: true  },
@@ -59,16 +61,16 @@ const COMPARISON_ROWS = [
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 const FAQ = [
     {
-        q: 'What is the difference between Professional and Council Member?',
-        a: 'Professional gives you community access - news, events, Q&A, and the ability to view frameworks online. Council Member unlocks downloads, content creation (events, news, workshops), resource uploads, and a 2-year term.',
+        q: 'What is the difference between Professional and Chapter Lead?',
+        a: 'Professional gives you community access - news, events, Q&A, and the ability to view frameworks online. Chapter Lead unlocks downloads, content creation (events, news, workshops), resource uploads, and a 2-year term.',
     },
     {
-        q: 'Can I upgrade from Professional to Council Member?',
-        a: 'Yes. Once approved as a Professional member, you can apply for Council Member from this page. Applications are reviewed by our admin team, usually within 24–48 hours.',
+        q: 'Can I upgrade from Professional to Chapter Lead?',
+        a: 'Yes. Once approved as a Professional member, you can apply for Chapter Lead from this page. Applications are reviewed by our admin team, usually within 24–48 hours.',
     },
     {
-        q: 'What does "pending admin approval" mean for Council Members?',
-        a: 'When a Council Member creates an event, news article, or workshop, it is saved as a draft and reviewed by a Founding Member admin before going public. This ensures content quality and governance standards.',
+        q: 'What does "pending admin approval" mean for Chapter Leads?',
+        a: 'When a Chapter Lead creates an event, news article, or workshop, it is saved as a draft and reviewed by a Founding Member admin before going public. This ensures content quality and governance standards.',
     },
     {
         q: 'Who are Founding Members?',
@@ -99,7 +101,7 @@ const SUB_CATEGORIES = [
 // ─── Membership Page ──────────────────────────────────────────────────────────
 const Membership = () => {
     const navigate = useNavigate();
-    const { user, isLoggedIn } = useAuth();
+    const { user, isLoggedIn, isAuthLoading, refreshUser } = useAuth();
 
     const [showCouncilModal, setShowCouncilModal] = useState(false);
     const [councilForm, setCouncilForm] = useState({
@@ -114,7 +116,37 @@ const Membership = () => {
     const [selectedSubCat,  setSelectedSubCat]  = useState('working_professional');
     const [openFaq, setOpenFaq] = useState(null);
 
+    // Upgrade handler state — must be declared BEFORE any early return (Rules of Hooks)
+    const [upgrading, setUpgrading] = useState(false);
+    const [upgraded,  setUpgraded]  = useState(false);
+
     useEffect(() => { document.title = 'Membership | AI Risk Council'; }, []);
+
+    // Re-fetch fresh user data on mount (fixes stale status after SPA navigation post-login)
+    useEffect(() => {
+        if (!isAuthLoading && isLoggedIn) refreshUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Auth loading guard (placed after ALL hooks) ──────────────────────────────
+    if (isAuthLoading) {
+        return (
+            <div style={{
+                minHeight: '100vh', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', background: '#F8FAFC', fontFamily: 'var(--font-sans)',
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        width: 44, height: 44, border: '3px solid #E2E8F0',
+                        borderTopColor: '#003366', borderRadius: '50%',
+                        animation: 'spin 0.9s linear infinite', margin: '0 auto 1rem',
+                    }} />
+                    <p style={{ color: '#94A3B8', fontSize: '0.875rem', margin: 0 }}>Loading membership…</p>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+            </div>
+        );
+    }
 
     // ── Access state ──────────────────────────────────────────────────────────
     const currentRole = user?.role;
@@ -127,9 +159,9 @@ const Membership = () => {
     const getProfCta = () => {
         if (!isLoggedIn)                                                     return { label: 'Get Started',                    action: () => setShowSubCatModal(true) };
         if (isFounder)                                                       return { label: '✓ Founding Member',              action: null };
-        if (isCouncil && isApproved)                                         return { label: '✓ You are a Council Member',     action: null };
+        if (isCouncil && isApproved)                                         return { label: '✓ You are a Chapter Lead',     action: null };
         if (isCouncil)                                                       return { label: 'Council Application Pending',    action: null };
-        if (currentRole === 'professional' && isApproved && isUndergrad && isPendingUpgrade)
+        if (currentRole === 'professional' && isApproved && isUndergrad && (isPendingUpgrade || upgraded))
                                                                              return { label: '⏳ Upgrade Pending Review',      action: null };
         if (currentRole === 'professional' && isApproved && isUndergrad)     return { label: '↑ Request Upgrade',              action: () => handleUpgradeRequest() };
         if (currentRole === 'professional' && isApproved)                    return { label: '✓ Your current plan',            action: null };
@@ -138,19 +170,17 @@ const Membership = () => {
     };
 
     const getCouncilCta = () => {
-        if (!isLoggedIn)        return { label: 'Apply for Council Member',      action: () => navigate('/login?next=/membership') };
+        if (!isLoggedIn)        return { label: 'Apply for Chapter Lead',      action: () => navigate('/login?next=/membership') };
         if (isFounder)          return { label: '✓ Founding Member',             action: null };
         if (isCouncil && isApproved) return { label: '✓ Your current plan',     action: null };
         if (isCouncil)          return { label: 'Application Under Review',      action: null };
-        return { label: 'Apply for Council Member', action: () => setShowCouncilModal(true) };
+        return { label: 'Apply for Chapter Lead', action: () => setShowCouncilModal(true) };
     };
 
     const profCta    = getProfCta();
     const councilCta = getCouncilCta();
 
     // Upgrade handler for final_year_undergrad → working_professional
-    const [upgrading, setUpgrading]   = useState(false);
-    const [upgraded,  setUpgraded]    = useState(false);
 
     const handleUpgradeRequest = async () => {
         if (upgrading || isPendingUpgrade || upgraded) return;
@@ -172,7 +202,7 @@ const Membership = () => {
         e.preventDefault();
         setCouncilError('');
         if (!councilForm.why_council_member?.trim()) {
-            setCouncilError('Please tell us why you want to become a Council Member.');
+            setCouncilError('Please tell us why you want to become a Chapter Lead.');
             return;
         }
         setCouncilSubmitting(true);
@@ -333,7 +363,7 @@ const Membership = () => {
                             <>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '0.7rem 1.75rem' }}>
                                     <Award size={16} color="#93c5fd" />
-                                    <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'white' }}>✓ Council Member</span>
+                                    <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'white' }}>✓ Chapter Lead</span>
                                 </div>
                                 <button onClick={() => document.getElementById('membership-cards')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                     View Benefits
@@ -511,7 +541,7 @@ const Membership = () => {
                         </div>
                     </div>
 
-                    {/* ─── Council Member ─────────────────────────────────── */}
+                    {/* ─── Chapter Lead ─────────────────────────────────── */}
                     <div className="mem-card featured">
                         {/* Featured strip */}
                         <div style={{
@@ -519,7 +549,7 @@ const Membership = () => {
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                Council Member
+                                Chapter Lead
                             </span>
                             <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)', fontWeight: '600' }}>Application-based</span>
                         </div>
@@ -530,7 +560,7 @@ const Membership = () => {
                                     <Zap size={20} color="#003366" />
                                 </div>
                                 <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>Council Member</h2>
+                                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>Chapter Lead</h2>
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8' }}>2-year membership · Renewable</p>
                                 </div>
                             </div>
@@ -600,7 +630,7 @@ const Membership = () => {
                                 <tr>
                                     <th className="col-feat">Feature</th>
                                     <th className="col-pro">Professional</th>
-                                    <th className="col-coun">Council Member</th>
+                                    <th className="col-coun">Chapter Lead</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -664,7 +694,7 @@ const Membership = () => {
                         </>
                     ) : isCouncil && isApproved ? (
                         <>
-                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Council Member ✓</h2>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>You're a Chapter Lead ✓</h2>
                             <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>You have full access to downloads, content creation, and platform-wide privileges.</p>
                             <button onClick={() => navigate('/user/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer' }}>
                                 Go to Dashboard <ArrowRight size={13} />
@@ -676,7 +706,7 @@ const Membership = () => {
                             <p style={{ margin: '0 auto 1.2rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '460px' }}>
                                 You have full community access. To unlock resource downloads (10/month), request an upgrade to <strong style={{color:'#FCD34D'}}>Working Professional</strong> below.
                             </p>
-                            {isPendingUpgrade ? (
+                            {(isPendingUpgrade || upgraded) ? (
                                 <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:'9px', padding:'0.65rem 1.25rem', fontSize:'0.85rem', color:'white', fontWeight:'700' }}>
                                     ✓ Upgrade request pending admin review (24–48 hrs)
                                 </div>
@@ -685,8 +715,8 @@ const Membership = () => {
                                     <button onClick={() => navigate('/user/dashboard')} style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(255,255,255,0.12)', color:'white', border:'1px solid rgba(255,255,255,0.25)', padding:'0.72rem 1.5rem', borderRadius:'8px', fontWeight:'600', fontSize:'0.875rem', cursor:'pointer' }}>
                                         My Dashboard
                                     </button>
-                                    <button onClick={() => navigate('/user/profile?tab=stats')} style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'#FCD34D', color:'#1E293B', padding:'0.72rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.875rem', border:'none', cursor:'pointer' }}>
-                                        Request Upgrade on Profile <ArrowRight size={13}/>
+                                    <button onClick={handleUpgradeRequest} disabled={upgrading} style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:'#FCD34D', color:'#1E293B', padding:'0.72rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.875rem', border:'none', cursor: upgrading ? 'not-allowed' : 'pointer', opacity: upgrading ? 0.7 : 1 }}>
+                                        {upgrading ? '⏳ Submitting…' : <>Request Upgrade <ArrowRight size={13}/></>}
                                     </button>
                                 </div>
                             )}
@@ -694,13 +724,13 @@ const Membership = () => {
                     ) : currentRole === 'professional' && isApproved ? (
                         <>
                             <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>💼 You're a Working Professional ✓</h2>
-                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>You have download access (10 resources/month). Apply for Council Member to unlock content creation and more.</p>
+                            <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>You have download access (10 resources/month). Apply for Chapter Lead to unlock content creation and more.</p>
                             <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                                 <button onClick={() => navigate('/user/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.25)', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer' }}>
                                     My Dashboard
                                 </button>
                                 <button onClick={() => setShowCouncilModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer' }}>
-                                    Apply for Council Member <ArrowRight size={13} />
+                                    Apply for Chapter Lead <ArrowRight size={13} />
                                 </button>
                             </div>
                         </>
@@ -712,7 +742,7 @@ const Membership = () => {
                     ) : isCouncil ? (
                         <>
                             <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Council Application Under Review</h2>
-                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65' }}>Your Council Member application is being reviewed. You'll hear back within 24–48 hours.</p>
+                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: '1.65' }}>Your Chapter Lead application is being reviewed. You'll hear back within 24–48 hours.</p>
                         </>
                     ) : (
                         <>
@@ -802,7 +832,7 @@ const Membership = () => {
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                                     <Zap size={16} color="#60A5FA" />
-                                    <h3 style={{ margin: 0, color: 'white', fontSize: '1rem', fontWeight: '800' }}>Apply for Council Member</h3>
+                                    <h3 style={{ margin: 0, color: 'white', fontSize: '1rem', fontWeight: '800' }}>Apply for Chapter Lead</h3>
                                 </div>
                                 <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>
                                     Reviewed by our admin team - typically within 24–48 hours.
@@ -881,7 +911,7 @@ const Membership = () => {
                                     </div>
 
                                     <div>
-                                        <label style={lStyle}>Why do you want to be a Council Member? <span style={{ color: '#EF4444' }}>*</span></label>
+                                        <label style={lStyle}>Why do you want to be a Chapter Lead? <span style={{ color: '#EF4444' }}>*</span></label>
                                         <textarea rows={3} style={{ ...iStyle, resize: 'vertical' }}
                                             placeholder="Your interest in AI governance and how you plan to contribute..."
                                             value={councilForm.why_council_member}

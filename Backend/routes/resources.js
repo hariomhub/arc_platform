@@ -43,7 +43,7 @@ const resourceValidation = [
     body('description').optional().trim(),
     body('abstract').optional().trim(),
     body('demo_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Demo URL must be valid.'),
-    body('type').notEmpty().isIn(['framework','whitepaper','product','video','article','tool','news','homepage_video','lab_result']).withMessage('Invalid type.'),
+    body('type').notEmpty().isIn(['framework','whitepaper','product','tech_reels','article','tool','news','homepage_video','lab_result']).withMessage('Invalid type.'),
 ];
 
 const reviewValidation = [
@@ -59,14 +59,14 @@ router.get('/my-download-usage',  auth, resourcesController.getMyDownloadUsage);
 // ── Public / optionalAuth resource routes ────────────────────────────────────
 router.get('/',       optionalAuth, resourcesController.getResources);
 router.get('/:id',    optionalAuth, resourcesController.getResourceById);
-router.get('/:id/stream', resourcesController.getStreamUrl);
+router.get('/:id/stream', optionalAuth, resourcesController.getStreamUrl);
 
 // ── Download — auth required; controller enforces role ──────────────────────
 router.get('/:id/download', auth, resourcesController.downloadResource);
 
 // ── Create / Update / Delete resources ──────────────────────────────────────
-router.post('/',    auth, upload.single('file'), resourceValidation, validate, resourcesController.createResource);
-router.put('/:id',  auth, requireRole('founding_member'), upload.single('file'), resourceValidation, validate, resourcesController.updateResource);
+router.post('/',    auth, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), resourceValidation, validate, resourcesController.createResource);
+router.put('/:id',  auth, requireRole('founding_member'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), resourceValidation, validate, resourcesController.updateResource);
 router.delete('/:id', auth, resourcesController.deleteResource);
 
 // ── Admin approval ───────────────────────────────────────────────────────────

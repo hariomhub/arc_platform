@@ -42,7 +42,7 @@ const TABS = [
 ];
 
 const ROLE_OPTIONS = ['founding_member', 'council_member', 'professional'];
-const ROLE_LABELS  = { founding_member: 'Founding Member', council_member: 'Council Member', professional: 'Professional' };
+const ROLE_LABELS  = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
 const ROLE_COLORS  = { founding_member: '#7C3AED', council_member: '#0284C7', professional: '#059669' };
 const EVENT_CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast', 'conference'];
 const CATCOLORS = { webinar: '#0284C7', seminar: '#059669', workshop: '#7C3AED', podcast: '#DC2626', conference: '#D97706' };
@@ -161,6 +161,7 @@ const PendingTab = ({ showToast, onApproved }) => {
     const [userFilter, setUserFilter] = useState('pending');
     const [userPage, setUserPage] = useState(1);
     const [userTotalPages, setUserTotalPages] = useState(1);
+    const [viewUser, setViewUser] = useState(null);
 
     const [appPage, setAppPage] = useState(1);
     const [appTotalPages, setAppTotalPages] = useState(1);
@@ -173,6 +174,9 @@ const PendingTab = ({ showToast, onApproved }) => {
     const [subFilter, setSubFilter]                   = useState('pending');
     const [subPage, setSubPage]                       = useState(1);
     const [subTotalPages, setSubTotalPages]           = useState(1);
+
+    const [badgeModal, setBadgeModal]                 = useState(null);
+    const [badgeText, setBadgeText]                   = useState('');
 
     const fetch = useCallback(async () => {
         setLoading(true); setError('');
@@ -209,14 +213,9 @@ const PendingTab = ({ showToast, onApproved }) => {
     useEffect(() => { loadApps(); }, [loadApps]);
     useEffect(() => { loadSubUpgrades(); }, [loadSubUpgrades]);
 
-    const handleSubApprove = async (userId, name) => {
-        setSubActioning(p => ({ ...p, [userId]: 'approving' }));
-        try {
-            await approveSubTypeUpgrade(userId);
-            setSubUpgrades(prev => prev.filter(u => u.id !== userId));
-            showToast(`${name} upgraded to Working Professional!`, 'success');
-        } catch (err) { showToast(getErrorMessage(err), 'error'); }
-        finally { setSubActioning(p => ({ ...p, [userId]: null })); }
+    const handleSubApprove = (userId, name) => {
+        setBadgeModal({ type: 'subtype', id: userId, name });
+        setBadgeText('');
     };
 
     const handleSubReject = async (userId, name) => {
@@ -229,15 +228,9 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setSubActioning(p => ({ ...p, [userId]: null })); }
     };
 
-    const handleApprove = async (userId) => {
-        setActioning((p) => ({ ...p, [userId]: 'approve' }));
-        try {
-            await approveUser(userId);
-            setUsers((prev) => prev.filter((u) => u.id !== userId));
-            showToast('User approved!', 'success');
-            onApproved?.();
-        } catch (err) { showToast(getErrorMessage(err), 'error'); }
-        finally { setActioning((p) => ({ ...p, [userId]: null })); }
+    const handleApprove = (userId, name) => {
+        setBadgeModal({ type: 'user', id: userId, name: name || 'User' });
+        setBadgeText('');
     };
 
     const confirmReject = async () => {
@@ -251,14 +244,43 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setActioning((p) => ({ ...p, [userId]: null })); }
     };
 
-    const handleAppApprove = async (id, name) => {
-        setAppActioning(prev => ({ ...prev, [id]: 'approving' }));
-        try {
-            await approveMembershipApplication(id);
-            showToast(`${name} approved!`, 'success');
-            loadApps();
-        } catch (err) { showToast(getErrorMessage(err) || 'Failed to approve.', 'error'); }
-        finally { setAppActioning(prev => ({ ...prev, [id]: null })); }
+    const handleAppApprove = (id, name) => {
+        setBadgeModal({ type: 'council', id, name });
+        setBadgeText('');
+    };
+
+    const confirmBadgeApprove = async () => {
+        if (!badgeModal) return;
+        const { type, id, name } = badgeModal;
+        const data = { profile_badge: badgeText.trim() || null };
+        setBadgeModal(null);
+
+        if (type === 'subtype') {
+            setSubActioning(p => ({ ...p, [id]: 'approving' }));
+            try {
+                await approveSubTypeUpgrade(id, data);
+                setSubUpgrades(prev => prev.filter(u => u.id !== id));
+                showToast(`${name} upgraded to Working Professional!`, 'success');
+            } catch (err) { showToast(getErrorMessage(err), 'error'); }
+            finally { setSubActioning(p => ({ ...p, [id]: null })); }
+        } else if (type === 'user') {
+            setActioning((p) => ({ ...p, [id]: 'approve' }));
+            try {
+                await approveUser(id, data);
+                setUsers((prev) => prev.filter((u) => u.id !== id));
+                showToast(`${name} approved!`, 'success');
+                onApproved?.();
+            } catch (err) { showToast(getErrorMessage(err), 'error'); }
+            finally { setActioning((p) => ({ ...p, [id]: null })); }
+        } else if (type === 'council') {
+            setAppActioning(prev => ({ ...prev, [id]: 'approving' }));
+            try {
+                await approveMembershipApplication(id, data);
+                showToast(`${name} approved!`, 'success');
+                loadApps();
+            } catch (err) { showToast(getErrorMessage(err) || 'Failed to approve.', 'error'); }
+            finally { setAppActioning(prev => ({ ...prev, [id]: null })); }
+        }
     };
 
     const handleAppReject = async () => {
@@ -322,9 +344,12 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px', alignSelf: 'flex-start', marginTop: '2px' }}>Registered: {formatDate(u.created_at)}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                                <button onClick={() => setViewUser(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background='#f0f4f8'} onMouseOut={e => e.currentTarget.style.background='white'}>
+                                    <Eye size={14} /> View Details
+                                </button>
                                 {u.status === 'pending' && (
                                     <>
-                                        <button onClick={() => handleApprove(u.id)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
+                                        <button onClick={() => handleApprove(u.id, u.name)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
                                             {actioning[u.id] === 'approve' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />} Approve
                                         </button>
                                         <button onClick={() => setConfirm({ userId: u.id })} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#DC2626', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
@@ -345,6 +370,62 @@ const PendingTab = ({ showToast, onApproved }) => {
             )}
             <ConfirmDialog isOpen={!!confirm} title="Reject Application" message="Are you sure you want to reject this application?" confirmLabel="Reject" onConfirm={confirmReject} onClose={() => setConfirm(null)} />
 
+            {viewUser && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>Registration Details</h3>
+                            <button onClick={() => setViewUser(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Full Name</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.name}</p></div>
+                            <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Email Address</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.email}</p></div>
+                            <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Role Requested</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500', textTransform: 'capitalize' }}>{(viewUser.role || '').replace('_', ' ')}</p></div>
+                            {viewUser.professional_sub_type && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Professional Type</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.professional_sub_type === 'working_professional' ? 'Working Professional' : 'Final Year Undergraduate'}</p></div>}
+                            {viewUser.organization_name && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Organisation Name</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.organization_name}</p></div>}
+                            {viewUser.linkedin_url && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>LinkedIn Profile</p><a href={viewUser.linkedin_url} target="_blank" rel="noreferrer" style={{ margin: 0, fontSize: '0.95rem', color: '#2563EB', fontWeight: '500', textDecoration: 'none' }}>{viewUser.linkedin_url}</a></div>}
+                        </div>
+                        <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setViewUser(null)} style={{ padding: '0.6rem 1.2rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {badgeModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>Assign Profile Badge</h3>
+                            <button onClick={() => setBadgeModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '1.5rem' }}>
+                            <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>
+                                You are approving <strong>{badgeModal.name}</strong>. Optionally, enter a profile badge (e.g., "Microsoft Lead") to display next to their name in the community feed.
+                            </p>
+                            <input 
+                                type="text"
+                                className="adm-input"
+                                placeholder="e.g. Microsoft Lead"
+                                value={badgeText}
+                                onChange={(e) => setBadgeText(e.target.value)}
+                                maxLength={60}
+                                style={{ marginBottom: '0.5rem' }}
+                            />
+                            <div style={{ fontSize: '0.75rem', color: badgeText.length >= 60 ? '#EF4444' : '#94A3B8', textAlign: 'right' }}>
+                                {badgeText.length}/60
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: '#F8FAFC' }}>
+                            <button onClick={() => setBadgeModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+                            <button onClick={confirmBadgeApprove} style={{ padding: '0.5rem 1rem', background: '#16A34A', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Check size={14} /> Approve
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Membership Upgrade Applications */}
             <div style={{ marginTop: '2.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -354,7 +435,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                         </div>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>Membership Upgrade Applications</h3>
-                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Council Member &amp; Founding Member requests</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Chapter Lead &amp; Founding Member requests</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -386,7 +467,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                         <div style={{ flex: 1, minWidth: '180px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '4px' }}>
                                                 <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{displayName}</span>
-                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{a.requested_role === 'founding_member' ? 'Founding Member' : 'Council Member'}</span>
+                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{a.requested_role === 'founding_member' ? 'Founding Member' : 'Chapter Lead'}</span>
                                                 <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{a.status}</span>
                                             </div>
                                             <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
@@ -498,9 +579,10 @@ const PendingTab = ({ showToast, onApproved }) => {
                                         <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#F0FDF4', color: '#15803D' }}>→ Working Professional</span>
                                         <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{u.sub_type_upgrade_status || 'pending'}</span>
                                     </div>
-                                    <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                         <Mail size={11} /> {u.email}
                                         {u.organization_name && <><span style={{ margin: '0 4px' }}>·</span><Building size={11} /> {u.organization_name}</>}
+                                        {u.linkedin_url && <><span style={{ margin: '0 4px' }}>·</span><a href={u.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }}><Globe size={11} /> LinkedIn</a></>}
                                     </span>
                                     <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Requested: {formatDate(u.created_at)}</span>
                                 </div>
@@ -619,9 +701,17 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
                                 <span style={PILL(ROLE_COLORS[r.uploader_role] || '#64748B', `${ROLE_COLORS[r.uploader_role] || '#64748B'}18`)}>{ROLE_LABELS[r.uploader_role] || r.uploader_role || 'Member'}</span>
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px' }}>Submitted: {formatDate(r.created_at)}</span>
                             </div>
+                            <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                <Mail size={11} /> {r.uploader_email}
+                                {r.uploader_org && <><span style={{ margin: '0 4px' }}>·</span><Building size={11} /> {r.uploader_org}</>}
+                                {r.uploader_linkedin && <><span style={{ margin: '0 4px' }}>·</span><a href={r.uploader_linkedin} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }}><Globe size={11} /> LinkedIn</a></>}
+                            </span>
                             {r.description && <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', maxWidth: '480px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</p>}
                         </div>
                         <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                            <a href={`/resources/${r.id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', textDecoration: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background='#f0f4f8'} onMouseOut={e => e.currentTarget.style.background='white'}>
+                                <Eye size={14} /> View
+                            </a>
                             <button onClick={() => handleApprove(r.id)} disabled={!!actioning[r.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[r.id] ? 0.6 : 1 }}>
                                 {actioning[r.id] === 'approve' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />} Approve
                             </button>
@@ -1773,7 +1863,7 @@ const WorkshopsTab = ({ showToast }) => {
             <SectionHeader
                 icon={BookOpen}
                 title="Executive Workshops"
-                subtitle="Council Members create workshops pending admin review. Founding Member publishes."
+                subtitle="Chapter Leads create workshops pending admin review. Founding Member publishes."
                 action={
                     <button onClick={openCreate} style={{ ...BTN_PRIMARY, gap: '6px' }}>
                         <Plus size={14} /> Add Workshop
@@ -1817,7 +1907,7 @@ const WorkshopsTab = ({ showToast }) => {
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                             <input type="checkbox" checked={form.is_published} onChange={e => setForm(p => ({ ...p, is_published: e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
-                            Published (visible to Council Members and above)
+                            Published (visible to Chapter Leads and above)
                         </label>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9' }}>
@@ -1965,7 +2055,7 @@ const AdminDashboard = () => {
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
                             <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Logged in as</span>
                             <span style={{ fontSize: '0.78rem', color: '#F1F5F9', fontWeight: '600' }}>{user.name}</span>
-                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : 'Council Member'}</span>
+                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : 'Chapter Lead'}</span>
                         </div>
                     </div>
 

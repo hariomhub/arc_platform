@@ -30,8 +30,8 @@ import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
 const ROLE_LABELS = {
     founding_member: 'Founding Member',
-    council_member:  'Council Member',
-    executive:       'Council Member',   // legacy safety
+    council_member:  'Chapter Lead',
+    executive:       'Chapter Lead',   // legacy safety
     professional:    'Professional',
 };
 const ROLE_COLORS = {
@@ -93,12 +93,12 @@ const SaveBtn = ({ loading, label = 'Save Changes', loadingLabel = 'Saving…', 
 
 // ─── Profile Info ─────────────────────────────────────────────────────────────
 const ProfileInfoSection = ({ user, showToast }) => {
-    const [form, setForm]     = useState({ name: user?.name || '', organisation: user?.organisation || '' });
+    const [form, setForm]     = useState({ name: user?.name || '', organization_name: user?.organization_name || '' });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [saved, setSaved]   = useState(false);
 
-    useEffect(() => { setForm({ name: user?.name || '', organisation: user?.organisation || '' }); }, [user]);
+    useEffect(() => { setForm({ name: user?.name || '', organization_name: user?.organization_name || '' }); }, [user]);
 
     const validate = () => {
         const e = {};
@@ -137,8 +137,8 @@ const ProfileInfoSection = ({ user, showToast }) => {
                     </div>
                 </Field>
                 <Field label="Organisation">
-                    <input value={form.organisation}
-                        onChange={e => setForm(p => ({ ...p, organisation: e.target.value }))}
+                    <input value={form.organization_name}
+                        onChange={e => setForm(p => ({ ...p, organization_name: e.target.value }))}
                         style={inputStyle(false)} placeholder="Your company or organisation"
                         onFocus={e => { e.target.style.borderColor = '#003366'; }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
@@ -297,6 +297,7 @@ const MyUploadsSection = ({ showToast, navigate }) => {
                                         <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8' }}>
                                             {formatDate(r.created_at)}
                                             {r.type && <> · <span style={{ color: typeColor, fontWeight: '600', textTransform: 'uppercase', fontSize: '0.68rem' }}>{r.type}</span></>}
+                                            {r.status && <> · <span style={{ color: r.status === 'approved' ? '#059669' : r.status === 'pending' ? '#D97706' : '#DC2626', fontWeight: '600', textTransform: 'uppercase', fontSize: '0.68rem' }}>{r.status}</span></>}
                                         </p>
                                     </div>
                                 </div>

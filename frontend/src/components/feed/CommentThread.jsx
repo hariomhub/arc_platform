@@ -25,7 +25,7 @@ import { timeAgo } from '../../utils/dateFormatter.js';
 
 const ROLE_META = {
     founding_member: { label: 'Founding Member', color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' },
-    council_member:  { label: 'Council Member',  color: '#003366', bg: 'rgba(0,51,102,0.09)'  },
+    council_member:  { label: 'Chapter Lead',  color: '#003366', bg: 'rgba(0,51,102,0.09)'  },
     professional:    { label: 'Professional',    color: '#0369A1', bg: 'rgba(3,105,161,0.09)'  },
 };
 
@@ -178,6 +178,11 @@ const CommentRow = ({ comment, postId, depth = 0, onCommentAdded, onCommentDelet
                         <span style={{ fontSize: '0.62rem', fontWeight: '700', padding: '1px 7px', borderRadius: '100px', background: roleMeta.bg, color: roleMeta.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {roleMeta.label}
                         </span>
+                        {comment.author_badge && (
+                            <span style={{ fontSize: '0.62rem', fontWeight: '700', padding: '1px 7px', borderRadius: '100px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                                {comment.author_badge}
+                            </span>
+                        )}
                         <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginLeft: 'auto' }}>{timeAgo(comment.created_at)}</span>
                         {!!comment.is_edited && <span style={{ fontSize: '0.65rem', color: '#cbd5e1', fontStyle: 'italic' }}>edited</span>}
                     </div>

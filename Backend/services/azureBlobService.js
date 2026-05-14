@@ -162,9 +162,10 @@ export const deleteFromBlob = async (blobUrl) => {
  * Generate a short-lived SAS URL for a private blob (RBAC resource downloads).
  * @param {string} blobUrl
  * @param {number} [expiryHours]
+ * @param {boolean} [inline] If true, adds contentDisposition: 'inline' to view in browser instead of download
  * @returns {string} SAS URL
  */
-export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS) => {
+export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = false) => {
     if (!blobUrl || !blobUrl.startsWith('https://')) return blobUrl;
     const parsed = parseBlobUrl(blobUrl);
     if (!parsed) return blobUrl;
@@ -178,14 +179,19 @@ export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS) => {
     const startsOn = new Date();
     const expiresOn = new Date(startsOn.getTime() + expiryHours * 60 * 60 * 1000);
 
+    const sasOptions = {
+        containerName: parsed.containerName,
+        blobName: parsed.blobName,
+        permissions: BlobSASPermissions.parse('r'),
+        startsOn,
+        expiresOn,
+    };
+    if (inline) {
+        sasOptions.contentDisposition = 'inline';
+    }
+
     const sasQuery = generateBlobSASQueryParameters(
-        {
-            containerName: parsed.containerName,
-            blobName: parsed.blobName,
-            permissions: BlobSASPermissions.parse('r'),
-            startsOn,
-            expiresOn,
-        },
+        sasOptions,
         cred
     );
 

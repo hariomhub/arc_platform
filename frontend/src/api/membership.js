@@ -1,6 +1,6 @@
 import api from './axios.js';
 
-// Primary: Council Member application
+// Primary: Chapter Lead application
 export const applyCouncil  = (data) => api.post('/membership/apply/council', data);
 
 // Legacy alias — kept for any existing code that still calls applyExecutive

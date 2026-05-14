@@ -145,8 +145,14 @@ const Register = () => {
         if (!form.password) e.password = 'Password is required.';
         else if (form.password.length < 8) e.password = 'Password must be at least 8 characters.';
         if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.';
-        if (showOrgField && !form.organization_name.trim()) e.organization_name = 'Organisation name is required.';
-        if (form.role === 'professional' && subCatSelected) {
+        
+        if (!form.organization_name.trim()) e.organization_name = 'Organisation / University name is required.';
+        
+        if (form.role === 'professional') {
+            if (!form.professional_sub_type) {
+                e.professional_sub_type = 'Please select a professional type.';
+                // Will show as a general form error or we can just rely on the UI highlighting
+            }
             if (!form.linkedin_url.trim()) e.linkedin_url = 'LinkedIn profile URL is required.';
             else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(form.linkedin_url.trim())) e.linkedin_url = 'Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).';
         }
@@ -164,9 +170,9 @@ const Register = () => {
                 email: form.email.trim().toLowerCase(),
                 password: form.password,
                 role: form.role,
-                organization_name: showOrgField ? form.organization_name.trim() : undefined,
+                organization_name: form.organization_name.trim(),
                 professional_sub_type: form.role === 'professional' ? form.professional_sub_type : undefined,
-                linkedin_url: form.role === 'professional' && form.linkedin_url.trim() ? form.linkedin_url.trim() : undefined,
+                linkedin_url: form.role === 'professional' ? form.linkedin_url.trim() : undefined,
             });
             setSuccess(true);
         } catch (err) { setServerError(getErrorMessage(err)); }
@@ -319,7 +325,7 @@ const Register = () => {
                             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the AI Risk Council</h2>
                             <p style={{ margin: '0 0 2rem', fontSize: '0.86rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
                                 Join as a <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Professional</strong> for community access, or apply for{' '}
-                                <strong style={{ color: '#93C5FD' }}>Council Member</strong> for premium platform benefits.
+                                <strong style={{ color: '#93C5FD' }}>Chapter Lead</strong> for premium platform benefits.
                             </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                 {PERKS.map(({ icon: Icon, text }) => (
@@ -335,7 +341,7 @@ const Register = () => {
                             </div>
                             <div style={{ marginTop: '1.75rem', padding: '0.9rem 1rem', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.42)', lineHeight: 1.65 }}>
-                                    ✅&nbsp; Free to join as Professional. No credit card required.<br />🏛️&nbsp; Apply for Council Member once registered.<br />🔒&nbsp; Enterprise-grade security & privacy.
+                                    ✅&nbsp; Free to join as Professional. No credit card required.<br />🏛️&nbsp; Apply for Chapter Lead once registered.<br />🔒&nbsp; Enterprise-grade security & privacy.
                                 </p>
                             </div>
                         </div>
@@ -463,6 +469,7 @@ const Register = () => {
                                                 onClick={() => {
                                                     setForm(p => ({ ...p, professional_sub_type: opt.value }));
                                                     setSubCatSelected(true);
+                                                    setFieldErrors(p => ({ ...p, professional_sub_type: '' }));
                                                 }}
                                                 style={{
                                                     padding: '0.5rem 1rem',
@@ -481,11 +488,11 @@ const Register = () => {
                                             </button>
                                         ))}
                                     </div>
+                                    {fieldErrors.professional_sub_type && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', color: '#DC2626', marginTop: '0.4rem' }}><AlertCircle size={11} />{fieldErrors.professional_sub_type}</span>}
                                 </div>
                             )}
 
-                            {/* ── LinkedIn URL — shown only after sub-category is selected ── */}
-                            {form.role === 'professional' && subCatSelected && (
+                            {form.role === 'professional' && (
                                 <Field id="ra-linkedin" label="LinkedIn Profile URL" required hint="Required for admin verification" error={fieldErrors.linkedin_url}>
                                     <input
                                         id="ra-linkedin"
@@ -504,12 +511,10 @@ const Register = () => {
                                 </Field>
                             )}
 
-                            {showOrgField && (
-                                <Field id="ra-org" label="Organisation Name" required error={fieldErrors.organization_name}>
-                                    <input id="ra-org" type="text" name="organization_name" value={form.organization_name} onChange={handleChange} placeholder="e.g. Acme AI Corp" disabled={submitting}
-                                        className={`ra-input${fieldErrors.organization_name ? ' ra-input-err' : ''}`} style={inputStyle(fieldErrors.organization_name, submitting)} />
-                                </Field>
-                            )}
+                            <Field id="ra-org" label="Organisation / University Name" required error={fieldErrors.organization_name}>
+                                <input id="ra-org" type="text" name="organization_name" value={form.organization_name} onChange={handleChange} placeholder="e.g. Acme AI Corp or Stanford University" disabled={submitting}
+                                    className={`ra-input${fieldErrors.organization_name ? ' ra-input-err' : ''}`} style={inputStyle(fieldErrors.organization_name, submitting)} />
+                            </Field>
 
                             <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8', lineHeight: 1.6 }}>
                                 By creating an account you agree to our{' '}

@@ -199,7 +199,7 @@ export default function PrivacyPolicy() {
               <Row label="Opt-out" value="Unsubscribe from non-essential communications via notification settings or email unsubscribe links." />
               <Row label="Restriction" value="Request restriction of data processing in certain circumstances." />
               <Callout type="warning">
-                <strong>Post Retention Policy:</strong> If you hold or have held the role of Council Member or Founding Member, your posts are part of the Platform's knowledge base. Upon account deletion, posts are NOT removed — your name is replaced with <em>"Former Council Member"</em> to preserve community integrity.
+                <strong>Post Retention Policy:</strong> If you hold or have held the role of Chapter Lead or Founding Member, your posts are part of the Platform's knowledge base. Upon account deletion, posts are NOT removed — your name is replaced with <em>"Former Chapter Lead"</em> to preserve community integrity.
               </Callout>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0' }}>
                 Contact us at <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.com</a> or visit the <Link to="/delete-account" style={{ color: 'var(--accent)', fontWeight: 600 }}>Account Deletion page</Link> to exercise these rights.

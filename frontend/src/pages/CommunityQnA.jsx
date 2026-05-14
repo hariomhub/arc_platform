@@ -71,7 +71,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                 </div>
                 <div style={{ background: 'white', padding: '10px 14px' }}>
                     {[
-                        { dot: '#003366', text: 'Council Members can post' },
+                        { dot: '#003366', text: 'Chapter Leads can post' },
                         { dot: '#057642', text: 'All members can engage' },
                         { dot: '#f59e0b', text: 'Ranked by engagement' },
                     ].map(({ dot, text }) => (
@@ -113,7 +113,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                     <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: 'rgba(245,158,11,0.1)' }} />
                     <p style={{ margin: '0 0 4px', fontSize: '0.84rem', fontWeight: '800', color: 'white', position: 'relative', zIndex: 1 }}>Want to post?</p>
                     <p style={{ margin: '0 0 10px', fontSize: '0.74rem', color: 'rgba(147,197,253,0.85)', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                        Council Members share knowledge and build their professional presence.
+                        Chapter Leads share knowledge and build their professional presence.
                     </p>
                     <a href="/membership"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f59e0b', color: '#1e293b', padding: '6px 12px', borderRadius: 7, fontWeight: '800', fontSize: '0.76rem', textDecoration: 'none', position: 'relative', zIndex: 1 }}
@@ -378,7 +378,7 @@ const CommunityQnA = () => {
                                     {tagFilter || searchInput ? 'No matching posts' : 'The feed is empty'}
                                 </p>
                                 <p style={{ margin:0, fontSize:'0.8rem', color:'#64748b' }}>
-                                    {tagFilter || searchInput ? 'Try a different filter.' : 'Be the first Council Member to share something.'}
+                                    {tagFilter || searchInput ? 'Try a different filter.' : 'Be the first Chapter Lead to share something.'}
                                 </p>
                             </div>
                         ) : (

@@ -72,7 +72,8 @@ const ROLE_LABELS = {
   paid_member:   'Professional Member',
   university:   'University Researcher',
   product_company: 'Product Company',
-  executive:    'Executive',
+  executive:    'Chapter Lead',
+  council_member: 'Chapter Lead',
   admin:      'Administrator',
 };
 
@@ -321,7 +322,7 @@ export const sendWelcomeEmail = ({ name, email, role, organizationName }) => {
  *
  * @param {{ name: string, email: string, role: string }} opts
  */
-export const sendAccountApprovedEmail = ({ name, email, role }) => {
+export const sendAccountApprovedEmail = ({ name, email, role, profile_badge }) => {
   const roleLabel = ROLE_LABELS[role] || 'Member';
   const firstName = name.split(' ')[0];
 
@@ -341,6 +342,7 @@ export const sendAccountApprovedEmail = ({ name, email, role }) => {
        <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;">
         Your <strong>${roleLabel}</strong> membership is now fully active. Sign in to explore everything the council has to offer.
        </p>
+       ${profile_badge ? `<p style="margin:8px 0 0;font-size:13px;color:#166534;line-height:1.6;"><strong>Assigned Tag:</strong> ${badge(profile_badge, '#15803d', 'rgba(21,128,61,0.1)')}</p>` : ''}
       </td>
      </tr>
     </table>
@@ -463,7 +465,8 @@ export const sendEventRegistrationEmail = ({ name, email, organization, event, r
 // ─── Membership role labels (current 3-tier system) ───────────────────────────
 const MEMBERSHIP_ROLE_LABELS = {
   professional:  'Professional',
-  executive:   'Executive',
+  executive:   'Chapter Lead',
+  council_member: 'Chapter Lead',
   founding_member: 'Founding Member',
 };
 
@@ -773,9 +776,9 @@ export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedR
  *
  * @param {{ name: string, email: string, requestedRole: 'executive'|'founding_member', status: 'approved'|'rejected', adminNotes?: string }} opts
  */
-export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRole, status, adminNotes }) => {
+export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRole, status, adminNotes, profile_badge }) => {
   const firstName = (name || 'Member').split(' ')[0];
-  const roleLabel = requestedRole === 'founding_member' ? 'Founding Member' : 'Executive';
+  const roleLabel = requestedRole === 'founding_member' ? 'Founding Member' : 'Chapter Lead';
   const isApproved = status === 'approved';
 
   const bannerHtml = isApproved
@@ -788,6 +791,7 @@ export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRol
          Congratulations — your <strong>${roleLabel}</strong> membership is now active.
          Sign in to access all your new member benefits.
         </p>
+        ${profile_badge ? `<p style="margin:8px 0 0;font-size:13px;color:#166534;line-height:1.6;"><strong>Assigned Tag:</strong> ${badge(profile_badge, '#15803d', 'rgba(21,128,61,0.1)')}</p>` : ''}
        </td>
       </tr>
      </table>`

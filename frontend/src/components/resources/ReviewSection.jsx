@@ -20,7 +20,7 @@ import StarRating from './StarRating.jsx';
 
 const ROLE_META = {
     founding_member: { label: 'Founder',        color: '#7c3aed', bg: '#f5f3ff' },
-    council_member:  { label: 'Council Member', color: '#0369a1', bg: '#eff6ff' },
+    council_member:  { label: 'Chapter Lead', color: '#0369a1', bg: '#eff6ff' },
     professional:    { label: 'Professional',   color: '#057642', bg: '#f0fdf4' },
 };
 

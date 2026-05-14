@@ -39,7 +39,7 @@ export const getReviews = async (req, res, next) => {
 
         // Verify resource exists
         const [[resource]] = await pool.query(
-            "SELECT id FROM resources WHERE id = ? AND status = 'approved'",
+            "SELECT id FROM resources WHERE id = ?",
             [resourceId]
         );
         if (!resource) {
@@ -141,7 +141,7 @@ export const createReview = async (req, res, next) => {
             [resourceId]
         );
         if (!resource) {
-            return res.status(404).json({ success: false, message: 'Resource not found.' });
+            return res.status(404).json({ success: false, message: 'Resource not found or not approved.' });
         }
 
         // One review per user per resource

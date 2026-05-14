@@ -17,7 +17,7 @@ import MediaViewer from './MediaViewer.jsx';
 
 const ROLE_META = {
     founding_member: { label: 'Founder',        color: '#7C3AED', bg: '#f5f3ff', border: '#ddd6fe' },
-    council_member:  { label: 'Council Member', color: '#0369a1', bg: '#eff6ff', border: '#bfdbfe' },
+    council_member:  { label: 'Chapter Lead', color: '#0369a1', bg: '#eff6ff', border: '#bfdbfe' },
     professional:    { label: 'Professional',   color: '#057642', bg: '#f0fdf4', border: '#bbf7d0' },
 };
 
@@ -384,6 +384,11 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                             <span style={{ fontSize: '0.64rem', fontWeight: '700', padding: '2px 6px', borderRadius: 4, background: rm.bg, color: rm.color, border: `1px solid ${rm.border}` }}>
                                 {rm.label}
                             </span>
+                            {post.author_badge && (
+                                <span style={{ fontSize: '0.64rem', fontWeight: '700', padding: '2px 6px', borderRadius: 4, background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                                    {post.author_badge}
+                                </span>
+                            )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, flexWrap: 'wrap' }}>
                             {post.author_org && (

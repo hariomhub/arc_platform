@@ -17,13 +17,12 @@ const paginate = (query, total) => {
 export const getRecentVideos = async (req, res, next) => {
     try {
         const sql = `
-            SELECT r.id, r.title, r.description, r.file_url, r.created_at, u.name AS uploader_name
+            SELECT r.id, r.title, r.description, r.file_url, r.thumbnail_url, r.created_at, u.name AS uploader_name
             FROM resources r
             LEFT JOIN users u ON r.uploader_id = u.id
             WHERE r.status = 'approved' AND r.file_url IS NOT NULL
-              AND (r.file_url LIKE '%.mp4' OR r.file_url LIKE '%.webm' OR r.file_url LIKE '%.mov' OR r.file_url LIKE '%.avi' OR r.file_url LIKE '%.ogg')
+              AND r.type = 'homepage_video'
             ORDER BY r.created_at DESC
-            LIMIT 3
         `;
         const [rows] = await pool.query(sql);
 
@@ -58,14 +57,8 @@ export const getResources = async (req, res, next) => {
         const params = [];
 
         if (!isAdmin) {
-            if (req.user) {
-                countSql += " AND (r.status = 'approved' OR r.uploader_id = ?)";
-                dataSql  += " AND (r.status = 'approved' OR r.uploader_id = ?)";
-                params.push(req.user.id);
-            } else {
-                countSql += " AND r.status = 'approved'";
-                dataSql  += " AND r.status = 'approved'";
-            }
+            countSql += " AND r.status = 'approved'";
+            dataSql  += " AND r.status = 'approved'";
         }
 
         if (type) {
@@ -258,7 +251,7 @@ export const getMyDownloadUsage = async (req, res, next) => {
 export const getStreamUrl = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
-            "SELECT file_url, status FROM resources WHERE id = ?",
+            "SELECT file_url, status, uploader_id FROM resources WHERE id = ?",
             [req.params.id]
         );
         if (rows.length === 0) {
@@ -266,14 +259,16 @@ export const getStreamUrl = async (req, res, next) => {
         }
 
         const resource = rows[0];
-        if (resource.status !== 'approved') {
+        const isOwnerOrAdmin = req.user && (req.user.role === 'founding_member' || req.user.id === resource.uploader_id);
+        
+        if (resource.status !== 'approved' && !isOwnerOrAdmin) {
             return res.status(403).json({ success: false, message: 'Resource not available.' });
         }
         if (!resource.file_url) {
             return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
         }
 
-        const sasUrl = getBlobSasUrl(resource.file_url, 2);
+        const sasUrl = getBlobSasUrl(resource.file_url, 2, true);
         return res.json({ success: true, url: sasUrl });
     } catch (err) {
         next(err);
@@ -283,12 +278,13 @@ export const getStreamUrl = async (req, res, next) => {
 // POST /api/resources
 export const createResource = async (req, res, next) => {
     try {
-        const { title, description, abstract, demo_url, type } = req.body;
+        const { title, description, abstract, demo_url, type, access_level } = req.body;
         const uploaderRole = req.user.role;
+        const uploaderSubType = req.user.professional_sub_type;
 
-        // Professional members cannot upload resources
-        if (!['founding_member', 'council_member'].includes(uploaderRole)) {
-            return res.status(403).json({ success: false, message: 'Only Council Members and Founding Members can upload resources.' });
+        // Professional members cannot upload resources, EXCEPT working professionals
+        if (!['founding_member', 'council_member'].includes(uploaderRole) && !(uploaderRole === 'professional' && uploaderSubType === 'working_professional')) {
+            return res.status(403).json({ success: false, message: 'Only Council Members, Founding Members, and Working Professionals can upload resources.' });
         }
 
         const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
@@ -297,36 +293,58 @@ export const createResource = async (req, res, next) => {
             return res.status(403).json({ success: false, message: `Only Founding Members can upload ${type.replace('_', ' ')}s.` });
         }
 
+        // 2) Handle private file upload
         let file_url = null;
-        if (req.file) {
+        if (req.files && req.files['file']) {
+            const file = req.files['file'][0];
             file_url = await uploadToBlob(
                 'resources',
-                req.file.originalname,
-                req.file.buffer,
-                req.file.mimetype,
+                file.originalname,
+                file.buffer,
+                file.mimetype,
                 { private: true }
+            );
+        }
+
+        // 3) Handle public thumbnail upload
+        let thumbnail_url = null;
+        if (req.files && req.files['thumbnail']) {
+            const thumb = req.files['thumbnail'][0];
+            thumbnail_url = await uploadToBlob(
+                'arc-uploads', // Using public container for thumbnails
+                `thumbnails/${Date.now()}-${thumb.originalname}`,
+                thumb.buffer,
+                thumb.mimetype,
+                { private: false }
             );
         }
 
         // Only founding_member gets auto-approved; council_member resources go to pending
         const assignedStatus = uploaderRole === 'founding_member' ? 'approved' : 'pending';
+        
+        // 4) Insert into database
+        const access = access_level === 'registered' ? 'registered' : 'public';
         const [result] = await pool.query(
-            `INSERT INTO resources (title, description, abstract, file_url, demo_url, type, status, uploader_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO resources 
+            (title, description, abstract, type, demo_url, uploader_id, status, file_url, thumbnail_url, access_level) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 description ? description.trim() : null,
                 abstract    ? abstract.trim()    : null,
-                file_url,
-                demo_url    ? demo_url.trim()    : null,
                 type,
-                assignedStatus,
+                demo_url    ? demo_url.trim()    : null,
                 req.user.id,
+                assignedStatus,
+                file_url,
+                thumbnail_url,
+                access
             ]
         );
 
         const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [result.insertId]);
-        const { file_url: _f, ...rest } = rows[0];
+        const rest = { ...rows[0] };
+        delete rest.file_url;
 
         // Only notify when auto-approved — pending resources wait for admin approval
         if (assignedStatus === 'approved') {
@@ -347,40 +365,64 @@ export const createResource = async (req, res, next) => {
 // PUT /api/resources/:id  (admin only)
 export const updateResource = async (req, res, next) => {
     try {
-        const { title, description, abstract, demo_url, type } = req.body;
+        const { id } = req.params;
+        const { title, description, abstract, demo_url, type, access_level } = req.body;
 
-        const [check] = await pool.query('SELECT id, file_url FROM resources WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        const [existing] = await pool.query('SELECT id, file_url, thumbnail_url FROM resources WHERE id = ?', [id]);
+        if (existing.length === 0) {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
         }
+        
+        let file_url = existing[0].file_url;
+        let thumbnail_url = existing[0].thumbnail_url;
 
-        let file_url = check[0].file_url;
-        if (req.file) {
-            await deleteFromBlob(file_url);
+        // Process file upload if provided
+        if (req.files && req.files['file']) {
+            if (file_url) await deleteFromBlob(file_url);
+            const file = req.files['file'][0];
             file_url = await uploadToBlob(
                 'resources',
-                req.file.originalname,
-                req.file.buffer,
-                req.file.mimetype,
+                file.originalname,
+                file.buffer,
+                file.mimetype,
                 { private: true }
             );
         }
 
+        // Process thumbnail upload if provided
+        if (req.files && req.files['thumbnail']) {
+            if (thumbnail_url) await deleteFromBlob(thumbnail_url);
+            const thumb = req.files['thumbnail'][0];
+            thumbnail_url = await uploadToBlob(
+                'arc-uploads',
+                `thumbnails/${Date.now()}-${thumb.originalname}`,
+                thumb.buffer,
+                thumb.mimetype,
+                { private: false }
+            );
+        }
+
+        const access = access_level === 'registered' ? 'registered' : 'public';
         await pool.query(
-            `UPDATE resources SET title=?, description=?, abstract=?, file_url=?, demo_url=?, type=? WHERE id=?`,
+            `UPDATE resources 
+             SET title = ?, description = ?, abstract = ?, type = ?, demo_url = ?, file_url = ?, thumbnail_url = ?, access_level = ?
+             WHERE id = ?`,
             [
                 title.trim(),
                 description ? description.trim() : null,
                 abstract    ? abstract.trim()    : null,
-                file_url,
-                demo_url    ? demo_url.trim()    : null,
                 type,
-                req.params.id,
+                demo_url    ? demo_url.trim()    : null,
+                file_url,
+                thumbnail_url,
+                access,
+                id
             ]
         );
 
-        const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [req.params.id]);
-        const { file_url: _f, ...rest } = rows[0];
+        const [rows] = await pool.query('SELECT * FROM resources WHERE id = ?', [id]);
+        const rest = { ...rows[0] };
+        delete rest.file_url;
         return res.json({ success: true, data: rest });
     } catch (err) {
         next(err);
@@ -390,7 +432,7 @@ export const updateResource = async (req, res, next) => {
 // DELETE /api/resources/:id
 export const deleteResource = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id, uploader_id, file_url FROM resources WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, uploader_id, file_url, thumbnail_url FROM resources WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
         }
@@ -399,7 +441,8 @@ export const deleteResource = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'You can only delete resources you have uploaded.' });
         }
 
-        await deleteFromBlob(check[0].file_url);
+        if (check[0].file_url) await deleteFromBlob(check[0].file_url);
+        if (check[0].thumbnail_url) await deleteFromBlob(check[0].thumbnail_url);
 
         await pool.query('DELETE FROM resources WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'Resource deleted successfully.' } });
@@ -416,7 +459,7 @@ export const getPendingResources = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT r.*, u.name AS uploader_name, u.email AS uploader_email, u.role AS uploader_role,
-                    u.organization_name AS uploader_org
+                    u.organization_name AS uploader_org, u.linkedin_url AS uploader_linkedin
              FROM resources r
              LEFT JOIN users u ON r.uploader_id = u.id
              WHERE r.status = 'pending'
@@ -424,7 +467,7 @@ export const getPendingResources = async (req, res, next) => {
              LIMIT ? OFFSET ?`,
             [limit, offset]
         );
-        const sanitized = rows.map(({ file_url, ...rest }) => rest);
+        const sanitized = rows.map(({ file_url, file_path, ...rest }) => rest);
         return res.json({ success: true, data: sanitized, total, page, limit, totalPages });
     } catch (err) {
         next(err);
