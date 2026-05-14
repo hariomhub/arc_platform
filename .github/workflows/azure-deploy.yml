@@ -1,0 +1,64 @@
+name: Build & Deploy to Azure App Service
+
+on:
+  push:
+    branches:
+      - main          # Deploy automatically on every push to main
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout code ────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js ───────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      # ── 3. Install & Build Frontend (outputs to Backend/dist/) ───────────────
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend (Vite → Backend/dist/)
+        working-directory: frontend
+        env:
+          # Pass all frontend env vars from GitHub Secrets
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
+        run: npm run build
+        # Vite outputs directly to ../Backend/dist/ as configured in vite.config.js
+
+      # ── 4. Install Backend dependencies ─────────────────────────────────────
+      - name: Install backend dependencies
+        working-directory: Backend
+        run: npm ci --omit=dev
+        # --omit=dev skips nodemon etc., keeping the deploy package lean
+
+      # ── 5. Write firebase-service-account.json from GitHub Secret ───────────
+      - name: Write Firebase service account file
+        working-directory: Backend
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > firebase-service-account.json
+
+      # ── 6. Deploy to Azure App Service ──────────────────────────────────────
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}      # e.g. arc-platform-prod
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: ./Backend
+          # The Backend/ folder is deployed — it contains:
+          #   server.js, controllers/, routes/, services/, db/, jobs/,
+          #   middleware/, utils/, migrations/, node_modules/, dist/ (built frontend)

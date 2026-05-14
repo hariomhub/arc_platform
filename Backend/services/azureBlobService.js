@@ -197,3 +197,31 @@ export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = 
 
     return `${blobUrl}?${sasQuery.toString()}`;
 };
+
+/**
+ * Download a private blob from Azure and return a readable stream.
+ * Used by the /preview endpoint to proxy file bytes to the browser.
+ *
+ * @param {string} blobUrl  Full Blob URL stored in the DB
+ * @returns {Promise<{ stream: NodeJS.ReadableStream, contentType: string, contentLength: number|null }>}
+ */
+export const getBlobStream = async (blobUrl) => {
+    if (!blobUrl || !blobUrl.startsWith('https://')) {
+        throw new Error('Invalid blob URL');
+    }
+    const parsed = parseBlobUrl(blobUrl);
+    if (!parsed) throw new Error('Could not parse blob URL');
+
+    const client = getBlobServiceClient();
+    const blobClient = client
+        .getContainerClient(parsed.containerName)
+        .getBlockBlobClient(parsed.blobName);
+
+    const downloadResponse = await blobClient.download(0);
+
+    return {
+        stream: downloadResponse.readableStreamBody,
+        contentType: downloadResponse.contentType || 'application/octet-stream',
+        contentLength: downloadResponse.contentLength ?? null,
+    };
+};

@@ -1,5 +1,5 @@
 import pool from '../db/connection.js';
-import { uploadToBlob, deleteFromBlob, getBlobSasUrl } from '../services/azureBlobService.js';
+import { uploadToBlob, deleteFromBlob, getBlobSasUrl, getBlobStream } from '../services/azureBlobService.js';
 import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
 
 // Allowed roles for resource file downloads
@@ -247,7 +247,7 @@ export const getMyDownloadUsage = async (req, res, next) => {
     }
 };
 
-// GET /api/resources/:id/stream  (public — used for home-page video playback)
+// GET /api/resources/:id/stream  (SAS URL — used for home-page video playback only)
 export const getStreamUrl = async (req, res, next) => {
     try {
         const [rows] = await pool.query(
@@ -260,7 +260,7 @@ export const getStreamUrl = async (req, res, next) => {
 
         const resource = rows[0];
         const isOwnerOrAdmin = req.user && (req.user.role === 'founding_member' || req.user.id === resource.uploader_id);
-        
+
         if (resource.status !== 'approved' && !isOwnerOrAdmin) {
             return res.status(403).json({ success: false, message: 'Resource not available.' });
         }
@@ -270,6 +270,45 @@ export const getStreamUrl = async (req, res, next) => {
 
         const sasUrl = getBlobSasUrl(resource.file_url, 2, true);
         return res.json({ success: true, url: sasUrl });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/resources/:id/preview  (proxies blob bytes → browser inline)
+// All logged-in members can preview; founding_member/owner can preview pending.
+export const previewResource = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT file_url, status, uploader_id FROM resources WHERE id = ?',
+            [req.params.id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Resource not found.' });
+        }
+
+        const resource = rows[0];
+        const isOwnerOrAdmin = req.user && (req.user.role === 'founding_member' || req.user.id === resource.uploader_id);
+
+        if (resource.status !== 'approved' && !isOwnerOrAdmin) {
+            return res.status(403).json({ success: false, message: 'Resource not available.' });
+        }
+        if (!resource.file_url) {
+            return res.status(404).json({ success: false, message: 'No file attached to this resource.' });
+        }
+
+        // Stream the blob directly from Azure through the backend to the browser.
+        // This avoids X-Frame-Options / firewall issues with SAS URLs.
+        const { stream, contentType, contentLength } = await getBlobStream(resource.file_url);
+
+        res.setHeader('Content-Type', contentType || 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('Cache-Control', 'private, no-store');
+        // Allow the frontend origin to embed this in an iframe
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        if (contentLength) res.setHeader('Content-Length', contentLength);
+
+        stream.pipe(res);
     } catch (err) {
         next(err);
     }

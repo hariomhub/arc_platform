@@ -59,7 +59,8 @@ router.get('/my-download-usage',  auth, resourcesController.getMyDownloadUsage);
 // ── Public / optionalAuth resource routes ────────────────────────────────────
 router.get('/',       optionalAuth, resourcesController.getResources);
 router.get('/:id',    optionalAuth, resourcesController.getResourceById);
-router.get('/:id/stream', optionalAuth, resourcesController.getStreamUrl);
+router.get('/:id/stream',  optionalAuth, resourcesController.getStreamUrl);
+router.get('/:id/preview', auth, resourcesController.previewResource);
 
 // ── Download — auth required; controller enforces role ──────────────────────
 router.get('/:id/download', auth, resourcesController.downloadResource);

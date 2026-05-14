@@ -165,7 +165,7 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                     {fileType === 'pdf' && (
                         <div style={{ position:'relative', height:'600px', overflow:'hidden', background:'#1e293b' }}>
                             <iframe
-                                src={`${url}#toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=FitH`}
+                                src={`/api/resources/${resourceId}/preview#toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=FitH`}
                                 title={title}
                                 style={{ width:'100%', height:'100%', border:'none', display:'block' }}
                             />
@@ -177,7 +177,7 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                     )}
                     {fileType === 'image' && (
                         <div style={{ padding:'16px', background:'#f8fafc', display:'flex', justifyContent:'center' }}>
-                            <img src={url} alt={title}
+                            <img src={`/api/resources/${resourceId}/preview`} alt={title}
                                 style={{ maxWidth:'100%', maxHeight:'500px', objectFit:'contain', borderRadius:8, boxShadow:'0 2px 16px rgba(0,0,0,0.1)' }} />
                         </div>
                     )}
