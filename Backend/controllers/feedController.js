@@ -237,7 +237,7 @@ export const getFeed = async (req, res, next) => {
             params.push(`%${search}%`);
         }
         // Filter by post type
-        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general'];
+        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general', 'tech_meme'];
         if (req.query.post_type && validPostTypes.includes(req.query.post_type)) {
             const clause = ` AND fp.post_type = ?`;
             countSql += clause; dataSql += clause;
@@ -311,15 +311,16 @@ export const createPost = async (req, res, next) => {
             event_link,
         } = req.body;
 
-        if (!content || !content.trim()) {
+        // Tech Memes can have empty content (image-only posts)
+        if (post_type !== 'tech_meme' && (!content || !content.trim())) {
             return res.status(422).json({ success: false, message: 'Post content is required.' });
         }
-        if (content.trim().length > 5000) {
+        if (content && content.trim().length > 5000) {
             return res.status(422).json({ success: false, message: 'Post content must be 5000 characters or fewer.' });
         }
 
         // Validate post_type
-        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general'];
+        const validPostTypes = ['ai_product', 'poll', 'event', 'troubleshooting', 'general', 'tech_meme'];
         if (!validPostTypes.includes(post_type)) {
             return res.status(422).json({ success: false, message: 'Invalid post type.' });
         }
@@ -329,10 +330,38 @@ export const createPost = async (req, res, next) => {
             return res.status(422).json({ success: false, message: 'Only YouTube video links are allowed.' });
         }
 
+        // Tech Memes validation: must have at least one image and no text content
+        if (post_type === 'tech_meme') {
+            if (content && content.trim().length > 0) {
+                return res.status(422).json({ success: false, message: 'Tech Memes cannot contain any text content.' });
+            }
+            const hasImages = req.files && req.files.some(f => f.mimetype.startsWith('image/'));
+            if (!hasImages) {
+                return res.status(422).json({ success: false, message: 'Tech Memes must contain at least one image.' });
+            }
+            const hasPdf = req.files && req.files.some(f => f.mimetype === 'application/pdf');
+            if (hasPdf || video_url) {
+                return res.status(422).json({ success: false, message: 'Tech Memes can only contain images.' });
+            }
+        }
+
+        // Auto-reclassify: if post has ONLY images (no text, no PDF, no video) → tech_meme
+        let effectivePostType = post_type;
+        if (post_type !== 'tech_meme') {
+            const noContent = !content || !content.trim();
+            const hasOnlyImages = req.files && req.files.length > 0 && req.files.every(f => f.mimetype.startsWith('image/'));
+            const noVideo = !video_url;
+            if (noContent && hasOnlyImages && noVideo) {
+                effectivePostType = 'tech_meme';
+            }
+        }
+
+        const finalContent = effectivePostType === 'tech_meme' ? '' : (content ? content.trim() : '');
+
         // Handle poll-specific fields
         let pollOptionsJson = null;
         let pollEndsAt = null;
-        if (post_type === 'poll') {
+        if (effectivePostType === 'poll') {
             let opts;
             try { opts = typeof poll_options === 'string' ? JSON.parse(poll_options) : poll_options; }
             catch { opts = null; }
@@ -359,7 +388,7 @@ export const createPost = async (req, res, next) => {
 
         // Handle event link
         let cleanEventLink = null;
-        if (post_type === 'event' && event_link && event_link.trim()) {
+        if (effectivePostType === 'event' && event_link && event_link.trim()) {
             cleanEventLink = event_link.trim().slice(0, 500);
         }
 
@@ -368,7 +397,7 @@ export const createPost = async (req, res, next) => {
         const [result] = await pool.query(
             `INSERT INTO feed_posts (author_id, post_type, content, tags, poll_options, poll_ends_at, event_link)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, post_type, content.trim(), tagsJson, pollOptionsJson, pollEndsAt, cleanEventLink]
+            [req.user.id, effectivePostType, finalContent, tagsJson, pollOptionsJson, pollEndsAt, cleanEventLink]
         );
 
         const postId = result.insertId;
@@ -452,18 +481,25 @@ export const updatePost = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'You can only edit your own posts.' });
         }
 
-        if (!content || !content.trim()) {
-            return res.status(422).json({ success: false, message: 'Post content is required.' });
-        }
-        if (content.trim().length > 5000) {
-            return res.status(422).json({ success: false, message: 'Post content must be 5000 characters or fewer.' });
+        if (post.post_type === 'tech_meme') {
+            if (content && content.trim().length > 0) {
+                return res.status(422).json({ success: false, message: 'Tech Memes cannot contain any text content.' });
+            }
+        } else {
+            if (!content || !content.trim()) {
+                return res.status(422).json({ success: false, message: 'Post content is required.' });
+            }
+            if (content.trim().length > 5000) {
+                return res.status(422).json({ success: false, message: 'Post content must be 5000 characters or fewer.' });
+            }
         }
 
         const tagsJson = sanitizeTags(tags);
+        const finalContent = post.post_type === 'tech_meme' ? '' : content.trim();
 
         await pool.query(
             `UPDATE feed_posts SET content = ?, tags = ?, is_edited = 1 WHERE id = ?`,
-            [content.trim(), tagsJson, req.params.id]
+            [finalContent, tagsJson, req.params.id]
         );
 
         const [rows] = await pool.query(

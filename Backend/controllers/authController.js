@@ -213,7 +213,7 @@ export const getMe = async (req, res, next) => {
         }
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, profile_badge, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 

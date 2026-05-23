@@ -143,6 +143,14 @@ const ProfileInfoSection = ({ user, showToast }) => {
                         onFocus={e => { e.target.style.borderColor = '#003366'; }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
                 </Field>
+                {user?.profile_badge && (
+                    <Field label="Profile Badge" hint="Assigned by admin. Contact admin to update.">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.7rem 0.95rem', background: '#FDF4FF', border: '1.5px solid #E9D5FF', borderRadius: '9px', fontSize: '0.875rem', color: '#6D28D9', fontWeight: '600' }}>
+                            <span style={{ fontSize: '1rem' }}>🏅</span>
+                            <span>{user.profile_badge}</span>
+                        </div>
+                    </Field>
+                )}
                 <SaveBtn loading={loading} label={saved ? '✓ Saved!' : 'Save Changes'} icon={saved ? CheckCircle2 : Save} />
             </form>
         </Card>
@@ -561,6 +569,11 @@ const Profile = () => {
                                         {user.role === 'professional' && user.professional_sub_type && (
                                             <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.68rem', fontWeight:'700', color:'white', background:'rgba(255,255,255,0.18)', border:'1px solid rgba(255,255,255,0.25)' }}>
                                                 {user.professional_sub_type === 'working_professional' ? '💼 Working Professional' : '🎓 Final Year Undergraduate'}
+                                            </span>
+                                        )}
+                                        {(user.profile_badge || profile?.profile_badge) && (
+                                            <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'3px 10px', borderRadius:'100px', fontSize:'0.68rem', fontWeight:'700', background:'rgba(253,224,71,0.2)', color:'#FDE047', border:'1px solid rgba(253,224,71,0.35)' }}>
+                                                🏅 {user.profile_badge || profile?.profile_badge}
                                             </span>
                                         )}
                                     </div>

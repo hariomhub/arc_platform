@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "db:migrate": "node db/migrate.js",
+    "db:status": "node db/migrate.js --status",
+    "db:dry-run": "node db/migrate.js --dry-run"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.31.0",

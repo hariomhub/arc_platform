@@ -34,8 +34,26 @@ const validate = (req, res, next) => {
 // ── Validation rules ──────────────────────────────────────────────────────────
 const postContentRules = [
     body('content')
-        .trim().notEmpty().withMessage('Post content is required.')
-        .isLength({ max: 5000 }).withMessage('Post content must be 5000 characters or fewer.'),
+        .custom((value, { req }) => {
+            const isTechMeme = req.body.post_type === 'tech_meme';
+            const hasOnlyImages = req.files && req.files.length > 0 && req.files.every(f => f.mimetype.startsWith('image/'));
+            const noVideo = !req.body.video_url;
+            const isAutoMeme = !isTechMeme && hasOnlyImages && (!value || !value.trim()) && noVideo;
+            
+            if (isTechMeme || isAutoMeme) {
+                if (value && value.trim().length > 0) {
+                    throw new Error('Tech Memes cannot contain any text content.');
+                }
+                return true;
+            }
+            if (!value || !value.trim()) {
+                throw new Error('Post content is required.');
+            }
+            if (value.trim().length > 5000) {
+                throw new Error('Post content must be 5000 characters or fewer.');
+            }
+            return true;
+        }),
     body('tags')
         .optional()
         .custom(val => {
@@ -103,7 +121,7 @@ router.put(
     requireRole('council_member', 'founding_member'),
     [
         body('content')
-            .trim().notEmpty().withMessage('Post content is required.')
+            .optional({ checkFalsy: true })
             .isLength({ max: 5000 }).withMessage('Post content must be 5000 characters or fewer.'),
         body('tags').optional(),
     ],

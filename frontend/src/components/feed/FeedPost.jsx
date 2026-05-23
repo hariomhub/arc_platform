@@ -4,7 +4,7 @@ import {
     ThumbsUp, MessageSquare, Bookmark, BookmarkCheck,
     Share2, MoreHorizontal, Pencil, Trash2, EyeOff, Eye,
     AlertTriangle, ExternalLink, FileText, Check,
-    Bot, BarChart2, CalendarDays, Wrench,
+    Bot, BarChart2, CalendarDays, Wrench, Image,
     Users, CalendarCheck, Building2, FlaskConical, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -27,6 +27,7 @@ const POST_TYPE_META = {
     event:           { label: 'Event',           Icon: CalendarDays, color: '#059669', bg: '#f0fdf4', border: '#bbf7d0' },
     troubleshooting: { label: 'Troubleshooting', Icon: Wrench,       color: '#D97706', bg: '#fffbeb', border: '#fde68a' },
     general:         { label: 'General',         Icon: null,         color: '#003366', bg: '#eef2ff', border: '#c7d2fe' },
+    tech_meme:       { label: 'Tech Meme',       Icon: Image,        color: '#DB2777', bg: '#FDF2F8', border: '#FBCFE8' },
 };
 
 // Inline poll component
@@ -399,7 +400,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                             <span style={{ fontSize: '0.73rem', color: '#9aaab7' }}>{timeAgo(post.created_at)}</span>
                             {!!post.is_edited ? <span style={{ fontSize: '0.68rem', color: '#c4cdd6', fontStyle: 'italic' }}>· edited</span> : null}
                             {/* Post type badge */}
-                            {post.post_type && post.post_type !== 'general' && (() => {
+                            {post.post_type && (() => {
                                 const ptm = POST_TYPE_META[post.post_type];
                                 return ptm ? (
                                     <span style={{ fontSize: '0.62rem', fontWeight: '700', padding: '1px 7px', borderRadius: 4, background: ptm.bg, color: ptm.color, border: `1px solid ${ptm.border}`, display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 2 }}>

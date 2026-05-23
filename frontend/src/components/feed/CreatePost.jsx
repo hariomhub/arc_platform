@@ -46,9 +46,10 @@ const POST_TYPES = [
     { key: 'event',           label: 'Event Announcement',  desc: 'Spread the word about an upcoming event', Icon: CalendarDays, color: '#059669' },
     { key: 'troubleshooting', label: 'Troubleshooting',     desc: 'Post a problem or share a technical fix',  Icon: Wrench,       color: '#D97706' },
     { key: 'general',         label: 'General Discussion',  desc: 'Tech, AI, or anything on your mind',       Icon: MessageSquare,color: '#003366' },
+    { key: 'tech_meme',       label: 'Tech Meme',           desc: 'Share a funny or insightful tech image',   Icon: Image,        color: '#DB2777' },
 ];
 
-const POST_TYPE_LABELS = { ai_product: 'AI Product', poll: 'Poll', event: 'Event', troubleshooting: 'Troubleshooting', general: 'General' };
+const POST_TYPE_LABELS = { ai_product: 'AI Product', poll: 'Poll', event: 'Event', troubleshooting: 'Troubleshooting', general: 'General', tech_meme: 'Tech Meme' };
 
 const CreatePost = ({ onPostCreated }) => {
     const { user }      = useAuth();
@@ -76,7 +77,11 @@ const CreatePost = ({ onPostCreated }) => {
     const mediaCount = files.length + (videoUrl ? 1 : 0);
     const charsLeft  = MAX_CHARS - content.length;
     const pollValid  = postType !== 'poll' || pollOptions.filter(o => o.trim()).length >= 2;
-    const canSubmit  = content.trim().length > 0 && !submitting && pollValid;
+    const isTechMeme = postType === 'tech_meme';
+    const hasOnlyImages = files.length > 0 && files.every(f => f.type.startsWith('image/'));
+    const isAutoMeme = !isTechMeme && hasOnlyImages && content.trim().length === 0 && !videoUrl;
+    const techMemeValid = isTechMeme && files.some(f => f.type.startsWith('image/')) && content.trim().length === 0;
+    const canSubmit  = (isTechMeme ? techMemeValid : (content.trim().length > 0 || isAutoMeme)) && !submitting && pollValid;
 
     const handleFiles = useCallback(e => {
         const allowed = ['image/jpeg','image/png','image/gif','image/webp','application/pdf'];
@@ -106,8 +111,14 @@ const CreatePost = ({ onPostCreated }) => {
         setError(''); setSubmitting(true);
         try {
             const fd = new FormData();
-            fd.append('content', content.trim());
-            fd.append('post_type', postType);
+            // Auto-reclassify: if no text, no PDF, no video, only images → tech_meme
+            const hasOnlyImages = files.length > 0 && files.every(f => f.type.startsWith('image/'));
+            const noText = !content.trim();
+            const noVideo = !videoUrl.trim();
+            const effectivePostType = (!isTechMeme && noText && hasOnlyImages && noVideo) ? 'tech_meme' : postType;
+            const finalContent = effectivePostType === 'tech_meme' ? '' : content.trim();
+            fd.append('content', finalContent);
+            fd.append('post_type', effectivePostType);
             if (tags.length)     fd.append('tags', JSON.stringify(tags));
             if (videoUrl.trim()) fd.append('video_url', videoUrl.trim());
             files.forEach(f => fd.append('media', f));
@@ -286,7 +297,7 @@ const CreatePost = ({ onPostCreated }) => {
                             <div className="cp-type-grid">
                                 {POST_TYPES.map(({ key, label, desc, Icon, color }) => (
                                     <button key={key} type="button"
-                                        onClick={() => { setPostType(key); setTypeStep(false); setExpanded(true); setTimeout(() => textRef.current?.focus(), 60); }}
+                                        onClick={() => { setPostType(key); setTypeStep(false); setExpanded(true); if (key === 'tech_meme') { setContent(''); } else { setTimeout(() => textRef.current?.focus(), 60); } }}
                                         style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:8, padding:'0.875rem', border:'1.5px solid #e2e8f0', borderRadius:10, background:'white', cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'all 0.15s' }}
                                         onMouseOver={e=>{ e.currentTarget.style.borderColor=color; e.currentTarget.style.background=`${color}08`; }}
                                         onMouseOut={e=>{ e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.background='white'; }}>
@@ -340,21 +351,32 @@ const CreatePost = ({ onPostCreated }) => {
 
                         {/* Textarea */}
                         <div className="cp-form-pad" style={{ paddingBottom: '0.25rem' }}>
-                            <textarea
-                                ref={textRef}
-                                value={content}
-                                onChange={e => setContent(e.target.value)}
-                                placeholder="What insights, research, or perspectives do you want to share with the AI risk community?"
-                                maxLength={MAX_CHARS}
-                                rows={5}
-                                disabled={submitting}
-                                style={{ width:'100%', border:'none', outline:'none', resize:'vertical', fontSize:'0.94rem', fontFamily:'inherit', lineHeight:'1.75', color:'#1e293b', background:'transparent', minHeight:'110px', boxSizing:'border-box' }}
-                            />
-                            <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:'4px' }}>
-                                <span style={{ fontSize:'0.68rem', fontWeight: charsLeft<300?'700':'400', color:charsLeft<100?'#DC2626':charsLeft<300?'#D97706':'#cbd5e1', transition:'color 0.15s' }}>
-                                    {charsLeft.toLocaleString()} chars remaining
-                                </span>
-                            </div>
+                            {isTechMeme ? (
+                                <div style={{ padding: '0.5rem 0', marginBottom: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.75rem 1rem', background: '#FDF2F8', border: '1px solid #FBCFE8', borderRadius: '10px', fontSize: '0.85rem', color: '#9D174D', fontWeight: '600' }}>
+                                        <Image size={15} />
+                                        <span>Tech Memes: Only images are allowed. No text, captions, PDFs, or video links.</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <textarea
+                                        ref={textRef}
+                                        value={content}
+                                        onChange={e => setContent(e.target.value)}
+                                        placeholder="What insights, research, or perspectives do you want to share with the AI risk community?"
+                                        maxLength={MAX_CHARS}
+                                        rows={5}
+                                        disabled={submitting}
+                                        style={{ width:'100%', border:'none', outline:'none', resize:'vertical', fontSize:'0.94rem', fontFamily:'inherit', lineHeight:'1.75', color:'#1e293b', background:'transparent', minHeight: '110px', boxSizing:'border-box' }}
+                                    />
+                                    <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:'4px' }}>
+                                        <span style={{ fontSize:'0.68rem', fontWeight: charsLeft<300?'700':'400', color:charsLeft<100?'#DC2626':charsLeft<300?'#D97706':'#cbd5e1', transition:'color 0.15s' }}>
+                                            {charsLeft.toLocaleString()} chars remaining
+                                        </span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Poll options — only for poll type */}
@@ -479,14 +501,18 @@ const CreatePost = ({ onPostCreated }) => {
                                 onClick={() => fileInputRef_click(fileRef, 'image/*')} disabled={mediaCount>=MAX_MEDIA}>
                                 <Image size={15} /> Photo
                             </button>
-                            <button type="button" className={`cp-toolbar-btn${files.some(f=>f.type==='application/pdf')?' active':''}`}
-                                onClick={() => fileInputRef_click(fileRef, 'application/pdf')} disabled={mediaCount>=MAX_MEDIA}>
-                                <FileText size={14} /> PDF
-                            </button>
-                            <button type="button" className={`cp-toolbar-btn${showVideo?' active':''}`}
-                                onClick={() => setShowVideo(v=>!v)} disabled={mediaCount>=MAX_MEDIA&&!showVideo}>
-                                <Youtube size={14} /> YouTube
-                            </button>
+                            {!isTechMeme && (
+                                <button type="button" className={`cp-toolbar-btn${files.some(f=>f.type==='application/pdf')?' active':''}`}
+                                    onClick={() => fileInputRef_click(fileRef, 'application/pdf')} disabled={mediaCount>=MAX_MEDIA}>
+                                    <FileText size={14} /> PDF
+                                </button>
+                            )}
+                            {!isTechMeme && (
+                                <button type="button" className={`cp-toolbar-btn${showVideo?' active':''}`}
+                                    onClick={() => setShowVideo(v=>!v)} disabled={mediaCount>=MAX_MEDIA&&!showVideo}>
+                                    <Youtube size={14} /> YouTube
+                                </button>
+                            )}
                             <button type="button" className={`cp-toolbar-btn${showTags?' active':''}`}
                                 onClick={() => setShowTags(v=>!v)}>
                                 <Tag size={14} /> Tags{tags.length>0&&` (${tags.length})`}
@@ -502,7 +528,7 @@ const CreatePost = ({ onPostCreated }) => {
                             </button>
                         </div>
 
-                        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={handleFiles} style={{ display:'none' }} />
+                        <input ref={fileRef} type="file" accept={isTechMeme ? 'image/*' : 'image/*,application/pdf'} multiple onChange={handleFiles} style={{ display:'none' }} />
                     </form>
                 )}
             </div>

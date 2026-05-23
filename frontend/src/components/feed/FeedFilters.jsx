@@ -14,6 +14,7 @@ const POST_TYPES = [
     { key: 'event',          label: 'Event' },
     { key: 'troubleshooting',label: 'Troubleshooting' },
     { key: 'general',        label: 'General' },
+    { key: 'tech_meme',      label: '🖼 Tech Memes' },
 ];
 
 const FeedFilters = ({

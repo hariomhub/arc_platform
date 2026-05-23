@@ -17,7 +17,7 @@ export const getUsers = async (req, res, next) => {
         const { role, status, search } = req.query;
 
         let countSql = 'SELECT COUNT(*) AS total FROM users WHERE 1=1';
-        let dataSql  = 'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, created_at FROM users WHERE 1=1';
+        let dataSql  = 'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at FROM users WHERE 1=1';
         const params = [];
 
         if (role) {
@@ -215,6 +215,35 @@ export const deleteUser = async (req, res, next) => {
 
         await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
         return res.json({ success: true, data: { message: 'User deleted successfully.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/users/:id/badge  — update profile badge only
+export const updateUserBadge = async (req, res, next) => {
+    try {
+        const [rows] = await pool.query('SELECT id, name FROM users WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const badgeValue = req.body.profile_badge ? req.body.profile_badge.trim() : null;
+
+        await pool.query(
+            'UPDATE users SET profile_badge = ? WHERE id = ?',
+            [badgeValue, req.params.id]
+        );
+
+        return res.json({
+            success: true,
+            data: {
+                message: badgeValue
+                    ? `Badge "${badgeValue}" assigned to ${rows[0].name}.`
+                    : `Badge removed from ${rows[0].name}.`,
+                profile_badge: badgeValue,
+            },
+        });
     } catch (err) {
         next(err);
     }
@@ -431,7 +460,7 @@ export const getPendingSubTypeUpgrades = async (req, res, next) => {
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM users ${where}`);
         const [rows] = await pool.query(
             `SELECT id, name, email, organization_name, linkedin_url, created_at,
-                    professional_sub_type, sub_type_upgrade_status
+                    professional_sub_type, sub_type_upgrade_status, profile_badge
              FROM users ${where}
              ORDER BY created_at DESC
              LIMIT ? OFFSET ?`,

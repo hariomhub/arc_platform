@@ -228,9 +228,14 @@ const UserDashboard = () => {
 
                             {/* Right: role badge + sign out */}
                             <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap', flexShrink:0 }}>
-                                <span style={{ background: roleBg, color: roleColor, border: `1px solid ${roleColor}30`, padding:'0.3rem 0.9rem', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.07em', backdropFilter:'blur(8px)', background:'rgba(255,255,255,0.12)', color:'white', border:'1px solid rgba(255,255,255,0.2)' }}>
+                                <span style={{ padding:'0.3rem 0.9rem', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.07em', backdropFilter:'blur(8px)', background:'rgba(255,255,255,0.12)', color:'white', border:'1px solid rgba(255,255,255,0.2)' }}>
                                     {roleLabel}
                                 </span>
+                                {user?.profile_badge && (
+                                    <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'0.3rem 0.9rem', borderRadius:'100px', fontSize:'0.7rem', fontWeight:'700', background:'rgba(253,224,71,0.18)', color:'#FDE047', border:'1px solid rgba(253,224,71,0.3)', whiteSpace:'nowrap' }}>
+                                        🏅 {user.profile_badge}
+                                    </span>
+                                )}
                                 {isAdmin?.() && (
                                     <button onClick={() => navigate('/admin-dashboard')}
                                         style={{ padding:'0.4rem 0.9rem', background:'rgba(124,58,237,0.85)', color:'white', border:'1px solid rgba(124,58,237,0.4)', borderRadius:'8px', fontWeight:'700', fontSize:'0.78rem', cursor:'pointer', fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap' }}>
@@ -280,6 +285,7 @@ const UserDashboard = () => {
                                             value: user.professional_sub_type === 'working_professional' ? '💼 Working Professional' : '🎓 Final Year Undergraduate',
                                         }] : []),
                                         { label:'Status', value: user?.status ?? 'Active' },
+                                        ...(user?.profile_badge ? [{ label: '🏅 Badge', value: user.profile_badge }] : []),
                                     ].map(({ label, value }) => (
                                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', paddingBottom:'0.5rem', borderBottom:'1px solid #F1F5F9', fontSize:'0.85rem' }}>
                                             <span style={{ color:'#94A3B8', fontWeight:'500', flexShrink:0 }}>{label}</span>

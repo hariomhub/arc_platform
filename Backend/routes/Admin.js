@@ -83,6 +83,14 @@ router.patch(
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', adminController.deleteUser);
 
+// PATCH /api/admin/users/:id/badge  — standalone badge update (no approval action)
+router.patch(
+    '/users/:id/badge',
+    [body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')],
+    validate,
+    adminController.updateUserBadge
+);
+
 // ─── Membership Applications ──────────────────────────────────────────────────
 // GET /api/admin/membership-applications
 router.get('/membership-applications', adminController.getMembershipApplications);

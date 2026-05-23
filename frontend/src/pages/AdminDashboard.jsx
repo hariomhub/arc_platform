@@ -177,6 +177,9 @@ const PendingTab = ({ showToast, onApproved }) => {
 
     const [badgeModal, setBadgeModal]                 = useState(null);
     const [badgeText, setBadgeText]                   = useState('');
+    const [editBadgeModal, setEditBadgeModal]         = useState(null);
+    const [editBadgeText, setEditBadgeText]           = useState('');
+    const [editBadgeSaving, setEditBadgeSaving]       = useState(false);
 
     const fetch = useCallback(async () => {
         setLoading(true); setError('');
@@ -213,9 +216,9 @@ const PendingTab = ({ showToast, onApproved }) => {
     useEffect(() => { loadApps(); }, [loadApps]);
     useEffect(() => { loadSubUpgrades(); }, [loadSubUpgrades]);
 
-    const handleSubApprove = (userId, name) => {
-        setBadgeModal({ type: 'subtype', id: userId, name });
-        setBadgeText('');
+    const handleSubApprove = (userId, name, currentBadge) => {
+        setBadgeModal({ type: 'subtype', id: userId, name, currentBadge: currentBadge || '' });
+        setBadgeText(currentBadge || '');
     };
 
     const handleSubReject = async (userId, name) => {
@@ -228,9 +231,9 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setSubActioning(p => ({ ...p, [userId]: null })); }
     };
 
-    const handleApprove = (userId, name) => {
-        setBadgeModal({ type: 'user', id: userId, name: name || 'User' });
-        setBadgeText('');
+    const handleApprove = (userId, name, currentBadge) => {
+        setBadgeModal({ type: 'user', id: userId, name: name || 'User', currentBadge: currentBadge || '' });
+        setBadgeText(currentBadge || '');
     };
 
     const confirmReject = async () => {
@@ -244,9 +247,9 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setActioning((p) => ({ ...p, [userId]: null })); }
     };
 
-    const handleAppApprove = (id, name) => {
-        setBadgeModal({ type: 'council', id, name });
-        setBadgeText('');
+    const handleAppApprove = (id, name, currentBadge) => {
+        setBadgeModal({ type: 'council', id, name, currentBadge: currentBadge || '' });
+        setBadgeText(currentBadge || '');
     };
 
     const confirmBadgeApprove = async () => {
@@ -294,6 +297,32 @@ const PendingTab = ({ showToast, onApproved }) => {
             loadApps();
         } catch (err) { showToast(getErrorMessage(err) || 'Failed to reject.', 'error'); }
         finally { setAppActioning(prev => ({ ...prev, [id]: null })); }
+    };
+
+    const handleEditBadge = (userId, name, currentBadge) => {
+        setEditBadgeModal({ id: userId, name, currentBadge: currentBadge || '' });
+        setEditBadgeText(currentBadge || '');
+    };
+
+    const confirmEditBadge = async () => {
+        if (!editBadgeModal || editBadgeSaving) return;
+        setEditBadgeSaving(true);
+        try {
+            const res = await fetch(`/api/admin/users/${editBadgeModal.id}/badge`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile_badge: editBadgeText.trim() || null }),
+            });
+            if (!res.ok) throw new Error('Failed');
+            setUsers(prev => prev.map(u => u.id === editBadgeModal.id
+                ? { ...u, profile_badge: editBadgeText.trim() || null }
+                : u
+            ));
+            showToast(`Badge updated for ${editBadgeModal.name}!`, 'success');
+            setEditBadgeModal(null);
+        } catch (err) { showToast('Failed to update badge. Please try again.', 'error'); }
+        finally { setEditBadgeSaving(false); }
     };
 
     const ROLE_BADGE   = { council_member: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
@@ -349,7 +378,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 </button>
                                 {u.status === 'pending' && (
                                     <>
-                                        <button onClick={() => handleApprove(u.id, u.name)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
+                                        <button onClick={() => handleApprove(u.id, u.name, u.profile_badge)} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
                                             {actioning[u.id] === 'approve' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />} Approve
                                         </button>
                                         <button onClick={() => setConfirm({ userId: u.id })} disabled={!!actioning[u.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#DC2626', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[u.id] ? 0.6 : 1 }}>
@@ -358,9 +387,19 @@ const PendingTab = ({ showToast, onApproved }) => {
                                     </>
                                 )}
                                 {u.status !== 'pending' && (
-                                    <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', background: STATUS_BADGE[u.status]?.bg || '#f1f5f9', color: STATUS_BADGE[u.status]?.color || '#64748b', textTransform: 'uppercase' }}>
-                                        {u.status}
-                                    </span>
+                                    <>
+                                        <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', background: STATUS_BADGE[u.status]?.bg || '#f1f5f9', color: STATUS_BADGE[u.status]?.color || '#64748b', textTransform: 'uppercase' }}>
+                                            {u.status}
+                                        </span>
+                                        {u.status === 'approved' && (
+                                            <button
+                                                onClick={() => handleEditBadge(u.id, u.name, u.profile_badge)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' }}
+                                            >
+                                                🏅 {u.profile_badge ? 'Edit Badge' : 'Assign Badge'}
+                                            </button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -400,9 +439,16 @@ const PendingTab = ({ showToast, onApproved }) => {
                             <button onClick={() => setBadgeModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem' }}>
-                            <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>
-                                You are approving <strong>{badgeModal.name}</strong>. Optionally, enter a profile badge (e.g., "Microsoft Lead") to display next to their name in the community feed.
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: '#475569' }}>
+                                You are approving <strong>{badgeModal.name}</strong>. Assign a profile badge to display next to their name in the community feed.
                             </p>
+                            {badgeModal.currentBadge && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.75rem', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '7px', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#15803D', fontWeight: '600' }}>
+                                    <span style={{ opacity: 0.7 }}>Last assigned:</span>
+                                    <span style={{ background: '#15803D', color: 'white', padding: '1px 10px', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700' }}>{badgeModal.currentBadge}</span>
+                                    <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>· Pre-filled below, edit if needed</span>
+                                </div>
+                            )}
                             <input 
                                 type="text"
                                 className="adm-input"
@@ -420,6 +466,61 @@ const PendingTab = ({ showToast, onApproved }) => {
                             <button onClick={() => setBadgeModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
                             <button onClick={confirmBadgeApprove} style={{ padding: '0.5rem 1rem', background: '#16A34A', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Check size={14} /> Approve
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Badge Modal */}
+            {editBadgeModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg,#4F1D96,#6D28D9)' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'white' }}>🏅 Manage Profile Badge</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>{editBadgeModal.name}</p>
+                            </div>
+                            <button onClick={() => setEditBadgeModal(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: 'white', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><X size={16} /></button>
+                        </div>
+                        <div style={{ padding: '1.5rem' }}>
+                            {editBadgeModal.currentBadge && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.78rem', color: '#5B21B6', fontWeight: '600' }}>
+                                    <span style={{ opacity: 0.75 }}>Current badge:</span>
+                                    <span style={{ background: '#6D28D9', color: 'white', padding: '1px 10px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700' }}>{editBadgeModal.currentBadge}</span>
+                                </div>
+                            )}
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#475569' }}>
+                                This badge appears next to <strong>{editBadgeModal.name}'s</strong> name in the community feed. Leave empty to remove the badge.
+                            </p>
+                            <input
+                                type="text"
+                                className="adm-input"
+                                placeholder="e.g. Microsoft Lead, AI Researcher…"
+                                value={editBadgeText}
+                                onChange={(e) => setEditBadgeText(e.target.value)}
+                                maxLength={60}
+                                style={{ marginBottom: '0.5rem' }}
+                                autoFocus
+                            />
+                            <div style={{ fontSize: '0.75rem', color: editBadgeText.length >= 60 ? '#EF4444' : '#94A3B8', textAlign: 'right', marginBottom: '0.25rem' }}>
+                                {editBadgeText.length}/60
+                            </div>
+                        </div>
+                        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: '#F8FAFC' }}>
+                            <button onClick={() => setEditBadgeModal(null)} style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+                            {editBadgeModal.currentBadge && (
+                                <button
+                                    onClick={() => { setEditBadgeText(''); }}
+                                    style={{ padding: '0.5rem 1rem', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}
+                                >Remove Badge</button>
+                            )}
+                            <button
+                                onClick={confirmEditBadge}
+                                disabled={editBadgeSaving}
+                                style={{ padding: '0.5rem 1rem', background: '#6D28D9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: editBadgeSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: editBadgeSaving ? 0.7 : 1 }}
+                            >
+                                {editBadgeSaving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Check size={13} /> Save Badge</>}
                             </button>
                         </div>
                     </div>
@@ -483,7 +584,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                             </button>
                                             {a.status === 'pending' && (
                                                 <>
-                                                    <button onClick={() => handleAppApprove(a.id, displayName)} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <button onClick={() => handleAppApprove(a.id, displayName, a.profile_badge)} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         {appActioning[a.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
                                                     </button>
                                                     <button onClick={() => { setRejectModal({ id: a.id, name: displayName }); setRejectNotes(''); }} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#dc2626', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -589,7 +690,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                                     {subFilter === 'pending' && (
                                         <>
-                                            <button onClick={() => handleSubApprove(u.id, u.name)} disabled={!!subActioning[u.id]}
+                                            <button onClick={() => handleSubApprove(u.id, u.name, u.profile_badge)} disabled={!!subActioning[u.id]}
                                                 style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 {subActioning[u.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
                                             </button>
