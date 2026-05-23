@@ -6,6 +6,7 @@ import {
     AlertTriangle, ExternalLink, FileText, Check,
     Bot, BarChart2, CalendarDays, Wrench, Image,
     Users, CalendarCheck, Building2, FlaskConical, ShieldCheck,
+    Linkedin, X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
@@ -221,6 +222,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
     const [viewer,   setViewer]   = useState(null);
     const [copied,   setCopied]   = useState(false);
     const [likeAnim, setLikeAnim] = useState(false);
+    const [showLinkedinModal, setShowLinkedinModal] = useState(false);
     // Typed reactions (non-general post types)
     const [reaction,       setReaction]       = useState(post.user_reaction || null);
     const [reactionCounts, setReactionCounts] = useState(post.reaction_counts || {});
@@ -276,6 +278,16 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
             .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
     }, [post.id]);
 
+    const shareToLinkedin = useCallback(() => {
+        if (!user) { navigate('/login'); return; }
+        if (!user.linkedin_url) {
+            setShowLinkedinModal(true);
+            return;
+        }
+        const postUrl = `${window.location.origin}/community-qna/${post.id}`;
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`, '_blank', 'width=600,height=600');
+    }, [user, post.id, navigate]);
+
     const del = useCallback(async () => {
         if (!window.confirm('Delete this post?')) return;
         setDeleting(true);
@@ -320,6 +332,8 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                 .fp-act.saved { color: #7C3AED; background: #F5F3FF; border-color: #DDD6FE; }
                 .fp-act.saved:hover { background: #EDE9FE; border-color: #C4B5FD; }
                 .fp-act.shared { color: #057642; background: #f0fdf4; border-color: #bbf7d0; }
+                .fp-act.linkedin { color: #0A66C2; background: #f3f6f8; border-color: #dce6f1; }
+                .fp-act.linkedin:hover { background: #e0eaf3; border-color: #0A66C2; }
                 .fp-act.poc-active { color: #2563EB; background: #eff6ff; border-color: #bfdbfe; }
                 .fp-act.poc-active:hover { background: #dbeafe; border-color: #93c5fd; }
                 .fp-act.alt-active { color: #057642; background: #f0fdf4; border-color: #bbf7d0; }
@@ -571,6 +585,12 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                             }
                         </button>
 
+                        {/* LinkedIn Share */}
+                        <button className="fp-act linkedin" onClick={shareToLinkedin} title="Share on LinkedIn">
+                            <Linkedin size={13} color="currentColor" />
+                            <span className="act-label">LinkedIn</span>
+                        </button>
+
                         {compact && (
                             <Link to={`/community-qna/${post.id}`} style={{ marginLeft: 'auto', textDecoration: 'none' }}>
                                 <button className="fp-act" style={{ color: '#003366', fontWeight: '700' }}>Open →</button>
@@ -581,6 +601,36 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
             </article>
 
             {viewer && <MediaViewer item={viewer} onClose={() => setViewer(null)} />}
+
+            {/* LinkedIn Validation Modal */}
+            {showLinkedinModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowLinkedinModal(false)} />
+                    <div style={{ position: 'relative', background: 'white', borderRadius: 16, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', animation: 'fadeup 0.25s ease-out forwards' }}>
+                        <button onClick={() => setShowLinkedinModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4 }}>
+                            <X size={20} />
+                        </button>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: '#e0eaf3', color: '#0A66C2', marginBottom: 16 }}>
+                            <Linkedin size={24} />
+                        </div>
+                        
+                        <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem', color: '#0f172a' }}>LinkedIn Required</h3>
+                        <p style={{ margin: '0 0 20px', fontSize: '0.95rem', color: '#475569', lineHeight: 1.5 }}>
+                            To share posts on LinkedIn, you must first add your LinkedIn Profile URL to your account.
+                        </p>
+                        
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowLinkedinModal(false)} style={{ padding: '8px 16px', background: 'white', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.9rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
+                                Cancel
+                            </button>
+                            <button onClick={() => { setShowLinkedinModal(false); navigate('/profile'); }} style={{ padding: '8px 16px', background: '#0A66C2', border: 'none', borderRadius: 8, fontSize: '0.9rem', fontWeight: 600, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#004182'} onMouseOut={e => e.currentTarget.style.background = '#0A66C2'}>
+                                Go to Profile →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };
