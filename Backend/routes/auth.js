@@ -4,6 +4,16 @@ import * as authController from '../controllers/authController.js';
 import auth from '../middleware/auth.js';
 import optionalAuth from '../middleware/optionalAuth.js';
 import passport from '../middleware/passport.js';
+import { rateLimit } from 'express-rate-limit';
+
+const authLimiter = rateLimit({
+    windowMs:       15 * 60 * 1000,
+    max:            10,
+    standardHeaders: true,
+    legacyHeaders:  false,
+    keyGenerator:   (req) => req.ip ? req.ip.replace(/:\d+$/, '') : 'unknown',
+    message: { success: false, message: 'Too many authentication attempts. Please wait 15 minutes before trying again.' },
+});
 
 const router = Router();
 
@@ -19,6 +29,7 @@ const validate = (req, res, next) => {
 // POST /api/auth/send-otp
 router.post(
     '/send-otp',
+    authLimiter,
     [
         body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
     ],
@@ -29,6 +40,7 @@ router.post(
 // POST /api/auth/verify-otp
 router.post(
     '/verify-otp',
+    authLimiter,
     [
         body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
         body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits.'),
@@ -40,6 +52,7 @@ router.post(
 // POST /api/auth/register
 router.post(
     '/register',
+    authLimiter,
     [
         body('name').trim().notEmpty().withMessage('Name is required.').isLength({ max: 255 }).withMessage('Name must be 255 characters or fewer.'),
         body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
@@ -61,6 +74,7 @@ router.post(
 // POST /api/auth/login
 router.post(
     '/login',
+    authLimiter,
     [
         body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
         body('password').notEmpty().withMessage('Password is required.'),
@@ -82,6 +96,7 @@ router.get('/me', optionalAuth, authController.getMe);
 // Step 1: redirect user to LinkedIn
 router.get(
     '/linkedin',
+    authLimiter,
     passport.authenticate('linkedin', { session: true,
         scope: ['openid', 'profile', 'email'],
      },)

@@ -6,14 +6,14 @@ import {
     Search, Loader2, UserX, UserCheck, ChevronDown,
     Plus, Trash2, FileText, Edit2, Save, ShieldCheck,
     Image, Video, Eye, Upload, Star, Trophy, Newspaper,
-    BookOpen, Mic2, MapPin, Linkedin,
+    BookOpen, Mic2, MapPin, Linkedin, Globe,
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
 import AutomatedNewsManagement from '../components/AutomatedNewsManagement.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
-import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
+import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
@@ -308,13 +308,7 @@ const PendingTab = ({ showToast, onApproved }) => {
         if (!editBadgeModal || editBadgeSaving) return;
         setEditBadgeSaving(true);
         try {
-            const res = await fetch(`/api/admin/users/${editBadgeModal.id}/badge`, {
-                method: 'PATCH',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ profile_badge: editBadgeText.trim() || null }),
-            });
-            if (!res.ok) throw new Error('Failed');
+            await updateUserBadge(editBadgeModal.id, { profile_badge: editBadgeText.trim() || null });
             setUsers(prev => prev.map(u => u.id === editBadgeModal.id
                 ? { ...u, profile_badge: editBadgeText.trim() || null }
                 : u

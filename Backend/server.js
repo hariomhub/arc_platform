@@ -133,19 +133,10 @@ const generalLimiter = rateLimit({
     message: { success: false, message: 'Too many requests. Please try again later.' },
 });
 
-const authLimiter = rateLimit({
-    windowMs:       15 * 60 * 1000,
-    max:            20,
-    standardHeaders: true,
-    legacyHeaders:  false,
-    keyGenerator:   (req) => req.ip ? req.ip.replace(/:\d+$/, '') : 'unknown',
-    message: { success: false, message: 'Too many authentication attempts. Please try again later.' },
-});
-
 app.use(generalLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
-app.use('/api/auth',            authLimiter, authRoutes);
+app.use('/api/auth',            authRoutes);
 app.use('/api/events',          eventsRoutes);
 app.use('/api/resources',       resourcesRoutes);
 app.use('/api/team',            teamRoutes);
