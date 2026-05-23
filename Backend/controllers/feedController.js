@@ -873,11 +873,11 @@ export const getComments = async (req, res, next) => {
 
         for (const row of rows) {
             const comment = { ...row, is_liked: likedCommentIds.has(row.id), replies: [] };
-            if (!row.parent_comment_id) {
+            if (!row.parent_id) {
                 topLevel.push(comment);
                 replyMap[row.id] = comment;
             } else {
-                const parent = replyMap[row.parent_comment_id];
+                const parent = replyMap[row.parent_id];
                 if (parent) {
                     parent.replies.push(comment);
                 } else {
@@ -923,20 +923,20 @@ export const createComment = async (req, res, next) => {
         let resolvedParentId = parent_comment_id ? parseInt(parent_comment_id, 10) : null;
         if (resolvedParentId) {
             const [parentRows] = await pool.query(
-                'SELECT id, parent_comment_id, author_id FROM feed_comments WHERE id = ?',
+                'SELECT id, parent_id, author_id FROM feed_comments WHERE id = ?',
                 [resolvedParentId]
             );
             if (!parentRows.length) {
                 return res.status(404).json({ success: false, message: 'Parent comment not found.' });
             }
             // If parent is already a reply (has its own parent), make this a sibling
-            if (parentRows[0].parent_comment_id) {
-                resolvedParentId = parentRows[0].parent_comment_id;
+            if (parentRows[0].parent_id) {
+                resolvedParentId = parentRows[0].parent_id;
             }
         }
 
         const [result] = await pool.query(
-            `INSERT INTO feed_comments (post_id, author_id, parent_comment_id, content)
+            `INSERT INTO feed_comments (post_id, author_id, parent_id, content)
              VALUES (?, ?, ?, ?)`,
             [postId, req.user.id, resolvedParentId, content.trim()]
         );
