@@ -7,7 +7,7 @@
 -- Hash generated with bcrypt rounds=12
 INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name) VALUES
 ('Admin', 'admin@riskaicouncil.com',
- '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TiGDKe5lRxKjU6JrKoC2zXGz0Bwm',
+ '$2b$12$YLqlc93IBy7fQnTD3tSubOy6qryLJqZP/Iz1URRJo8UV9gWFimsQi',
  'founding_member', 'approved',
  DATE_ADD(NOW(), INTERVAL 10 YEAR),
  'AI Risk Council');

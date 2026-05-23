@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS news (
   is_published BOOLEAN NOT NULL DEFAULT TRUE,
   is_automated BOOLEAN DEFAULT FALSE,
   source       VARCHAR(255) DEFAULT NULL,
-  article_url  VARCHAR(500) DEFAULT NULL,
+  article_url  VARCHAR(2000) DEFAULT NULL,
   published_at TIMESTAMP DEFAULT NULL,
   fetched_at   TIMESTAMP DEFAULT NULL,
   status       ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'APPROVED',
@@ -624,7 +624,7 @@ CREATE TABLE IF NOT EXISTS framework_security_tools (
 -- Password: Admin@123 (bcrypt hash)
 INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name) VALUES
 ('Admin', 'admin@riskaicouncil.com',
- '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TiGDKe5lRxKjU6JrKoC2zXGz0Bwm',
+ '$2b$12$YLqlc93IBy7fQnTD3tSubOy6qryLJqZP/Iz1URRJo8UV9gWFimsQi',
  'founding_member', 'approved',
  DATE_ADD(NOW(), INTERVAL 10 YEAR),
  'AI Risk Council');
