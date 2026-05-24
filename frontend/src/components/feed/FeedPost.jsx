@@ -223,6 +223,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
     const [copied,   setCopied]   = useState(false);
     const [likeAnim, setLikeAnim] = useState(false);
     const [sharingToLinkedin, setSharingToLinkedin] = useState(false);
+    const [showLinkedinModal, setShowLinkedinModal] = useState(false);
     // Typed reactions (non-general post types)
     const [reaction,       setReaction]       = useState(post.user_reaction || null);
     const [reactionCounts, setReactionCounts] = useState(post.reaction_counts || {});
@@ -282,9 +283,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
         if (!user) { navigate('/login'); return; }
         
         if (!user.linkedin_id) {
-            if (window.confirm('To automatically post to LinkedIn, please connect your account first. Would you like to connect now?')) {
-                window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/linkedin`;
-            }
+            setShowLinkedinModal(true);
             return;
         }
 
@@ -613,6 +612,84 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
             </article>
 
             {viewer && <MediaViewer item={viewer} onClose={() => setViewer(null)} />}
+
+            {/* LinkedIn Connect Modal */}
+            {showLinkedinModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    {/* Backdrop */}
+                    <div
+                        style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}
+                        onClick={() => setShowLinkedinModal(false)}
+                    />
+                    {/* Modal card */}
+                    <div style={{
+                        position: 'relative', background: 'white', borderRadius: '16px',
+                        width: '100%', maxWidth: '400px', padding: '28px 24px 24px',
+                        boxShadow: '0 24px 40px rgba(0,0,0,0.18)',
+                        animation: 'li-modal-in 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards'
+                    }}>
+                        <style>{`
+                            @keyframes li-modal-in {
+                                from { opacity: 0; transform: scale(0.92) translateY(12px); }
+                                to   { opacity: 1; transform: scale(1) translateY(0); }
+                            }
+                        `}</style>
+
+                        {/* Close button */}
+                        <button onClick={() => setShowLinkedinModal(false)} style={{
+                            position: 'absolute', top: '14px', right: '14px',
+                            background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                            width: '30px', height: '30px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                        }}>
+                            <X size={16} />
+                        </button>
+
+                        {/* LinkedIn icon badge */}
+                        <div style={{
+                            width: '52px', height: '52px', borderRadius: '14px',
+                            background: 'linear-gradient(135deg, #0077b5, #00a0dc)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            marginBottom: '16px', boxShadow: '0 4px 12px rgba(0,119,181,0.35)'
+                        }}>
+                            <Linkedin size={26} color="white" />
+                        </div>
+
+                        <h3 style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: '700', color: '#0f172a' }}>
+                            Connect LinkedIn to Share
+                        </h3>
+                        <p style={{ margin: '0 0 22px', fontSize: '0.9rem', color: '#64748b', lineHeight: 1.6 }}>
+                            To share posts directly to your LinkedIn feed, you need to connect your LinkedIn account first. It only takes a few seconds.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowLinkedinModal(false)}
+                                style={{
+                                    flex: 1, padding: '10px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', borderRadius: '10px',
+                                    fontSize: '0.88rem', fontWeight: '600', color: '#475569', cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => { setShowLinkedinModal(false); window.location.href = '/api/auth/linkedin'; }}
+                                style={{
+                                    flex: 1, padding: '10px',
+                                    background: 'linear-gradient(135deg, #0077b5, #00a0dc)',
+                                    border: 'none', borderRadius: '10px',
+                                    fontSize: '0.88rem', fontWeight: '700', color: 'white', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                    boxShadow: '0 4px 12px rgba(0,119,181,0.3)'
+                                }}
+                            >
+                                <Linkedin size={16} color="white" /> Connect Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </>
     );

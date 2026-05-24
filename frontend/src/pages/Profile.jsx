@@ -12,7 +12,7 @@ import {
     User, Mail, Building2, Lock, Eye, EyeOff, Save,
     FileText, Trash2, AlertCircle, Loader2, RefreshCw,
     Upload, ShieldCheck, ArrowLeft, CheckCircle2,
-    Bookmark, BookmarkX, ExternalLink,
+    Bookmark, BookmarkX, ExternalLink, Linkedin,
     BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
@@ -168,7 +168,7 @@ const ProfileInfoSection = ({ user, showToast }) => {
                                 <CheckCircle2 size={15} /> Connected
                             </span>
                         ) : (
-                            <button type="button" onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/linkedin`}
+                            <button type="button" onClick={() => window.location.href = '/api/auth/linkedin'}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0077b5', color: 'white', border: 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                 <Linkedin size={15} /> Connect
                             </button>
