@@ -129,6 +129,12 @@ export const savePost = (postId) =>
     api.post(`/qna/${postId}/save`);
 
 /**
+ * Share a post directly to user's LinkedIn feed via API.
+ */
+export const sharePostToLinkedIn = (postId) =>
+    api.post(`/qna/${postId}/share-linkedin`);
+
+/**
  * Unsave a post.
  */
 export const unsavePost = (postId) =>

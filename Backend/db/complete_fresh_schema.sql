@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   photo_url                 VARCHAR(500),
   linkedin_url              VARCHAR(500),
   linkedin_id               VARCHAR(255),
+  linkedin_access_token     VARCHAR(1000),
   auth_provider             VARCHAR(50) DEFAULT 'local',
   organization_name         VARCHAR(255),
   professional_sub_type     ENUM('working_professional','final_year_undergrad') DEFAULT NULL,

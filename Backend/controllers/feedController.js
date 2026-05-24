@@ -23,6 +23,7 @@
 
 import pool from '../db/connection.js';
 import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
+import axios from 'axios';
 import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 import multer from 'multer';
 
@@ -1545,6 +1546,99 @@ export const castPollVote = async (req, res, next) => {
             },
         });
     } catch (err) {
+        next(err);
+    }
+};
+
+// ── Share to LinkedIn ───────────────────────────────────────────────────────────
+export const shareToLinkedIn = async (req, res, next) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user.id;
+
+        // 1. Get user's linkedin token and ID
+        const [users] = await pool.query(
+            'SELECT linkedin_id, linkedin_access_token FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (!users.length || !users[0].linkedin_access_token || !users[0].linkedin_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'LinkedIn is not connected or token expired. Please log out and log back in with LinkedIn to reconnect.'
+            });
+        }
+
+        const { linkedin_id, linkedin_access_token } = users[0];
+
+        // 2. Get post details
+        const [posts] = await pool.query(
+            'SELECT title, content, image_url FROM feed_posts WHERE id = ? AND is_hidden = 0',
+            [postId]
+        );
+
+        if (!posts.length) {
+            return res.status(404).json({ success: false, message: 'Post not found or hidden.' });
+        }
+
+        const post = posts[0];
+        const postUrl = `${process.env.FRONTEND_URL}/community/qna/${postId}`;
+
+        // 3. Prepare LinkedIn Payload
+        // We will share it as an ARTICLE (link) so LinkedIn automatically pulls the OG image
+        // and we will pre-fill the text with the post's title and content.
+        const shareText = post.title ? `${post.title}\n\n${post.content}` : post.content;
+        
+        // Strip HTML if content has it (rudimentary strip, assuming plain text for now as per DB)
+        const cleanText = shareText.replace(/<[^>]+>/g, '').substring(0, 3000); // LinkedIn max length is ~3000
+
+        const payload = {
+            author: `urn:li:person:${linkedin_id}`,
+            lifecycleState: 'PUBLISHED',
+            specificContent: {
+                'com.linkedin.ugc.ShareContent': {
+                    shareCommentary: {
+                        text: cleanText
+                    },
+                    shareMediaCategory: 'ARTICLE',
+                    media: [
+                        {
+                            status: 'READY',
+                            originalUrl: postUrl,
+                            title: {
+                                text: post.title || 'AI Risk Council Post'
+                            }
+                        }
+                    ]
+                }
+            },
+            visibility: {
+                'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+            }
+        };
+
+        // 4. Send to LinkedIn
+        const response = await axios.post(
+            'https://api.linkedin.com/v2/ugcPosts',
+            payload,
+            {
+                headers: {
+                    'Authorization': `Bearer ${linkedin_access_token}`,
+                    'X-Restli-Protocol-Version': '2.0.0',
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        res.json({ success: true, message: 'Successfully posted to LinkedIn!', data: response.data });
+    } catch (err) {
+        console.error('LinkedIn Share Error:', err?.response?.data || err.message);
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+            return res.status(401).json({
+                success: false,
+                message: 'LinkedIn session expired or unauthorized. Please log out and log back in with LinkedIn.'
+            });
+        }
         next(err);
     }
 };

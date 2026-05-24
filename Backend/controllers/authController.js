@@ -213,7 +213,7 @@ export const getMe = async (req, res, next) => {
         }
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, organization_name, profile_badge, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, linkedin_id, organization_name, profile_badge, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -246,6 +246,25 @@ export const linkedinCallback = async (req, res, next) => {
             );
         }
 
+        // ── Handle "Connect LinkedIn" for already logged-in users ──────────
+        const token = req.cookies?.arc_token;
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                // User is already logged in! Just connect their LinkedIn.
+                await pool.query(
+                    `UPDATE users SET linkedin_id = ?, auth_provider = 'linkedin',
+                     photo_url = COALESCE(NULLIF(photo_url,''), ?), linkedin_access_token = ? WHERE id = ?`,
+                    [linkedinId, photo_url, req.linkedinProfile.accessToken, decoded.id]
+                );
+                // Redirect back to profile with a success param
+                return res.redirect(`${origin}/profile?linkedin_connected=true`);
+            } catch (err) {
+                // Ignore token errors and proceed with normal login/registration
+                console.log('[LinkedIn Connect] Token verification failed, proceeding to login:', err.message);
+            }
+        }
+
         // ── Upsert: find by linkedin_id OR email ─────────────────────────────
         let [rows] = await pool.query(
             'SELECT id, name, email, role, professional_sub_type, status, membership_expires_at FROM users WHERE linkedin_id = ? OR email = ?',
@@ -259,15 +278,15 @@ export const linkedinCallback = async (req, res, next) => {
             user = rows[0];
             await pool.query(
                 `UPDATE users SET linkedin_id = ?, auth_provider = 'linkedin',
-                 photo_url = COALESCE(NULLIF(photo_url,''), ?) WHERE id = ?`,
-                [linkedinId, photo_url, user.id]
+                 photo_url = COALESCE(NULLIF(photo_url,''), ?), linkedin_access_token = ? WHERE id = ?`,
+                [linkedinId, photo_url, req.linkedinProfile.accessToken, user.id]
             );
         } else {
             // New user — create with pending status, requires admin approval like all registrations
             const [result] = await pool.query(
-                `INSERT INTO users (name, email, linkedin_id, auth_provider, role, status, photo_url)
-         VALUES (?, ?, ?, 'linkedin', 'professional', 'pending', ?)`,
-                [name, email, linkedinId, photo_url]
+                `INSERT INTO users (name, email, linkedin_id, linkedin_access_token, auth_provider, role, status, photo_url)
+         VALUES (?, ?, ?, ?, 'linkedin', 'professional', 'pending', ?)`,
+                [name, email, linkedinId, req.linkedinProfile.accessToken, photo_url]
             );
             const [newRows] = await pool.query(
                 'SELECT id, name, email, role, professional_sub_type, status, membership_expires_at FROM users WHERE id = ?',

@@ -9,10 +9,13 @@ const strategy = new OAuth2Strategy(
         clientID:         process.env.LINKEDIN_CLIENT_ID,
         clientSecret:     process.env.LINKEDIN_CLIENT_SECRET,
         callbackURL:      process.env.LINKEDIN_CALLBACK_URL,
-        scope:            'openid profile email',  // ← string not array
+        scope:            'openid profile email w_member_social',  // ← string not array
         state:            true,
     },
-    (_accessToken, _refreshToken, _params, profile, done) => done(null, profile)
+    (_accessToken, _refreshToken, _params, profile, done) => {
+        profile.accessToken = _accessToken;
+        return done(null, profile);
+    }
 );
 
 strategy.userProfile = function (accessToken, done) {

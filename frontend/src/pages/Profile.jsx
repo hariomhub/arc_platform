@@ -157,11 +157,26 @@ const ProfileInfoSection = ({ user, showToast }) => {
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
                 </Field>
                 <Field label="LinkedIn Profile URL" error={errors.linkedin_url}>
-                    <input value={form.linkedin_url}
-                        onChange={e => { setForm(p => ({ ...p, linkedin_url: e.target.value })); setErrors(p => ({ ...p, linkedin_url: null })); }}
-                        style={inputStyle(errors.linkedin_url)} placeholder="https://linkedin.com/in/yourprofile"
-                        onFocus={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#003366'; }}
-                        onBlur={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#E2E8F0'; }} />
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input value={form.linkedin_url}
+                            onChange={e => { setForm(p => ({ ...p, linkedin_url: e.target.value })); setErrors(p => ({ ...p, linkedin_url: null })); }}
+                            style={{ ...inputStyle(errors.linkedin_url), flex: 1 }} placeholder="https://linkedin.com/in/yourprofile"
+                            onFocus={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#003366'; }}
+                            onBlur={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#E2E8F0'; }} />
+                        {user?.linkedin_id ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0.65rem 0.9rem', background: '#ecfdf5', color: '#059669', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                <CheckCircle2 size={15} /> Connected
+                            </span>
+                        ) : (
+                            <button type="button" onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/linkedin`}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#0077b5', color: 'white', border: 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                <Linkedin size={15} /> Connect
+                            </button>
+                        )}
+                    </div>
+                    {!user?.linkedin_id && (
+                        <p style={{ margin: '5px 0 0', fontSize: '0.75rem', color: '#64748B' }}>Connect your LinkedIn account to enable automatic feed sharing.</p>
+                    )}
                 </Field>
                 <Field label="Professional Bio">
                     <textarea value={form.bio}
@@ -514,6 +529,15 @@ const Profile = () => {
 
     useEffect(() => { document.title = 'My Profile | AI Risk Council'; }, []);
     useEffect(() => { if (!user) navigate('/login'); }, [user, navigate]);
+    
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('linkedin_connected') === 'true') {
+            showToast('LinkedIn account connected successfully!', 'success');
+            // Remove the param from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, [showToast]);
 
     const fetchProfile = useCallback(async () => {
         setLoadingProfile(true); setProfileError('');

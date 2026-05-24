@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useToast } from '../../hooks/useToast.js';
-import { togglePostLike, savePost, unsavePost, deleteFeedPost, toggleHidePost, togglePostReaction, castPollVote } from '../../api/feed.js';
+import { togglePostLike, savePost, unsavePost, deleteFeedPost, toggleHidePost, togglePostReaction, castPollVote, sharePostToLinkedIn } from '../../api/feed.js';
 import { getErrorMessage } from '../../utils/apiHelpers.js';
 import { timeAgo } from '../../utils/dateFormatter.js';
 import AuthorHoverCard from './AuthorHoverCard.jsx';
@@ -222,7 +222,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
     const [viewer,   setViewer]   = useState(null);
     const [copied,   setCopied]   = useState(false);
     const [likeAnim, setLikeAnim] = useState(false);
-    const [showLinkedinModal, setShowLinkedinModal] = useState(false);
+    const [sharingToLinkedin, setSharingToLinkedin] = useState(false);
     // Typed reactions (non-general post types)
     const [reaction,       setReaction]       = useState(post.user_reaction || null);
     const [reactionCounts, setReactionCounts] = useState(post.reaction_counts || {});
@@ -278,15 +278,27 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
             .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
     }, [post.id]);
 
-    const shareToLinkedin = useCallback(() => {
+    const shareToLinkedin = useCallback(async () => {
         if (!user) { navigate('/login'); return; }
-        if (!user.linkedin_url) {
-            setShowLinkedinModal(true);
+        
+        if (!user.linkedin_id) {
+            if (window.confirm('To automatically post to LinkedIn, please connect your account first. Would you like to connect now?')) {
+                window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/linkedin`;
+            }
             return;
         }
-        const postUrl = `${window.location.origin}/community-qna/${post.id}`;
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`, '_blank', 'width=600,height=600');
-    }, [user, post.id, navigate]);
+
+        if (sharingToLinkedin) return;
+        setSharingToLinkedin(true);
+        try {
+            await sharePostToLinkedIn(post.id);
+            showToast('Successfully posted to LinkedIn!', 'success');
+        } catch (e) {
+            showToast(getErrorMessage(e) || 'Failed to post to LinkedIn. You may need to reconnect your account.', 'error');
+        } finally {
+            setSharingToLinkedin(false);
+        }
+    }, [user, post.id, navigate, showToast, sharingToLinkedin]);
 
     const del = useCallback(async () => {
         if (!window.confirm('Delete this post?')) return;
@@ -586,9 +598,9 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                         </button>
 
                         {/* LinkedIn Share */}
-                        <button className="fp-act linkedin" onClick={shareToLinkedin} title="Share on LinkedIn">
+                        <button className="fp-act linkedin" onClick={shareToLinkedin} disabled={sharingToLinkedin} title="Share on LinkedIn">
                             <Linkedin size={13} color="currentColor" />
-                            <span className="act-label">LinkedIn</span>
+                            <span className="act-label">{sharingToLinkedin ? 'Posting...' : 'LinkedIn'}</span>
                         </button>
 
                         {compact && (
