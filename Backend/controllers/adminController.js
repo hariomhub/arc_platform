@@ -315,7 +315,7 @@ export const getMembershipApplications = async (req, res, next) => {
         const { status, role } = req.query;
         let countSql = `SELECT COUNT(*) AS total FROM membership_applications ma JOIN users u ON u.id = ma.user_id WHERE 1=1`;
         let dataSql  = `
-            SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status
+            SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status, u.profile_badge
             FROM membership_applications ma
             JOIN users u ON u.id = ma.user_id
             WHERE 1=1

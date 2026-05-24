@@ -93,16 +93,29 @@ const SaveBtn = ({ loading, label = 'Save Changes', loadingLabel = 'Saving…', 
 
 // ─── Profile Info ─────────────────────────────────────────────────────────────
 const ProfileInfoSection = ({ user, showToast }) => {
-    const [form, setForm]     = useState({ name: user?.name || '', organization_name: user?.organization_name || '' });
+    const [form, setForm]     = useState({ 
+        name: user?.name || '', 
+        organization_name: user?.organization_name || '',
+        linkedin_url: user?.linkedin_url || '',
+        bio: user?.bio || ''
+    });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [saved, setSaved]   = useState(false);
 
-    useEffect(() => { setForm({ name: user?.name || '', organization_name: user?.organization_name || '' }); }, [user]);
+    useEffect(() => { 
+        setForm({ 
+            name: user?.name || '', 
+            organization_name: user?.organization_name || '',
+            linkedin_url: user?.linkedin_url || '',
+            bio: user?.bio || ''
+        }); 
+    }, [user]);
 
     const validate = () => {
         const e = {};
         if (!form.name.trim() || form.name.trim().length < 2) e.name = 'Name must be at least 2 characters.';
+        if (form.linkedin_url && !/^https?:\/\//.test(form.linkedin_url.trim())) e.linkedin_url = 'Must be a valid URL starting with http:// or https://';
         return e;
     };
 
@@ -140,6 +153,21 @@ const ProfileInfoSection = ({ user, showToast }) => {
                     <input value={form.organization_name}
                         onChange={e => setForm(p => ({ ...p, organization_name: e.target.value }))}
                         style={inputStyle(false)} placeholder="Your company or organisation"
+                        onFocus={e => { e.target.style.borderColor = '#003366'; }}
+                        onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
+                </Field>
+                <Field label="LinkedIn Profile URL" error={errors.linkedin_url}>
+                    <input value={form.linkedin_url}
+                        onChange={e => { setForm(p => ({ ...p, linkedin_url: e.target.value })); setErrors(p => ({ ...p, linkedin_url: null })); }}
+                        style={inputStyle(errors.linkedin_url)} placeholder="https://linkedin.com/in/yourprofile"
+                        onFocus={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#003366'; }}
+                        onBlur={e => { if (!errors.linkedin_url) e.target.style.borderColor = '#E2E8F0'; }} />
+                </Field>
+                <Field label="Professional Bio">
+                    <textarea value={form.bio}
+                        onChange={e => setForm(p => ({ ...p, bio: e.target.value }))}
+                        rows={4}
+                        style={{ ...inputStyle(false), resize: 'vertical' }} placeholder="A brief professional summary..."
                         onFocus={e => { e.target.style.borderColor = '#003366'; }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; }} />
                 </Field>
