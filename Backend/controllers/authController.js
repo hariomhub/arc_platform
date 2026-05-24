@@ -247,10 +247,10 @@ export const linkedinCallback = async (req, res, next) => {
         }
 
         // ── Handle "Connect LinkedIn" for already logged-in users ──────────
-        const token = req.cookies?.arc_token;
-        if (token) {
+        const existingToken = req.cookies?.arc_token;
+        if (existingToken) {
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                const decoded = jwt.verify(existingToken, process.env.JWT_SECRET);
                 // User is already logged in! Just connect their LinkedIn.
                 await pool.query(
                     `UPDATE users SET linkedin_id = ?, auth_provider = 'linkedin',
