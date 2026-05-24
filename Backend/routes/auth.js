@@ -97,7 +97,7 @@ router.get(
     '/linkedin',
     authLimiter,
     passport.authenticate('linkedin', { session: true,
-        scope: ['openid', 'profile', 'email'],
+        scope: ['openid', 'profile', 'email', 'w_member_social'],
      },)
 );
 
