@@ -129,7 +129,6 @@ const generalLimiter = rateLimit({
     max:            300,
     standardHeaders: true,
     legacyHeaders:  false,
-    keyGenerator:   (req) => req.ip ? req.ip.replace(/:\d+$/, '') : 'unknown',
     message: { success: false, message: 'Too many requests. Please try again later.' },
 });
 

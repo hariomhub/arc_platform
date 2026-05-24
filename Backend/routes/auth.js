@@ -11,7 +11,6 @@ const authLimiter = rateLimit({
     max:            10,
     standardHeaders: true,
     legacyHeaders:  false,
-    keyGenerator:   (req) => req.ip ? req.ip.replace(/:\d+$/, '') : 'unknown',
     message: { success: false, message: 'Too many authentication attempts. Please wait 15 minutes before trying again.' },
 });
 
