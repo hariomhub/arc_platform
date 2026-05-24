@@ -1573,7 +1573,7 @@ export const shareToLinkedIn = async (req, res, next) => {
 
         // 2. Get post details
         const [posts] = await pool.query(
-            'SELECT title, content, image_url FROM feed_posts WHERE id = ? AND is_hidden = 0',
+            'SELECT post_type, content FROM feed_posts WHERE id = ? AND is_hidden = 0',
             [postId]
         );
 
@@ -1586,11 +1586,15 @@ export const shareToLinkedIn = async (req, res, next) => {
 
         // 3. Prepare LinkedIn Payload
         // We will share it as an ARTICLE (link) so LinkedIn automatically pulls the OG image
-        // and we will pre-fill the text with the post's title and content.
-        const shareText = post.title ? `${post.title}\n\n${post.content}` : post.content;
+        // and we will pre-fill the text with the post's content.
+        const shareText = post.content || '';
         
         // Strip HTML if content has it (rudimentary strip, assuming plain text for now as per DB)
         const cleanText = shareText.replace(/<[^>]+>/g, '').substring(0, 3000); // LinkedIn max length is ~3000
+
+        const titleText = post.post_type === 'poll' ? 'AI Risk Council Poll' :
+                          post.post_type === 'event' ? 'AI Risk Council Event' :
+                          'AI Risk Council Post';
 
         const payload = {
             author: `urn:li:person:${linkedin_id}`,
@@ -1606,7 +1610,7 @@ export const shareToLinkedIn = async (req, res, next) => {
                             status: 'READY',
                             originalUrl: postUrl,
                             title: {
-                                text: post.title || 'AI Risk Council Post'
+                                text: titleText
                             }
                         }
                     ]
