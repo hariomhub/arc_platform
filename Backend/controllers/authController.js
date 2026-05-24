@@ -6,7 +6,7 @@ import { sendWelcomeEmail, sendVerificationEmail } from '../services/emailServic
 const COOKIE_OPTIONS = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',  // 'lax' required for OAuth redirects — 'strict' blocks cookie on cross-site redirects
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -200,7 +200,7 @@ export const login = async (req, res, next) => {
 
 // POST /api/auth/logout
 export const logout = (req, res) => {
-    res.clearCookie('arc_token', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+    res.clearCookie('arc_token', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
     return res.json({ success: true, data: { message: 'Logged out successfully.' } });
 };
 
@@ -283,19 +283,22 @@ export const linkedinCallback = async (req, res, next) => {
             );
         } else {
             // New user — create with pending status, requires admin approval like all registrations
+            // Auto-construct the linkedin_url from their OAuth profile (stronger than a self-typed URL)
+            const linkedinUrl = `https://www.linkedin.com/in/${linkedinId}`;
+
             const [result] = await pool.query(
-                `INSERT INTO users (name, email, linkedin_id, linkedin_access_token, auth_provider, role, status, photo_url)
-         VALUES (?, ?, ?, ?, 'linkedin', 'professional', 'pending', ?)`,
-                [name, email, linkedinId, req.linkedinProfile.accessToken, photo_url]
+                `INSERT INTO users (name, email, linkedin_id, linkedin_access_token, auth_provider, role, status, photo_url, linkedin_url)
+         VALUES (?, ?, ?, ?, 'linkedin', 'professional', 'pending', ?, ?)`,
+                [name, email, linkedinId, req.linkedinProfile.accessToken, photo_url, linkedinUrl]
             );
             const [newRows] = await pool.query(
                 'SELECT id, name, email, role, professional_sub_type, status, membership_expires_at FROM users WHERE id = ?',
                 [result.insertId]
             );
             user = newRows[0];
-            sendWelcomeEmail({ name, email, role: 'professional', organizationName: null });
 
-            // Issue a short-lived temp token so the complete-profile page can call PATCH /auth/complete-profile
+            // Issue a short-lived temp token ONLY to allow the complete-profile PATCH call.
+            // This token expires in 1h and the cookie is cleared after profile completion.
             const tempToken = jwt.sign(
                 { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
                 process.env.JWT_SECRET,
@@ -303,7 +306,7 @@ export const linkedinCallback = async (req, res, next) => {
             );
             res.cookie('arc_token', tempToken, COOKIE_OPTIONS);
 
-            // Redirect to complete-profile page — user must pick sub-category
+            // Redirect to complete-profile page — user must pick sub-category + org name only
             return res.redirect(`${origin}/register/complete`);
         }
 
@@ -334,33 +337,44 @@ export const linkedinCallback = async (req, res, next) => {
 };
 
 // PATCH /api/auth/complete-profile
-// Used by LinkedIn OAuth new users to set professional_sub_type + linkedin_url
+// Used by LinkedIn OAuth new users to set professional_sub_type + organization_name.
+// linkedin_url is already saved during OAuth — no need to ask again.
 export const completeProfile = async (req, res, next) => {
     try {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated.' });
 
         const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
-        const { professional_sub_type, linkedin_url, organization_name } = req.body;
+        const { professional_sub_type, organization_name } = req.body;
 
         if (!allowedSubTypes.includes(professional_sub_type)) {
             return res.status(400).json({ success: false, message: 'Invalid sub-category. Choose working_professional or final_year_undergrad.' });
         }
-        
+
         if (!organization_name || !organization_name.trim()) {
             return res.status(400).json({ success: false, message: 'Organisation / University name is required.' });
         }
-        
-        if (!linkedin_url || !linkedin_url.trim()) {
-            return res.status(400).json({ success: false, message: 'LinkedIn profile URL is required.' });
-        }
 
         await pool.query(
-            `UPDATE users SET professional_sub_type = ?, linkedin_url = COALESCE(NULLIF(?, ''), linkedin_url), organization_name = COALESCE(NULLIF(?, ''), organization_name) WHERE id = ?`,
-            [professional_sub_type, linkedin_url.trim(), organization_name.trim(), userId]
+            `UPDATE users SET professional_sub_type = ?, organization_name = ? WHERE id = ?`,
+            [professional_sub_type, organization_name.trim(), userId]
         );
 
-        return res.json({ success: true, data: { message: 'Profile completed successfully.' } });
+        // Fetch user details to send the welcome email now that profile is complete
+        const [rows] = await pool.query('SELECT name, email FROM users WHERE id = ?', [userId]);
+        if (rows.length) {
+            sendWelcomeEmail({ name: rows[0].name, email: rows[0].email, role: 'professional', organizationName: organization_name.trim() });
+        }
+
+        // Clear the temp JWT cookie — user must wait for admin approval before logging in.
+        // This enforces the admin approval gate properly.
+        res.clearCookie('arc_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        });
+
+        return res.json({ success: true, data: { message: 'Profile completed. Pending admin approval.' } });
     } catch (err) {
         next(err);
     }

@@ -27,7 +27,6 @@ const RegisterComplete = () => {
     const { user, isAuthLoading } = useAuth();
 
     const [selectedSubCat,  setSelectedSubCat]  = useState('working_professional');
-    const [linkedinUrl,     setLinkedinUrl]     = useState('');
     const [organizationName,setOrganizationName]= useState('');
     const [submitting,      setSubmitting]       = useState(false);
     const [error,           setError]           = useState('');
@@ -54,21 +53,12 @@ const RegisterComplete = () => {
             setError('Organisation / University Name is required.');
             return;
         }
-        
-        if (!linkedinUrl.trim()) {
-            setError('LinkedIn Profile URL is required.');
-            return;
-        } else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(linkedinUrl.trim())) {
-            setError('Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).');
-            return;
-        }
 
         setSubmitting(true);
         try {
             await axios.patch('/auth/complete-profile', {
                 professional_sub_type: selectedSubCat,
                 organization_name: organizationName.trim(),
-                linkedin_url: linkedinUrl.trim(),
             });
             setSuccess(true);
         } catch (err) {
@@ -202,7 +192,7 @@ const RegisterComplete = () => {
                                 </div>
                             </div>
 
-                            {/* LinkedIn URL */}
+                            {/* Organisation Name */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                 <label htmlFor="rc-org" style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>
                                     Organisation / University Name <span style={{ color: '#EF4444' }}>*</span>
@@ -221,38 +211,10 @@ const RegisterComplete = () => {
                                         fontFamily: 'var(--font-sans)', outline: 'none',
                                         background: '#FAFBFC', color: '#0F172A',
                                         transition: 'border-color 0.15s',
-                                        marginBottom: '0.8rem',
                                     }}
                                     onFocus={e => e.target.style.borderColor = '#003366'}
                                     onBlur={e => e.target.style.borderColor = '#E2E8F0'}
                                 />
-                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                                    <label htmlFor="rc-linkedin" style={{ fontSize: '0.8rem', fontWeight: '600', color: '#374151' }}>
-                                        LinkedIn Profile URL <span style={{ color: '#EF4444' }}>*</span>
-                                    </label>
-                                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Helps admin verify your background</span>
-                                </div>
-                                <input
-                                    id="rc-linkedin"
-                                    type="url"
-                                    value={linkedinUrl}
-                                    onChange={e => setLinkedinUrl(e.target.value)}
-                                    placeholder="https://linkedin.com/in/your-name"
-                                    disabled={submitting}
-                                    style={{
-                                        width: '100%', padding: '0.7rem 0.9rem',
-                                        border: '1.5px solid #E2E8F0', borderRadius: '10px',
-                                        fontSize: '0.875rem', boxSizing: 'border-box',
-                                        fontFamily: 'var(--font-sans)', outline: 'none',
-                                        background: '#FAFBFC', color: '#0F172A',
-                                        transition: 'border-color 0.15s',
-                                    }}
-                                    onFocus={e => e.target.style.borderColor = '#003366'}
-                                    onBlur={e => e.target.style.borderColor = '#E2E8F0'}
-                                />
-                                <p style={{ margin: 0, fontSize: '0.7rem', color: '#94A3B8', lineHeight: 1.5 }}>
-                                    Since you signed up via LinkedIn, this may already be known — you must still provide it for admin validation.
-                                </p>
                             </div>
 
                             <div style={{ background: '#F8FAFC', borderRadius: '9px', padding: '0.65rem 0.9rem', fontSize: '0.75rem', color: '#64748B', border: '1px solid #E2E8F0' }}>

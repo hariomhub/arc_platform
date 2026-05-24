@@ -238,5 +238,7 @@ router.post(
     validate,
     feedController.castPollVote
 );
+// ── POST /api/qna/:id/share-linkedin  — share post to user's LinkedIn feed ────
+router.post('/:id/share-linkedin', idParam, validate, auth, feedController.shareToLinkedIn);
 
 export default router;
