@@ -614,35 +614,6 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
 
             {viewer && <MediaViewer item={viewer} onClose={() => setViewer(null)} />}
 
-            {/* LinkedIn Validation Modal */}
-            {showLinkedinModal && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowLinkedinModal(false)} />
-                    <div style={{ position: 'relative', background: 'white', borderRadius: 16, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', animation: 'fadeup 0.25s ease-out forwards' }}>
-                        <button onClick={() => setShowLinkedinModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4 }}>
-                            <X size={20} />
-                        </button>
-                        
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: '#e0eaf3', color: '#0A66C2', marginBottom: 16 }}>
-                            <Linkedin size={24} />
-                        </div>
-                        
-                        <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem', color: '#0f172a' }}>LinkedIn Required</h3>
-                        <p style={{ margin: '0 0 20px', fontSize: '0.95rem', color: '#475569', lineHeight: 1.5 }}>
-                            To share posts on LinkedIn, you must first add your LinkedIn Profile URL to your account.
-                        </p>
-                        
-                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowLinkedinModal(false)} style={{ padding: '8px 16px', background: 'white', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.9rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
-                                Cancel
-                            </button>
-                            <button onClick={() => { setShowLinkedinModal(false); navigate('/profile'); }} style={{ padding: '8px 16px', background: '#0A66C2', border: 'none', borderRadius: 8, fontSize: '0.9rem', fontWeight: 600, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#004182'} onMouseOut={e => e.currentTarget.style.background = '#0A66C2'}>
-                                Go to Profile →
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </>
     );
 };
