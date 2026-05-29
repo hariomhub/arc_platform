@@ -67,7 +67,7 @@ router.get('/:id/download', auth, resourcesController.downloadResource);
 
 // ── Create / Update / Delete resources ──────────────────────────────────────
 router.post('/',    auth, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), resourceValidation, validate, resourcesController.createResource);
-router.put('/:id',  auth, requireRole('founding_member'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), resourceValidation, validate, resourcesController.updateResource);
+router.put('/:id',  auth, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), resourceValidation, validate, resourcesController.updateResource);
 router.delete('/:id', auth, resourcesController.deleteResource);
 
 // ── Admin approval ───────────────────────────────────────────────────────────

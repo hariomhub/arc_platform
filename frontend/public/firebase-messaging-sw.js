@@ -30,7 +30,7 @@ messaging.onBackgroundMessage((payload) => {
         body:    body || 'You have new updates.',
         icon:    '/ai_logo.png',
         badge:   '/ai_logo.png',
-        data:    { url: data.url || 'https://www.riskaicouncil.com' },
+        data:    { url: data.url || 'https://www.riskaicouncil.org' },
         requireInteraction: false,
     };
 
@@ -40,7 +40,7 @@ messaging.onBackgroundMessage((payload) => {
 // Handle notification click — open/focus the app
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const url = event.notification.data?.url || 'https://www.riskaicouncil.com';
+    const url = event.notification.data?.url || 'https://www.riskaicouncil.org';
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {

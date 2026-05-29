@@ -332,7 +332,12 @@ export const createResource = async (req, res, next) => {
             return res.status(403).json({ success: false, message: `Only Founding Members can upload ${type.replace('_', ' ')}s.` });
         }
 
-        // 2) Handle private file upload
+        // 2) Thumbnail is required for all resource uploads
+        if (!req.files || !req.files['thumbnail']) {
+            return res.status(422).json({ success: false, message: 'A thumbnail image is required when uploading a resource.' });
+        }
+
+        // 3) Handle private file upload
         let file_url = null;
         if (req.files && req.files['file']) {
             const file = req.files['file'][0];
@@ -407,9 +412,14 @@ export const updateResource = async (req, res, next) => {
         const { id } = req.params;
         const { title, description, abstract, demo_url, type, access_level } = req.body;
 
-        const [existing] = await pool.query('SELECT id, file_url, thumbnail_url FROM resources WHERE id = ?', [id]);
+        const [existing] = await pool.query('SELECT id, uploader_id, file_url, thumbnail_url FROM resources WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ success: false, message: 'Resource not found.' });
+        }
+
+        // Only the uploader or a founding_member can edit this resource
+        if (req.user.role !== 'founding_member' && existing[0].uploader_id !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'You can only edit resources you have uploaded.' });
         }
         
         let file_url = existing[0].file_url;

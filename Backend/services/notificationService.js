@@ -146,7 +146,7 @@ const sendToTokens = async (tokens, title, body, data = {}) => {
                     requireInteraction: false,
                 },
                 fcmOptions: {
-                    link: data?.url || 'https://www.riskaicouncil.com',
+                    link: data?.url || 'https://www.riskaicouncil.org',
                 },
             },
             android: {
@@ -155,7 +155,7 @@ const sendToTokens = async (tokens, title, body, data = {}) => {
                     body,
                     icon: 'notification_icon',
                     color: '#003366',
-                    clickAction: data?.url || 'https://www.riskaicouncil.com',
+                    clickAction: data?.url || 'https://www.riskaicouncil.org',
                 },
                 priority: 'high',
             },
@@ -304,7 +304,7 @@ export const sendDigestToAllMembers = async () => {
 
         const data = {
             type:  'digest',
-            url:   'https://www.riskaicouncil.com',
+            url:   'https://www.riskaicouncil.org',
             count: String(pending.length),
         };
 

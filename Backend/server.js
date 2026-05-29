@@ -62,9 +62,9 @@ app.set('trust proxy', 1);
 
 // ─── Domain Redirection (Canonicalization) ──────────────────────────────────
 app.use((req, res, next) => {
-    // Redirect apex domain to www subdomain
-    if (req.hostname === 'riskaicouncil.com') {
-        return res.redirect(301, `https://www.riskaicouncil.com${req.originalUrl}`);
+    // Redirect apex domain to www subdomain (updated to .org)
+    if (req.hostname === 'riskaicouncil.org') {
+        return res.redirect(301, `https://www.riskaicouncil.org${req.originalUrl}`);
     }
     next();
 });

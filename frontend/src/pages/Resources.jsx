@@ -76,6 +76,9 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.title.trim() || !form.description.trim()) { setError('Title and description are required.'); return; }
+        // Thumbnail is required on upload; on edit it's only required if no existing thumbnail
+        if (!isEdit && !thumbnail) { setError('Thumbnail image is required.'); return; }
+        if (isEdit && !thumbnail && !resource?.thumbnail_url) { setError('Thumbnail image is required.'); return; }
         setLoading(true); setError('');
         try {
             const fd = new FormData();
@@ -105,7 +108,7 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,20,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,20,0.6)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', paddingTop: 'calc(66px + 1rem)', backdropFilter: 'blur(2px)' }}
             onClick={e => e.target === e.currentTarget && onClose()}>
             <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '520px', maxHeight: '92dvh', overflow: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}>
 
@@ -223,9 +226,9 @@ const ResourceModal = ({ resource, userRole, onClose, onSaved, showToast }) => {
                         )}
                     </div>
 
-                    {/* Thumbnail upload — styled drop area feel */}
+                    {/* Thumbnail upload — mandatory */}
                     <div>
-                        <label style={lbl}>Thumbnail Image <span style={{ color: '#9aaab7', fontWeight: '500' }}>(optional)</span></label>
+                        <label style={lbl}>Thumbnail Image <span style={{ color: '#dc2626' }}>*</span></label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '1.5px dashed #c8d3e0', borderRadius: '8px', cursor: 'pointer', background: '#f8fafc', transition: 'border-color 0.15s' }}
                             onMouseOver={e => e.currentTarget.style.borderColor = '#003366'}
                             onMouseOut={e => e.currentTarget.style.borderColor = '#c8d3e0'}>
@@ -313,8 +316,8 @@ const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, dow
     const accent      = TYPE_COLORS[resource.type] || '#003366';
     const canDownload = canDownloadResources(currentUser);
     const isUndergrad = currentUser?.role === 'professional' && currentUser?.professional_sub_type === 'final_year_undergrad';
-    const canEdit     = currentUser?.role === 'founding_member';
-    const canDelete   = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
+    const canEdit   = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
+    const canDelete  = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
     const hasRating   = resource.avg_rating > 0;
     const reviewCount = resource.review_count || 0;
     const isVideo     = ['tech_reels', 'homepage_video'].includes(resource.type);
