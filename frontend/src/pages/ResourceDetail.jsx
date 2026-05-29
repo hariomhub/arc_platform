@@ -115,13 +115,25 @@ const FileViewer = ({ resourceId, fileType, title }) => {
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState('');
     const [collapsed, setCollapsed] = useState(false);
+    const [actualFileType, setActualFileType] = useState(fileType);
 
     useEffect(() => {
         let cancelled = false;
         setLoading(true); setError('');
         // Reuse /stream endpoint — returns SAS URL for any file type
         getVideoStreamUrl(resourceId)
-            .then(r => { if (!cancelled) setUrl(r.data?.url || ''); })
+            .then(r => { 
+                if (!cancelled) {
+                    const fetchedUrl = r.data?.url || '';
+                    setUrl(fetchedUrl);
+                    if (fetchedUrl) {
+                        const detected = getFileType(fetchedUrl);
+                        if (detected && detected !== 'other') {
+                            setActualFileType(detected);
+                        }
+                    }
+                }
+            })
             .catch(() => { if (!cancelled) setError('Could not load file.'); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
@@ -162,7 +174,7 @@ const FileViewer = ({ resourceId, fileType, title }) => {
 
             {!collapsed && (
                 <>
-                    {fileType === 'pdf' && (
+                    {actualFileType === 'pdf' && (
                         <div style={{ position:'relative', height:'600px', overflow:'hidden', background:'#1e293b' }}>
                             <iframe
                                 src={`/api/resources/${resourceId}/preview#toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=FitH`}
@@ -175,20 +187,20 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                             <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'16px', background:'#1e293b', zIndex:10 }} />
                         </div>
                     )}
-                    {fileType === 'image' && (
+                    {actualFileType === 'image' && (
                         <div style={{ padding:'16px', background:'#f8fafc', display:'flex', justifyContent:'center' }}>
                             <img src={`/api/resources/${resourceId}/preview`} alt={title}
                                 style={{ maxWidth:'100%', maxHeight:'500px', objectFit:'contain', borderRadius:8, boxShadow:'0 2px 16px rgba(0,0,0,0.1)' }} />
                         </div>
                     )}
-                    {fileType === 'office' && (
+                    {actualFileType === 'office' && (
                         // Microsoft Office Online viewer — works with public URLs
                         <iframe
                             src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
                             title={title}
                             style={{ width:'100%', height:'600px', border:'none', display:'block' }} />
                     )}
-                    {fileType === 'other' && (
+                    {actualFileType === 'other' && (
                         <div style={{ padding:'2rem', textAlign:'center', background:'#f8fafc' }}>
                             <FileText size={28} color="#c4cdd6" style={{ margin:'0 auto 10px', display:'block' }} />
                             <p style={{ margin:'0 0 4px', fontSize:'0.875rem', fontWeight:'700', color:'#1a1a2e' }}>

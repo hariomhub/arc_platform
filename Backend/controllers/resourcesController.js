@@ -326,7 +326,7 @@ export const createResource = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Only Council Members, Founding Members, and Working Professionals can upload resources.' });
         }
 
-        const ADMIN_ONLY_TYPES = ['framework', 'homepage_video', 'news'];
+        const ADMIN_ONLY_TYPES = ['framework', 'homepage_video'];
         const canUploadAdminTypes = uploaderRole === 'founding_member';
         if (ADMIN_ONLY_TYPES.includes(type) && !canUploadAdminTypes) {
             return res.status(403).json({ success: false, message: `Only Founding Members can upload ${type.replace('_', ' ')}s.` });
