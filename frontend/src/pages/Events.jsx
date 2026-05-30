@@ -2,16 +2,22 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import {
-    Calendar, MapPin, ArrowRight, Monitor, BookOpen, Mic, Radio,
+    Calendar, MapPin, ArrowRight, Monitor, BookOpen, Mic, Radio, Globe,
     AlertCircle, RefreshCw, Loader2, Plus, Pencil, Trash2, X,
     UserPlus, Check, ClipboardList, Trophy, ChevronLeft, ChevronRight,
-    Linkedin, Award, BadgeCheck, Star, Mail, LogIn,
+    Linkedin, Award, BadgeCheck, Star, Mail, LogIn, Users, Clock,
+    Play, Download, Share2, ExternalLink, Image, Mic2, Upload,
+    Tag, Wifi, Building2, Layers,
 } from 'lucide-react';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
-import { getEvents, createEvent, updateEvent, deleteEvent, registerForEvent, cancelEventRegistration } from '../api/events.js';
+import {
+    getEvents, createEvent, updateEvent, deleteEvent,
+    registerForEvent, cancelEventRegistration,
+    uploadEventThumbnail, uploadSpeakerPhoto,
+} from '../api/events.js';
 import { getNominees, getMyVotes, castVote } from '../api/nominations.js';
 import { getWorkshops } from '../api/workshops.js';
 import { formatDate } from '../utils/dateFormatter.js';
@@ -40,36 +46,135 @@ const useBodyScrollLock = (locked) => {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_META = {
-    webinar: { color: '#1D4ED8', bg: '#EFF6FF', icon: <Monitor size={13} /> },
-    seminar: { color: '#16A34A', bg: '#F0FDF4', icon: <BookOpen size={13} /> },
-    workshop: { color: '#D97706', bg: '#FFFBEB', icon: <Mic size={13} /> },
-    podcast: { color: '#7C3AED', bg: '#FAF5FF', icon: <Radio size={13} /> },
+    webinar:    { color: '#1D4ED8', bg: '#EFF6FF',  icon: <Monitor size={13} /> },
+    seminar:    { color: '#16A34A', bg: '#F0FDF4',  icon: <BookOpen size={13} /> },
+    workshop:   { color: '#D97706', bg: '#FFFBEB',  icon: <Mic size={13} /> },
+    podcast:    { color: '#7C3AED', bg: '#FAF5FF',  icon: <Radio size={13} /> },
+    conference: { color: '#0891B2', bg: '#ECFEFF',  icon: <Layers size={13} /> },
 };
-const CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast'];
+const EVENT_MODE_META = {
+    online:    { label: 'Online',    icon: <Wifi size={11} />,      color: '#0284C7', bg: '#F0F9FF' },
+    in_person: { label: 'In-Person', icon: <Building2 size={11} />, color: '#059669', bg: '#F0FDF4' },
+    hybrid:    { label: 'Hybrid',    icon: <Globe size={11} />,     color: '#7C3AED', bg: '#FAF5FF' },
+};
+const CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast', 'conference'];
 const TABS = ['upcoming', 'past'];
 const ITEMS_PER_PAGE = 9;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const getImageUrl = (url) =>
+    url ? (url.startsWith('http') ? url : `http://localhost:5000/${url}`) : null;
+
+/**
+ * Render a plain-text description that may contain newlines and bullet prefixes
+ * (-, •, *) into React elements with proper formatting.
+ */
+const renderDescription = (text) => {
+    if (!text) return null;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const bulletRe = /^[-•*]\s+/;
+    const bulletLines = lines.filter(l => bulletRe.test(l));
+    const isMostlyBullets = bulletLines.length > lines.length / 2;
+
+    if (isMostlyBullets) {
+        // Group consecutive bullets into <ul>, prose into <p>
+        const elements = [];
+        let bulletBuffer = [];
+        const flushBullets = () => {
+            if (bulletBuffer.length) {
+                elements.push(
+                    <ul key={elements.length} style={{ margin: '0 0 0.75rem 1.25rem', padding: 0, listStyleType: 'disc' }}>
+                        {bulletBuffer.map((b, i) => (
+                            <li key={i} style={{ fontSize: '0.875rem', color: '#374151', lineHeight: '1.75', marginBottom: '4px' }}>
+                                {b.replace(bulletRe, '')}
+                            </li>
+                        ))}
+                    </ul>
+                );
+                bulletBuffer = [];
+            }
+        };
+        lines.forEach(line => {
+            if (bulletRe.test(line)) {
+                bulletBuffer.push(line);
+            } else {
+                flushBullets();
+                elements.push(
+                    <p key={elements.length} style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#374151', lineHeight: '1.75' }}>
+                        {line}
+                    </p>
+                );
+            }
+        });
+        flushBullets();
+        return <>{elements}</>;
+    }
+
+    // Prose — render each non-empty line as a paragraph
+    return (
+        <>
+            {lines.map((line, i) => (
+                <p key={i} style={{ margin: '0 0 0.65rem', fontSize: '0.875rem', color: '#374151', lineHeight: '1.75' }}>
+                    {line}
+                </p>
+            ))}
+        </>
+    );
+};
+
+/**
+ * Generate an .ics file download and Google Calendar link for an event.
+ */
+const buildCalendarLinks = (ev) => {
+    const start = new Date(ev.date);
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // assume 1 hour
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+
+    const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Risk AI Council//Events//EN',
+        'BEGIN:VEVENT',
+        `DTSTART:${fmt(start)}`,
+        `DTEND:${fmt(end)}`,
+        `SUMMARY:${ev.title}`,
+        `DESCRIPTION:${(ev.description || '').replace(/\n/g, '\\n').slice(0, 500)}`,
+        `LOCATION:${ev.location || 'Online'}`,
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].join('\r\n');
+
+    const icsUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+
+    const gcUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+        `&text=${encodeURIComponent(ev.title)}` +
+        `&dates=${fmt(start)}/${fmt(end)}` +
+        `&details=${encodeURIComponent((ev.description || '').slice(0, 500))}` +
+        `&location=${encodeURIComponent(ev.location || 'Online')}`;
+
+    return { icsUrl, gcUrl };
+};
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
-    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-        <div style={{ height: '24px', width: '30%', background: '#E2E8F0', borderRadius: '20px', marginBottom: '0.75rem', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ height: '18px', width: '90%', background: '#E2E8F0', borderRadius: '4px', marginBottom: '6px', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ height: '12px', width: '60%', background: '#E2E8F0', borderRadius: '4px', marginBottom: '1rem', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ height: '36px', width: '100%', background: '#E2E8F0', borderRadius: '6px', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+    <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div style={{ height: '160px', background: '#E2E8F0', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ padding: '1.25rem' }}>
+            <div style={{ height: '20px', width: '30%', background: '#E2E8F0', borderRadius: '20px', marginBottom: '0.75rem', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: '16px', width: '90%', background: '#E2E8F0', borderRadius: '4px', marginBottom: '6px', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: '12px', width: '60%', background: '#E2E8F0', borderRadius: '4px', marginBottom: '1rem', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: '36px', width: '100%', background: '#E2E8F0', borderRadius: '6px', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+        </div>
     </div>
 );
 
 // ─── Timeline badge colours ───────────────────────────────────────────────────
 const TIMELINE_META = {
-    quarterly: { label: 'Quarterly', color: '#7C3AED', bg: '#F5F3FF' },
+    quarterly:   { label: 'Quarterly',   color: '#7C3AED', bg: '#F5F3FF' },
     'half-yearly': { label: 'Half-Yearly', color: '#0284C7', bg: '#EFF6FF' },
-    yearly: { label: 'Yearly', color: '#059669', bg: '#F0FDF4' },
+    yearly:      { label: 'Yearly',      color: '#059669', bg: '#F0FDF4' },
 };
-
-const getPhotoUrl = (photo_url) =>
-    photo_url
-        ? photo_url.startsWith('http') ? photo_url : `http://localhost:5000/${photo_url}`
-        : null;
 
 // ─── Vote Options Modal ───────────────────────────────────────────────────────
 const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
@@ -114,7 +219,7 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(3px)' }} onClick={onClose}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(3px)' }} onClick={onClose}>
             <div style={{ background: '#FFFFFF', borderRadius: '12px', maxWidth: '480px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', position: 'relative' }} onClick={e => e.stopPropagation()}>
                 <div style={{ borderBottom: '1px solid #F3F4F6', padding: '1.75rem 2rem 1.5rem' }}>
                     <button onClick={onClose} style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '0.25rem' }} onMouseOver={e => e.currentTarget.style.color = '#111827'} onMouseOut={e => e.currentTarget.style.color = '#6B7280'}><X size={20} strokeWidth={2} /></button>
@@ -161,7 +266,7 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
 const NomineeCard = ({ nominee, onClick, isWinner = false }) => {
     const tl = TIMELINE_META[nominee.category_timeline] || TIMELINE_META.yearly;
     const [hovered, setHovered] = useState(false);
-    const photoUrl = getPhotoUrl(nominee.photo_url);
+    const photoUrl = getImageUrl(nominee.photo_url);
     const accentColor = isWinner ? '#92400E' : '#1D4ED8';
     const accentBg = isWinner ? '#FFFBEB' : '#EFF6FF';
     const firstAchievement = nominee.achievements ? nominee.achievements.split(';')[0]?.trim() : null;
@@ -232,7 +337,7 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
         } finally { setVoting(false); }
     };
 
-    const photoUrl = getPhotoUrl(nominee.photo_url);
+    const photoUrl = getImageUrl(nominee.photo_url);
     const accentColor = isWinnerNominee ? '#D97706' : '#0284C7';
     const initials = nominee.name?.split(' ').map(w => w[0]).slice(0, 2).join('') || '?';
 
@@ -243,7 +348,7 @@ const NomineeModal = ({ nominee, onClose, myVotedCategoryIds, onVoteSuccess }) =
     }, [onClose]);
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }} onClick={onClose}>
             <div onClick={e => e.stopPropagation()} style={{ background: '#FAFAFA', borderRadius: '16px', maxWidth: '580px', width: '100%', maxHeight: '90dvh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                 <button onClick={onClose} style={{ position: 'absolute', top: '14px', right: '14px', background: 'white', border: '1px solid #E5E7EB', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}><X size={15} /></button>
                 <div style={{ background: 'white', borderRadius: '16px 16px 0 0', padding: 'clamp(1.25rem,3vw,1.75rem)', borderBottom: '1px solid #F3F4F6' }}>
@@ -425,20 +530,13 @@ const NominationsSection = () => {
                             <p style={{ color: '#64748B', fontSize: '0.84rem', margin: 0, maxWidth: '460px', lineHeight: '1.6' }}>Celebrating professionals who have shaped AI governance and security excellence.</p>
                         </div>
                         {winnersLoading ? <SkeletonTrack /> : winners.length === 0 ? <EmptyTrack msg="No past winners announced yet." /> : <MarqueeTrack items={winners} isWinner={true} onSelect={setSelected} speed={0.35} />}
-
-{/* View All Winners button */}
-{/* View All Winners button */}
-{!winnersLoading && winners.length > 0 && (
-    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
-        <button
-            onClick={() => navigate('/winners')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(0,51,102,0.2)', transition: 'all 0.2s' }}
-            onMouseOver={e => { e.currentTarget.style.background = '#002147'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseOut={e => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-            View All Winners <ArrowRight size={14} />
-        </button>
-    </div>
-)}
+                        {!winnersLoading && winners.length > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+                                <button onClick={() => navigate('/winners')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(0,51,102,0.2)', transition: 'all 0.2s' }} onMouseOver={e => { e.currentTarget.style.background = '#002147'; e.currentTarget.style.transform = 'translateY(-1px)'; }} onMouseOut={e => { e.currentTarget.style.background = '#003366'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                    View All Winners <ArrowRight size={14} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div style={{ height: '1px', background: 'linear-gradient(90deg,transparent,#E2E8F0 20%,#E2E8F0 80%,transparent)' }} />
                     <div>
@@ -462,66 +560,128 @@ const NominationsSection = () => {
 };
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
-const EventCard = ({ ev, isAdmin, onEdit, onDelete, onRegister, isAuthenticated }) => {
+const EventCard = ({ ev, isAdmin, onEdit, onDelete, onViewDetail }) => {
     const cat = (ev.event_category || '').toLowerCase();
     const meta = CATEGORY_META[cat] || { color: '#64748B', bg: '#F1F5F9', icon: <Calendar size={13} /> };
+    const modeMeta = EVENT_MODE_META[ev.event_mode] || EVENT_MODE_META.online;
     const isPast = !ev.is_upcoming;
+    const thumbnailUrl = getImageUrl(ev.thumbnail_url || ev.banner_image);
+    const speakerPhotoUrl = getImageUrl(ev.speaker_photo_url);
+    const seatsLeft = ev.max_capacity ? ev.max_capacity - (ev.registered_count || 0) : null;
+    const isFull = seatsLeft !== null && seatsLeft <= 0;
 
     return (
-        <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.2s,transform 0.2s', overflow: 'hidden' }}
-            onMouseOver={e => { e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,51,102,0.12)'; e.currentTarget.style.transform = 'translateY(-3px)'; }}
-            onMouseOut={e => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-            <div style={{ height: '4px', background: meta.color }} />
-            <div style={{ padding: '1.25rem', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '6px' }}>
-                    <span style={{ background: meta.bg, color: meta.color, fontSize: '0.7rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{meta.icon} {ev.event_category}</span>
-                    {isPast && <span style={{ background: '#F1F5F9', color: '#64748B', fontSize: '0.65rem', fontWeight: '700', padding: '3px 8px', borderRadius: '20px' }}>PAST</span>}
+        <div
+            onClick={() => onViewDetail(ev)}
+            style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.2s,transform 0.2s,border-color 0.2s', overflow: 'hidden', cursor: 'pointer' }}
+            onMouseOver={e => { e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,51,102,0.14)'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            onMouseOut={e => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}>
+
+            {/* Thumbnail */}
+            <div style={{ position: 'relative', height: '168px', background: thumbnailUrl ? `url("${thumbnailUrl}") center/cover no-repeat` : `linear-gradient(135deg, ${meta.color}18 0%, ${meta.color}30 100%)`, flexShrink: 0, overflow: 'hidden' }}>
+                {!thumbnailUrl && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: `${meta.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Calendar size={26} color={meta.color} />
+                        </div>
+                    </div>
+                )}
+                {/* Category badge */}
+                <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)', borderRadius: '20px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>
+                    <span style={{ color: meta.color, display: 'flex' }}>{meta.icon}</span>
+                    <span style={{ color: meta.color, fontSize: '0.68rem', fontWeight: '700' }}>{ev.event_category}</span>
                 </div>
-                <p style={{ fontSize: '0.78rem', color: '#64748B', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Calendar size={12} color={meta.color} />
+                {/* Past badge */}
+                {isPast && (
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', color: 'white', fontSize: '0.62rem', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Past</div>
+                )}
+                {/* Full badge */}
+                {!isPast && isFull && (
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(220,38,38,0.85)', color: 'white', fontSize: '0.62rem', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', textTransform: 'uppercase' }}>Full</div>
+                )}
+                {/* Gradient overlay */}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px', background: 'linear-gradient(to top, rgba(0,0,0,0.35), transparent)' }} />
+                {/* Mode badge bottom */}
+                <div style={{ position: 'absolute', bottom: '8px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', background: modeMeta.bg, color: modeMeta.color, fontSize: '0.6rem', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${modeMeta.color}30` }}>
+                    {modeMeta.icon}{modeMeta.label}
+                </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '1rem 1.15rem', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <p style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: 0 }}>
+                    <Calendar size={11} color={meta.color} />
                     {formatDate ? formatDate(ev.date) : new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {ev.time_zone && ev.time_zone !== 'UTC' && <span style={{ color: '#94A3B8' }}>· {ev.time_zone}</span>}
                 </p>
-                <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.5rem', lineHeight: '1.4' }}>{ev.title}</h3>
-                {ev.location && <p style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '0.75rem' }}><MapPin size={12} color={meta.color} /> {ev.location}</p>}
-                {ev.description && <p style={{ fontSize: '0.82rem', color: '#64748B', lineHeight: '1.6', flexGrow: 1, marginBottom: '0.9rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ev.description}</p>}
-                <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', flexWrap: 'wrap' }}>
-                    {isPast && ev.recording_url && (
-                        <a href={ev.recording_url} target="_blank" rel="noopener noreferrer" style={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#003366', color: 'white', padding: '0.55rem 1rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.82rem', textDecoration: 'none' }}>
-                            Watch Recording <ArrowRight size={13} />
-                        </a>
-                    )}
-                    {!isPast && isAuthenticated && (
-                        <button onClick={() => onRegister && onRegister(ev)} style={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#003366', color: 'white', padding: '0.55rem 1rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.82rem', border: 'none', cursor: 'pointer' }} onMouseOver={e => e.currentTarget.style.background = '#00509E'} onMouseOut={e => e.currentTarget.style.background = '#003366'}>
-                            <UserPlus size={14} /> Register Now
-                        </button>
-                    )}
-                    {!isPast && !isAuthenticated && (
-                        <a href="/login?redirect=/events" style={{ flexGrow: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#003366', color: 'white', padding: '0.55rem 1rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.82rem', textDecoration: 'none' }}>
-                            <UserPlus size={14} /> Login to Register
-                        </a>
-                    )}
-                    {isAdmin && (<>
-                        <button onClick={() => onEdit(ev)} title="Edit" style={{ background: '#F0F4F8', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.55rem 0.7rem', cursor: 'pointer', color: '#003366', display: 'flex', alignItems: 'center' }}><Pencil size={14} /></button>
-                        <button onClick={() => onDelete(ev)} title="Delete" style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', padding: '0.55rem 0.7rem', cursor: 'pointer', color: '#DC2626', display: 'flex', alignItems: 'center' }}><Trash2 size={14} /></button>
-                    </>)}
-                </div>
+                <h3 style={{ fontSize: '0.97rem', fontWeight: '700', color: '#1E293B', marginBottom: '0.4rem', lineHeight: '1.4', marginTop: 0 }}>{ev.title}</h3>
+                {ev.location && <p style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.5rem', marginTop: 0 }}><MapPin size={11} color={meta.color} /> {ev.location}</p>}
+
+                {/* Speaker preview */}
+                {ev.speaker_name && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '0.6rem', padding: '6px 8px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: speakerPhotoUrl ? `url(${speakerPhotoUrl}) center/cover no-repeat` : `linear-gradient(135deg, ${meta.color}44, ${meta.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {!speakerPhotoUrl && <Mic2 size={12} color={meta.color} />}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: '700', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.speaker_name}</p>
+                            {ev.speaker_title && <p style={{ margin: 0, fontSize: '0.65rem', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.speaker_title}</p>}
+                        </div>
+                    </div>
+                )}
+
+                {ev.description && (
+                    <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.6', flexGrow: 1, marginBottom: '0.85rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 0 }}>
+                        {ev.description.replace(/^[-•*]\s+/gm, '').replace(/\r?\n/g, ' ')}
+                    </p>
+                )}
+
+                {/* Capacity indicator */}
+                {!isPast && seatsLeft !== null && !isFull && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '0.75rem', fontSize: '0.72rem', color: seatsLeft < 10 ? '#DC2626' : '#64748B' }}>
+                        <Users size={11} />
+                        <span style={{ fontWeight: seatsLeft < 10 ? '700' : '500' }}>{seatsLeft} seat{seatsLeft !== 1 ? 's' : ''} left</span>
+                    </div>
+                )}
+
+                {/* Admin actions */}
+                {isAdmin && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => onEdit(ev)} title="Edit" style={{ background: '#F0F4F8', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.45rem 0.65rem', cursor: 'pointer', color: '#003366', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '600' }}><Pencil size={12} /> Edit</button>
+                        <button onClick={() => onDelete(ev)} title="Delete" style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', padding: '0.45rem 0.65rem', cursor: 'pointer', color: '#DC2626', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '600' }}><Trash2 size={12} /> Delete</button>
+                    </div>
+                )}
+
+                {/* View details hint */}
+                {!isAdmin && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: 'auto', paddingTop: '0.5rem', color: '#003366', fontSize: '0.75rem', fontWeight: '700' }}>
+                        View Details <ArrowRight size={12} />
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-// ─── Event Registration Modal ─────────────────────────────────────────────────
-const EventRegistrationModal = ({ ev, onClose, onSuccess }) => {
+// ─── Event Detail Modal ───────────────────────────────────────────────────────
+const EventDetailModal = ({ ev, onClose, isAuthenticated }) => {
     const { user } = useAuth();
-    const fmtModalDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const cat = (ev.event_category || '').toLowerCase();
+    const meta = CATEGORY_META[cat] || { color: '#64748B', bg: '#F1F5F9', icon: <Calendar size={14} /> };
+    const modeMeta = EVENT_MODE_META[ev.event_mode] || EVENT_MODE_META.online;
+    const isPast = !ev.is_upcoming;
+    const thumbnailUrl = getImageUrl(ev.thumbnail_url || ev.banner_image);
+    const speakerPhotoUrl = getImageUrl(ev.speaker_photo_url);
+    const { icsUrl, gcUrl } = buildCalendarLinks(ev);
+    const seatsLeft = ev.max_capacity ? ev.max_capacity - (ev.registered_count || 0) : null;
+    const isFull = seatsLeft !== null && seatsLeft <= 0;
+    const [showCalMenu, setShowCalMenu] = useState(false);
+
+    const [isRegistering, setIsRegistering] = useState(false);
     const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', organization: '', phone: '', notes: '', consent_to_share: false });
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
-    const cat = (ev.event_category || '').toLowerCase();
-    const meta = CATEGORY_META[cat] || { color: '#64748B', bg: '#F1F5F9', icon: <Calendar size={14} /> };
-
-    useBodyScrollLock(true);
 
     const handleChange = (e) => { const { name, value, type, checked } = e.target; setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value })); };
     const handleSubmit = async (e) => {
@@ -529,46 +689,178 @@ const EventRegistrationModal = ({ ev, onClose, onSuccess }) => {
         if (!form.name.trim() || !form.email.trim()) { setError('Name and email are required.'); return; }
         if (!form.consent_to_share) { setError('You must agree to share your personal details to register.'); return; }
         setSubmitting(true);
-        try { await registerForEvent(ev.id, form); setSubmitted(true); if (onSuccess) onSuccess(ev.id); }
+        try { await registerForEvent(ev.id, form); setSubmitted(true); }
         catch (err) { setError(getErrorMessage(err) || 'Registration failed. Please try again.'); }
         finally { setSubmitting(false); }
     };
-
     const iStyle = { width: '100%', padding: '0.6rem 0.9rem', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '0.875rem', color: '#1E293B', background: 'white', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', outline: 'none', transition: 'border-color 0.15s' };
     const lStyle = { display: 'block', fontWeight: '600', fontSize: '0.78rem', color: '#475569', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' };
 
+    let tags = [];
+    try { tags = ev.tags ? (Array.isArray(ev.tags) ? ev.tags : JSON.parse(ev.tags)) : []; } catch { tags = []; }
+
+    let agendaLines = [];
+    if (ev.agenda) {
+        agendaLines = ev.agenda.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    }
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+    const fmtTime = (d) => d ? new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    useBodyScrollLock(true);
+
+    useEffect(() => {
+        const handler = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [onClose]);
+
+    const speakerInitials = ev.speaker_name
+        ? ev.speaker_name.split(' ').map(w => w[0]).slice(0, 2).join('')
+        : '';
+
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
-            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '620px', width: '100%', maxHeight: '92dvh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                <div style={{ height: '5px', background: meta.color, borderRadius: '16px 16px 0 0', flexShrink: 0 }} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.85rem 1.25rem 0' }}>
-                    <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><X size={16} /></button>
-                </div>
-                <div style={{ padding: '0 clamp(1.25rem,3vw,1.75rem) clamp(1.25rem,3vw,1.75rem)' }}>
-                    {submitted ? (
-                        <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-                            <div style={{ width: '64px', height: '64px', background: '#D1FAE5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}><Check size={30} color="#059669" /></div>
-                            <h2 style={{ fontSize: 'clamp(1.1rem,3vw,1.35rem)', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>You're Registered!</h2>
-                            <p style={{ color: '#64748B', fontSize: '0.95rem', lineHeight: '1.7', marginBottom: '0.5rem' }}>You have successfully registered for</p>
-                            <p style={{ fontWeight: '700', color: '#003366', fontSize: '1rem', marginBottom: '1.75rem' }}>"{ev.title}"</p>
-                            <button onClick={onClose} style={{ background: '#003366', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Close</button>
-                        </div>
-                    ) : (
-                        <>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <span style={{ background: meta.bg, color: meta.color, fontSize: '0.72rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '0.75rem' }}>{meta.icon} {ev.event_category}</span>
-                                <h2 style={{ fontSize: 'clamp(1.1rem,3vw,1.4rem)', fontWeight: '800', color: '#1E293B', marginBottom: '0.6rem', lineHeight: '1.3' }}>{ev.title}</h2>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.9rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.875rem', color: '#475569' }}><Calendar size={14} color={meta.color} /> {fmtModalDate(ev.date)}</div>
-                                    {ev.location && <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.875rem', color: '#475569' }}><MapPin size={14} color={meta.color} /> {ev.location}</div>}
-                                </div>
-                                {ev.description && <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: '1.7', background: '#F8FAFC', borderRadius: '8px', padding: '0.75rem 1rem', border: '1px solid #E2E8F0', margin: 0 }}>{ev.description}</p>}
+        <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(6px)' }}
+            onClick={onClose}>
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{ background: 'white', borderRadius: '20px', maxWidth: '680px', width: '100%', maxHeight: '92dvh', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 32px 80px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
+
+                {/* Close */}
+                <button onClick={onClose} style={{ position: 'absolute', top: '14px', right: '24px', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151', zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}><X size={16} /></button>
+
+                <div style={{ overflowY: 'auto', flexGrow: 1, display: 'flex', flexDirection: 'column', paddingBottom: '1rem' }}>
+                {/* Hero thumbnail */}
+                <div style={{ aspectRatio: '16/9', width: '100%', maxHeight: '380px', background: thumbnailUrl ? `url("${thumbnailUrl}") center/cover no-repeat` : `linear-gradient(135deg, ${meta.color}18 0%, ${meta.color}40 60%, ${meta.color}25 100%)`, borderRadius: '20px 20px 0 0', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                    {!thumbnailUrl && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: `${meta.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Calendar size={34} color={meta.color} />
                             </div>
-                            <div style={{ height: '1px', background: 'linear-gradient(90deg,#003366 0%,#E2E8F0 100%)', marginBottom: '1.5rem' }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.1rem' }}><ClipboardList size={16} color="#003366" /><span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1E293B' }}>Registration Details</span></div>
+                        </div>
+                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)' }} />
+                    <div style={{ position: 'absolute', bottom: '16px', right: '24px', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(6px)', color: meta.color, fontSize: '0.7rem', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            {meta.icon} {ev.event_category}
+                        </span>
+                        <span style={{ background: modeMeta.bg, color: modeMeta.color, fontSize: '0.7rem', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: `1px solid ${modeMeta.color}30` }}>
+                            {modeMeta.icon} {modeMeta.label}
+                        </span>
+                        {isPast && <span style={{ background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: '0.65rem', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', backdropFilter: 'blur(4px)' }}>Past Event</span>}
+                        {!isPast && isFull && <span style={{ background: 'rgba(220,38,38,0.8)', color: 'white', fontSize: '0.65rem', fontWeight: '700', padding: '4px 10px', borderRadius: '20px' }}>Registration Full</span>}
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div style={{ padding: 'clamp(1.25rem,3vw,1.75rem)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+                    {/* Title */}
+                    <div>
+                        <h2 style={{ margin: '0 0 0.75rem', fontSize: 'clamp(1.2rem,3vw,1.5rem)', fontWeight: '800', color: '#0F172A', lineHeight: '1.25', letterSpacing: '-0.02em' }}>{ev.title}</h2>
+
+                        {/* Meta row */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', color: '#475569' }}>
+                                <Calendar size={15} color={meta.color} />
+                                <span>{fmtDate(ev.date)}</span>
+                                {fmtTime(ev.date) && <span style={{ color: '#94A3B8' }}>· {fmtTime(ev.date)}</span>}
+                                {ev.time_zone && ev.time_zone !== 'UTC' && <span style={{ color: '#94A3B8', fontSize: '0.78rem' }}>({ev.time_zone})</span>}
+                            </div>
+                            {ev.location && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', color: '#475569' }}>
+                                    <MapPin size={15} color={meta.color} /> {ev.location}
+                                </div>
+                            )}
+                            {!isPast && ev.max_capacity && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', color: isFull ? '#DC2626' : (seatsLeft < 10 ? '#D97706' : '#475569'), fontWeight: isFull || seatsLeft < 10 ? '600' : '400' }}>
+                                    <Users size={15} color={isFull ? '#DC2626' : (seatsLeft < 10 ? '#D97706' : meta.color)} />
+                                    {isFull ? 'Registration is full' : `${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} remaining (${ev.registered_count || 0} registered)`}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tags */}
+                    {tags.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <Tag size={12} color="#94A3B8" />
+                            {tags.map((t, i) => (
+                                <span key={i} style={{ background: '#F1F5F9', color: '#475569', fontSize: '0.72rem', fontWeight: '600', padding: '3px 10px', borderRadius: '20px', border: '1px solid #E2E8F0' }}>{t}</span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'linear-gradient(90deg, #E2E8F0, transparent)' }} />
+
+                    {/* Description */}
+                    {ev.description && (
+                        <div>
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.7rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>About This Event</p>
+                            <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '1rem 1.25rem', border: '1px solid #E2E8F0' }}>
+                                {renderDescription(ev.description)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Agenda */}
+                    {agendaLines.length > 0 && (
+                        <div>
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.7rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Agenda</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {agendaLines.map((line, i) => (
+                                    <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: `${meta.color}18`, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: '800', flexShrink: 0, marginTop: '2px' }}>{i + 1}</div>
+                                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151', lineHeight: '1.6' }}>{line.replace(/^[-•*\d.]+\s+/, '')}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Speaker */}
+                    {ev.speaker_name && (
+                        <div>
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.7rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Speaker</p>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)', borderRadius: '14px', padding: '1.1rem 1.25rem', border: '1px solid #E2E8F0' }}>
+                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', flexShrink: 0, background: speakerPhotoUrl ? `url(${speakerPhotoUrl}) center/cover no-repeat` : `linear-gradient(135deg, ${meta.color}55, ${meta.color}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: '700', color: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', border: '2px solid white' }}>
+                                    {!speakerPhotoUrl && speakerInitials}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.97rem', fontWeight: '800', color: '#0F172A' }}>{ev.speaker_name}</h4>
+                                        {ev.speaker_linkedin_url && (
+                                            <a href={ev.speaker_linkedin_url} target="_blank" rel="noopener noreferrer"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#0077B5', fontSize: '0.7rem', fontWeight: '600', textDecoration: 'none', background: '#EFF6FF', padding: '2px 8px', borderRadius: '20px' }}
+                                                onClick={e => e.stopPropagation()}>
+                                                <Linkedin size={11} /> LinkedIn
+                                            </a>
+                                        )}
+                                    </div>
+                                    {ev.speaker_title && <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', color: '#475569', fontWeight: '500' }}>{ev.speaker_title}</p>}
+                                    {ev.speaker_bio && <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B', lineHeight: '1.7' }}>{ev.speaker_bio}</p>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: '#E2E8F0' }} />
+
+                    {/* Registration Flow */}
+                    {submitted ? (
+                        <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '1rem' }}>
+                            <div style={{ width: '64px', height: '64px', background: '#D1FAE5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}><Check size={30} color="#059669" /></div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>You're Registered!</h3>
+                            <p style={{ color: '#64748B', fontSize: '0.95rem', lineHeight: '1.7', margin: 0 }}>You have successfully registered for this event. A confirmation email has been sent.</p>
+                        </div>
+                    ) : isRegistering ? (
+                        <div style={{ background: '#F8FAFC', padding: '1.5rem', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '1rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1E293B', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><ClipboardList size={18} color="#003366" /> Complete Registration</h3>
                             {error && <div style={{ display: 'flex', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.65rem 1rem', marginBottom: '1rem', color: '#DC2626', fontSize: '0.85rem' }}><AlertCircle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />{error}</div>}
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }} noValidate>
-                                {/* Name + Email responsive grid */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px,100%),1fr))', gap: '0.9rem' }}>
                                     <div><label style={lStyle}>Full Name *</label><input name="name" value={form.name} onChange={handleChange} disabled={submitting} required style={iStyle} placeholder="Your full name" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
                                     <div><label style={lStyle}>Email Address *</label><input name="email" type="email" value={form.email} onChange={handleChange} disabled={submitting} required style={iStyle} placeholder="you@example.com" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
@@ -584,77 +876,316 @@ const EventRegistrationModal = ({ ev, onClose, onSuccess }) => {
                                     </div>
                                 </div>
                                 <div><label style={lStyle}>Additional Notes</label><textarea name="notes" value={form.notes} onChange={handleChange} disabled={submitting} rows={3} style={{ ...iStyle, resize: 'vertical' }} placeholder="Anything you'd like to share…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                                     <input type="checkbox" id="consent_to_share" name="consent_to_share" checked={form.consent_to_share} onChange={handleChange} disabled={submitting} style={{ marginTop: '3px', width: '16px', height: '16px', cursor: submitting ? 'not-allowed' : 'pointer', accentColor: '#003366', flexShrink: 0 }} />
                                     <label htmlFor="consent_to_share" style={{ fontSize: '0.82rem', color: '#475569', lineHeight: '1.6', cursor: submitting ? 'not-allowed' : 'pointer', userSelect: 'none' }}>
                                         <span style={{ fontWeight: '600', color: '#1E293B' }}>I agree to share my personal details</span> with the event organizers for registration and event communication. *
                                     </label>
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', marginTop: '0.25rem' }}>
-                                    <button type="button" onClick={onClose} disabled={submitting} style={{ flex: 1, padding: '0.75rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Cancel</button>
+                                    <button type="button" onClick={() => setIsRegistering(false)} disabled={submitting} style={{ flex: 1, padding: '0.75rem', background: 'white', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Cancel</button>
                                     <button type="submit" disabled={submitting} style={{ flex: 2, padding: '0.75rem', background: submitting ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: submitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', fontFamily: 'var(--font-sans)' }}>
                                         {submitting && <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />}
                                         {submitting ? 'Registering…' : 'Confirm Registration'}
                                     </button>
                                 </div>
                             </form>
-                        </>
+                        </div>
+                    ) : (
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {/* Action buttons */}
+                        {isPast ? (
+                            <>
+                                {ev.recording_url && (
+                                    <a href={ev.recording_url} target="_blank" rel="noopener noreferrer"
+                                        style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#003366', color: 'white', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.875rem', textDecoration: 'none', transition: 'background 0.15s' }}
+                                        onMouseOver={e => e.currentTarget.style.background = '#002147'}
+                                        onMouseOut={e => e.currentTarget.style.background = '#003366'}>
+                                        <Play size={16} /> Watch Recording
+                                    </a>
+                                )}
+                                {!ev.recording_url && (
+                                    <div style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#F1F5F9', color: '#94A3B8', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '600', fontSize: '0.875rem' }}>
+                                        <Clock size={16} /> Recording Coming Soon
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                {isFull ? (
+                                    <div style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#FEF2F2', color: '#DC2626', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.875rem', border: '1px solid #FECACA' }}>
+                                        <Users size={16} /> Registration Full
+                                    </div>
+                                ) : isAuthenticated ? (
+                                    <button onClick={() => setIsRegistering(true)} style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#003366', color: 'white', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer', transition: 'background 0.15s', fontFamily: 'inherit' }} onMouseOver={e => e.currentTarget.style.background = '#002147'} onMouseOut={e => e.currentTarget.style.background = '#003366'}>
+                                        <UserPlus size={16} /> Register Now
+                                    </button>
+                                ) : (
+                                    <a href="/login?redirect=/events" style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#003366', color: 'white', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.875rem', textDecoration: 'none' }}>
+                                        <LogIn size={16} /> Login to Register
+                                    </a>
+                                )}
+                                {ev.link && !isFull && (
+                                    <a href={ev.link} target="_blank" rel="noopener noreferrer"
+                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#F1F5F9', color: '#374151', padding: '0.8rem 1.1rem', borderRadius: '10px', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none', border: '1px solid #E2E8F0' }}
+                                        onMouseOver={e => e.currentTarget.style.background = '#E2E8F0'}
+                                        onMouseOut={e => e.currentTarget.style.background = '#F1F5F9'}>
+                                        <ExternalLink size={15} /> External Link
+                                    </a>
+                                )}
+                                {/* Add to Calendar */}
+                                <div style={{ position: 'relative' }}>
+                                    <button onClick={() => setShowCalMenu(v => !v)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#F1F5F9', color: '#374151', padding: '0.8rem 1.1rem', borderRadius: '10px', fontWeight: '600', fontSize: '0.875rem', border: '1px solid #E2E8F0', cursor: 'pointer', fontFamily: 'inherit' }} onMouseOver={e => e.currentTarget.style.background = '#E2E8F0'} onMouseOut={e => e.currentTarget.style.background = '#F1F5F9'}>
+                                        <Calendar size={15} /> Add to Calendar
+                                    </button>
+                                    {showCalMenu && (
+                                        <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, background: 'white', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0', overflow: 'hidden', zIndex: 50, minWidth: '180px' }}>
+                                            <a href={gcUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.7rem 1rem', fontSize: '0.85rem', color: '#374151', textDecoration: 'none', fontWeight: '600' }} onMouseOver={e => e.currentTarget.style.background = '#F8FAFC'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
+                                                <Globe size={14} color="#4285F4" /> Google Calendar
+                                            </a>
+                                            <a href={icsUrl} download={`${ev.title?.replace(/\s+/g, '-')}.ics`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.7rem 1rem', fontSize: '0.85rem', color: '#374151', textDecoration: 'none', fontWeight: '600', borderTop: '1px solid #F3F4F6' }} onMouseOver={e => e.currentTarget.style.background = '#F8FAFC'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
+                                                <Download size={14} color="#374151" /> Download .ics
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
                     )}
+                </div>
                 </div>
             </div>
         </div>
     );
 };
 
+
+// ─── Image Upload Button helper ───────────────────────────────────────────────
+const ImageUploadButton = ({ label, onUpload, uploading, currentUrl, accept = 'image/*' }) => {
+    const fileRef = useRef(null);
+    const thumbUrl = getImageUrl(currentUrl);
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {thumbUrl && <img src={thumbUrl} alt={label} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E2E8F0' }} />}
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '7px', padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: '600', color: '#374151', cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {uploading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={13} />}
+                {uploading ? 'Uploading…' : (thumbUrl ? `Change ${label}` : `Upload ${label}`)}
+            </button>
+            <input ref={fileRef} type="file" accept={accept} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
+        </div>
+    );
+};
+
 // ─── Event Form Modal ─────────────────────────────────────────────────────────
 const EventFormModal = ({ initial, onSave, onClose }) => {
+    const { showToast } = useToast();
     const isEdit = Boolean(initial?.id);
-    const [form, setForm] = useState({ title: initial?.title || '', date: initial?.date ? new Date(initial.date).toISOString().slice(0, 16) : '', location: initial?.location || '', description: initial?.description || '', event_category: initial?.event_category || 'webinar', link: initial?.link || '', is_upcoming: initial?.is_upcoming !== false, recording_url: initial?.recording_url || '' });
+
+    const [form, setForm] = useState({
+        title:               initial?.title || '',
+        date:                initial?.date ? new Date(initial.date).toISOString().slice(0, 16) : '',
+        location:            initial?.location || '',
+        description:         initial?.description || '',
+        event_category:      initial?.event_category || 'webinar',
+        event_mode:          initial?.event_mode || 'online',
+        time_zone:           initial?.time_zone || 'Asia/Kolkata',
+        link:                initial?.link || '',
+        is_upcoming:         initial?.is_upcoming !== false,
+        recording_url:       initial?.recording_url || '',
+        speaker_name:        initial?.speaker_name || '',
+        speaker_title:       initial?.speaker_title || '',
+        speaker_bio:         initial?.speaker_bio || '',
+        speaker_linkedin_url: initial?.speaker_linkedin_url || '',
+        agenda:              initial?.agenda || '',
+        tags:                Array.isArray(initial?.tags)
+                                ? initial.tags.join(', ')
+                                : (initial?.tags ? (typeof initial.tags === 'string' ? initial.tags : JSON.stringify(initial.tags)) : ''),
+        max_capacity:        initial?.max_capacity || '',
+    });
+
+    const [savedEventId, setSavedEventId] = useState(initial?.id || null);
+    const [savedEvent, setSavedEvent] = useState(initial || null);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [uploadingThumb, setUploadingThumb] = useState(false);
+    const [uploadingSpkr, setUploadingSpkr] = useState(false);
 
     useBodyScrollLock(true);
 
-    const handleChange = (e) => { const { name, value, type, checked } = e.target; setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); };
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         if (!form.title.trim()) { setError('Title is required.'); return; }
         if (!form.date) { setError('Date is required.'); return; }
         setError(''); setSaving(true);
-        try { await onSave(form); } catch (err) { setError(getErrorMessage(err)); setSaving(false); }
+        try {
+            const payload = {
+                ...form,
+                thumbnail_url: savedEvent?.thumbnail_url || initial?.thumbnail_url || '',
+                speaker_photo_url: savedEvent?.speaker_photo_url || initial?.speaker_photo_url || '',
+                banner_image: savedEvent?.banner_image || initial?.banner_image || '',
+                tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+                max_capacity: form.max_capacity ? parseInt(form.max_capacity, 10) : null,
+            };
+            const result = await onSave(payload);
+            // capture the saved event id for image uploads
+            const eid = result?.data?.data?.id || initial?.id;
+            if (eid) { setSavedEventId(eid); setSavedEvent(result?.data?.data || initial); }
+        } catch (err) {
+            setError(getErrorMessage(err));
+            setSaving(false);
+        }
     };
 
-    const iS = { width: '100%', padding: '0.65rem 0.75rem', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '0.88rem', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', outline: 'none' };
-    const lS = { display: 'block', fontWeight: '600', fontSize: '0.8rem', color: '#374151', marginBottom: '4px' };
+    const handleThumbnailUpload = async (file) => {
+        if (!savedEventId) { setError('Save the event first before uploading a thumbnail.'); return; }
+        setUploadingThumb(true);
+        try {
+            const fd = new FormData();
+            fd.append('thumbnail', file);
+            const res = await uploadEventThumbnail(savedEventId, fd);
+            setSavedEvent(res.data?.data);
+            showToast('Thumbnail uploaded!', 'success');
+        } catch (err) {
+            showToast(getErrorMessage(err) || 'Thumbnail upload failed.', 'error');
+        } finally { setUploadingThumb(false); }
+    };
+
+    const handleSpeakerPhotoUpload = async (file) => {
+        if (!savedEventId) { setError('Save the event first before uploading a speaker photo.'); return; }
+        setUploadingSpkr(true);
+        try {
+            const fd = new FormData();
+            fd.append('speaker_photo', file);
+            const res = await uploadSpeakerPhoto(savedEventId, fd);
+            setSavedEvent(res.data?.data);
+            showToast('Speaker photo uploaded!', 'success');
+        } catch (err) {
+            showToast(getErrorMessage(err) || 'Speaker photo upload failed.', 'error');
+        } finally { setUploadingSpkr(false); }
+    };
+
+    const iS = { width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '0.875rem', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', outline: 'none', color: '#1E293B' };
+    const lS = { display: 'block', fontWeight: '700', fontSize: '0.75rem', color: '#374151', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' };
+    const sectionLabel = (txt) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0.5rem 0 0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid #F1F5F9' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{txt}</span>
+        </div>
+    );
+
+    const COMMON_TIMEZONES = [
+        'UTC', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo',
+        'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+        'America/New_York', 'America/Chicago', 'America/Los_Angeles',
+        'Australia/Sydney',
+    ];
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
-            <div style={{ background: 'white', borderRadius: '14px', padding: 'clamp(1.25rem,3vw,2rem)', maxWidth: '560px', width: '100%', maxHeight: '90dvh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>{isEdit ? 'Edit Event' : 'Add Event'}</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '640px', width: '100%', maxHeight: '92dvh', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding: '1.5rem 1.75rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 5, borderBottom: '1px solid #F1F5F9', paddingBottom: '1rem' }}>
+                    <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1E293B', margin: 0 }}>{isEdit ? 'Edit Event' : 'Add New Event'}</h2>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
                 </div>
-                {error && <div style={{ display: 'flex', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#DC2626', fontSize: '0.875rem' }}><AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />{error}</div>}
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }} noValidate>
+
+                <div style={{ overflowY: 'auto', flexGrow: 1 }}>
+                <form onSubmit={handleSave} style={{ padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }} noValidate>
+                    {error && <div style={{ display: 'flex', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.75rem 1rem', color: '#DC2626', fontSize: '0.875rem' }}><AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />{error}</div>}
+
+                    {/* Core Info */}
+                    {sectionLabel('Core Details')}
                     <div><label style={lS}>Title *</label><input name="title" value={form.title} onChange={handleChange} disabled={saving} style={iS} placeholder="Event title" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div><label style={lS}>Date &amp; Time *</label><input name="date" type="datetime-local" value={form.date} onChange={handleChange} disabled={saving} style={iS} onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div><label style={lS}>Location</label><input name="location" value={form.location} onChange={handleChange} disabled={saving} style={iS} placeholder="e.g. Online (Zoom)" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div><label style={lS}>Description</label><textarea name="description" value={form.description} onChange={handleChange} disabled={saving} rows={3} style={{ ...iS, resize: 'vertical' }} placeholder="Event description…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div><label style={lS}>Category</label><select name="event_category" value={form.event_category} onChange={handleChange} disabled={saving} style={{ ...iS, cursor: 'pointer' }}>{CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select></div>
-                    <div><label style={lS}>Registration Link</label><input name="link" type="url" value={form.link} onChange={handleChange} disabled={saving} style={iS} placeholder="https://…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div><label style={lS}>Recording URL</label><input name="recording_url" type="url" value={form.recording_url} onChange={handleChange} disabled={saving} style={iS} placeholder="https://…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input type="checkbox" id="is_upcoming" name="is_upcoming" checked={form.is_upcoming} onChange={handleChange} disabled={saving} />
-                        <label htmlFor="is_upcoming" style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Is Upcoming (uncheck for past events)</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div><label style={lS}>Date & Time *</label><input name="date" type="datetime-local" value={form.date} onChange={handleChange} disabled={saving} style={iS} onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                        <div><label style={lS}>Time Zone</label>
+                            <select name="time_zone" value={form.time_zone} onChange={handleChange} disabled={saving} style={{ ...iS, cursor: 'pointer' }}>
+                                {COMMON_TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                            </select>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '0.5rem' }}>
-                        <button type="button" onClick={onClose} disabled={saving} style={{ flex: 1, padding: '0.75rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
-                        <button type="submit" disabled={saving} style={{ flex: 1, padding: '0.75rem', background: saving ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div><label style={lS}>Category</label>
+                            <select name="event_category" value={form.event_category} onChange={handleChange} disabled={saving} style={{ ...iS, cursor: 'pointer' }}>
+                                {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                            </select>
+                        </div>
+                        <div><label style={lS}>Mode</label>
+                            <select name="event_mode" value={form.event_mode} onChange={handleChange} disabled={saving} style={{ ...iS, cursor: 'pointer' }}>
+                                <option value="online">Online</option>
+                                <option value="in_person">In-Person</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div><label style={lS}>Location</label><input name="location" value={form.location} onChange={handleChange} disabled={saving} style={iS} placeholder="e.g. Online (Zoom) or Mumbai, India" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div><label style={lS}>Registration Link</label><input name="link" type="url" value={form.link} onChange={handleChange} disabled={saving} style={iS} placeholder="https://…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                        <div><label style={lS}>Max Capacity</label><input name="max_capacity" type="number" min="1" value={form.max_capacity} onChange={handleChange} disabled={saving} style={iS} placeholder="Leave blank = unlimited" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    </div>
+
+                    {/* Content */}
+                    {sectionLabel('Content')}
+                    <div><label style={lS}>Description</label><textarea name="description" value={form.description} onChange={handleChange} disabled={saving} rows={4} style={{ ...iS, resize: 'vertical' }} placeholder={"Describe the event. Use - or • at the start of a line for bullet points.\n\n- Topic 1\n- Topic 2"} onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div><label style={lS}>Agenda <span style={{ fontWeight: '500', color: '#94A3B8', fontSize: '0.7rem', textTransform: 'none', letterSpacing: 0 }}>(one item per line)</span></label><textarea name="agenda" value={form.agenda} onChange={handleChange} disabled={saving} rows={3} style={{ ...iS, resize: 'vertical' }} placeholder={"Welcome & Introductions\nKeynote Address\nQ&A Session"} onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div><label style={lS}>Tags <span style={{ fontWeight: '500', color: '#94A3B8', fontSize: '0.7rem', textTransform: 'none', letterSpacing: 0 }}>(comma-separated)</span></label><input name="tags" value={form.tags} onChange={handleChange} disabled={saving} style={iS} placeholder="AI Governance, Risk, Compliance" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div><label style={lS}>Recording URL <span style={{ fontWeight: '500', color: '#94A3B8', fontSize: '0.7rem', textTransform: 'none', letterSpacing: 0 }}>(after event)</span></label><input name="recording_url" type="url" value={form.recording_url} onChange={handleChange} disabled={saving} style={iS} placeholder="https://…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+
+                    {/* Thumbnail upload */}
+                    {sectionLabel('Thumbnail Image')}
+                    <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '1rem', border: '1px solid #E2E8F0' }}>
+                        <p style={{ margin: '0 0 0.6rem', fontSize: '0.8rem', color: '#64748B', lineHeight: '1.5' }}>
+                            {savedEventId ? 'Upload a 16:9 image used as the event card preview.' : 'Save the event first, then upload a thumbnail.'}
+                        </p>
+                        <ImageUploadButton
+                            label="Thumbnail"
+                            onUpload={handleThumbnailUpload}
+                            uploading={uploadingThumb}
+                            currentUrl={savedEvent?.thumbnail_url}
+                        />
+                    </div>
+
+                    {/* Speaker */}
+                    {sectionLabel('Speaker Information')}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div><label style={lS}>Speaker Name</label><input name="speaker_name" value={form.speaker_name} onChange={handleChange} disabled={saving} style={iS} placeholder="Dr. Jane Smith" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                        <div><label style={lS}>Speaker Title</label><input name="speaker_title" value={form.speaker_title} onChange={handleChange} disabled={saving} style={iS} placeholder="Chief Risk Officer, HSBC" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    </div>
+                    <div><label style={lS}>Speaker LinkedIn</label><input name="speaker_linkedin_url" type="url" value={form.speaker_linkedin_url} onChange={handleChange} disabled={saving} style={iS} placeholder="https://linkedin.com/in/…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div><label style={lS}>Speaker Background</label><textarea name="speaker_bio" value={form.speaker_bio} onChange={handleChange} disabled={saving} rows={3} style={{ ...iS, resize: 'vertical' }} placeholder="Brief bio of the speaker…" onFocus={e => e.target.style.borderColor = '#003366'} onBlur={e => e.target.style.borderColor = '#CBD5E1'} /></div>
+                    <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '1rem', border: '1px solid #E2E8F0' }}>
+                        <p style={{ margin: '0 0 0.6rem', fontSize: '0.8rem', color: '#64748B' }}>
+                            {savedEventId ? 'Upload a square headshot of the speaker.' : 'Save the event first, then upload a speaker photo.'}
+                        </p>
+                        <ImageUploadButton
+                            label="Speaker Photo"
+                            onUpload={handleSpeakerPhotoUpload}
+                            uploading={uploadingSpkr}
+                            currentUrl={savedEvent?.speaker_photo_url}
+                        />
+                    </div>
+
+                    {/* Status */}
+                    {sectionLabel('Publishing')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <input type="checkbox" id="is_upcoming" name="is_upcoming" checked={form.is_upcoming} onChange={handleChange} disabled={saving} style={{ width: '16px', height: '16px', accentColor: '#003366' }} />
+                        <label htmlFor="is_upcoming" style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Mark as Upcoming <span style={{ color: '#94A3B8', fontWeight: '400' }}>(uncheck for past events)</span></label>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9' }}>
+                        <button type="button" onClick={onClose} disabled={saving} style={{ flex: 1, padding: '0.75rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                        <button type="submit" disabled={saving} style={{ flex: 1, padding: '0.75rem', background: saving ? '#94A3B8' : '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'inherit' }}>
                             {saving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
                             {saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Event')}
                         </button>
                     </div>
                 </form>
+                </div>
             </div>
         </div>
     );
@@ -664,20 +1195,20 @@ const EventFormModal = ({ initial, onSave, onClose }) => {
 const ConfirmDeleteDialog = ({ ev, onConfirm, onCancel, deleting }) => {
     useBodyScrollLock(true);
     return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onCancel}>
-        <div style={{ background: 'white', borderRadius: '12px', padding: 'clamp(1.25rem,3vw,2rem)', maxWidth: '420px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <Trash2 size={32} color="#DC2626" style={{ marginBottom: '1rem' }} />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>Delete Event?</h3>
-            <p style={{ color: '#64748B', lineHeight: '1.6', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Are you sure you want to delete <strong>"{ev?.title}"</strong>? This action cannot be undone.</p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={onCancel} disabled={deleting} style={{ flex: 1, padding: '0.75rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={onConfirm} disabled={deleting} style={{ flex: 1, padding: '0.75rem', background: deleting ? '#94A3B8' : '#DC2626', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: deleting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                    {deleting && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
-                    {deleting ? 'Deleting…' : 'Delete'}
-                </button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onCancel}>
+            <div style={{ background: 'white', borderRadius: '12px', padding: 'clamp(1.25rem,3vw,2rem)', maxWidth: '420px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+                <Trash2 size={32} color="#DC2626" style={{ marginBottom: '1rem' }} />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1E293B', marginBottom: '0.5rem' }}>Delete Event?</h3>
+                <p style={{ color: '#64748B', lineHeight: '1.6', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Are you sure you want to delete <strong>"{ev?.title}"</strong>? This action cannot be undone.</p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={onCancel} disabled={deleting} style={{ flex: 1, padding: '0.75rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={onConfirm} disabled={deleting} style={{ flex: 1, padding: '0.75rem', background: deleting ? '#94A3B8' : '#DC2626', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: deleting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        {deleting && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+                        {deleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
     );
 };
 
@@ -764,10 +1295,9 @@ const FeaturedWorkshopsSection = () => {
 
     useEffect(() => {
         let isM = true;
-        // Fetch up to 10 for the carousel
         getWorkshops({ limit: 10, upcoming: 'true' })
             .then(res => { if (isM) setWorkshops(res.data?.data || []); })
-            .catch(() => {}) // silently fail
+            .catch(() => {})
             .finally(() => { if (isM) setLoading(false); });
         return () => { isM = false; };
     }, [navigate]);
@@ -793,7 +1323,6 @@ const FeaturedWorkshopsSection = () => {
                         </button>
                     </div>
                 </div>
-
                 <WorkshopMarqueeTrack items={workshops} speed={0.48} />
             </div>
         </section>
@@ -806,7 +1335,7 @@ const Events = () => {
     const { isAdmin, isCouncilMember, user } = useAuth();
     const { showToast } = useToast();
 
-    const tab = searchParams.get('tab') || 'upcoming';
+    const tab      = searchParams.get('tab') || 'upcoming';
     const category = searchParams.get('category') || 'all';
     const pageParam = parseInt(searchParams.get('page') || '1', 10);
 
@@ -814,10 +1343,10 @@ const Events = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [editTarget, setEditTarget] = useState(null);
+    const [editTarget, setEditTarget]   = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
-    const [deleting, setDeleting] = useState(false);
-    const [regTarget, setRegTarget] = useState(null);
+    const [deleting, setDeleting]        = useState(false);
+    const [detailEvent, setDetailEvent]  = useState(null);
 
     useEffect(() => { document.title = 'Events | Risk AI Council (RAC)'; }, []);
 
@@ -830,7 +1359,7 @@ const Events = () => {
             if (!signal?.aborted) {
                 const payload = res.data?.data;
                 setEvents(Array.isArray(payload) ? payload : (payload?.events || []));
-                setTotalPages(payload?.totalPages || 1);
+                setTotalPages(res.data?.totalPages || 1);
             }
         } catch (err) { if (!signal?.aborted) setError(getErrorMessage(err) || 'Failed to load events.'); }
         finally { if (!signal?.aborted) setLoading(false); }
@@ -843,9 +1372,11 @@ const Events = () => {
     }, [setSearchParams]);
 
     const handleSave = useCallback(async (formData) => {
-        if (editTarget?.id) { await updateEvent(editTarget.id, formData); showToast('Event updated.', 'success'); }
-        else { await createEvent(formData); showToast('Event created.', 'success'); }
+        let result;
+        if (editTarget?.id) { result = await updateEvent(editTarget.id, formData); showToast('Event updated.', 'success'); }
+        else { result = await createEvent(formData); showToast('Event created. You can now upload images.', 'success'); }
         setEditTarget(null); fetchData();
+        return result;
     }, [editTarget, showToast, fetchData]);
 
     const handleDelete = useCallback(async () => {
@@ -861,7 +1392,6 @@ const Events = () => {
                 @keyframes spin            { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
                 @keyframes skeleton-pulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-                /* Filter toolbar wrapping */
                 .ev-toolbar {
                     display: flex;
                     justify-content: space-between;
@@ -881,23 +1411,17 @@ const Events = () => {
                     gap: 6px;
                     flex-wrap: wrap;
                 }
-
-                /* Events grid */
                 .ev-grid {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
                     gap: 1.5rem;
                 }
-
-                /* Hero responsive */
                 .ev-hero-btns {
                     display: flex;
                     gap: 1rem;
                     margin-top: 2.5rem;
                     flex-wrap: wrap;
                 }
-                
-                /* Carousel hide scrollbar natively */
                 .ws-carousel-hide-scroll::-webkit-scrollbar { display: none; }
                 .ws-carousel-hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
@@ -915,7 +1439,7 @@ const Events = () => {
                         AI Governance Events<br />for Risk AI Professionals
                     </h1>
                     <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', lineHeight: '1.7', maxWidth: '600px' }}>
-                        Webinars, seminars, workshops, and podcast episodes designed for compliance leaders, risk officers, and technologists navigating the AI regulatory landscape.
+                        Webinars, seminars, workshops, conferences, and podcast episodes designed for compliance leaders, risk officers, and technologists navigating the AI regulatory landscape.
                     </p>
                     <div className="ev-hero-btns">
                         <button onClick={() => document.getElementById('all-events')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', color: '#003366', padding: '0.7rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.9rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -927,7 +1451,6 @@ const Events = () => {
                     </div>
                 </div>
             </div>
-
 
             {/* All Events */}
             <div id="all-events" style={{ padding: 'clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,3rem)' }}>
@@ -994,8 +1517,14 @@ const Events = () => {
                         <>
                             <div className="ev-grid" aria-live="polite">
                                 {events.map(ev => (
-                                    <EventCard key={ev.id} ev={ev} isAdmin={isAdmin?.()} isAuthenticated={!!user}
-                                        onEdit={e => setEditTarget(e)} onDelete={e => setDeleteTarget(e)} onRegister={e => setRegTarget(e)} />
+                                    <EventCard
+                                        key={ev.id}
+                                        ev={ev}
+                                        isAdmin={isAdmin?.()}
+                                        onEdit={e => setEditTarget(e)}
+                                        onDelete={e => setDeleteTarget(e)}
+                                        onViewDetail={e => setDetailEvent(e)}
+                                    />
                                 ))}
                             </div>
                             {totalPages > 1 && (
@@ -1028,12 +1557,18 @@ const Events = () => {
             </div>
 
             {/* Modals */}
-            {regTarget && <EventRegistrationModal ev={regTarget} onClose={() => setRegTarget(null)} onSuccess={() => { }} />}
-            {editTarget !== null && <EventFormModal initial={editTarget} onSave={handleSave} onClose={() => setEditTarget(null)} />}
+            {detailEvent && (
+                <EventDetailModal
+                    ev={detailEvent}
+                    onClose={() => setDetailEvent(null)}
+                    isAuthenticated={!!user}
+                />
+            )}
+            {editTarget !== null && <EventFormModal initial={editTarget} onSave={handleSave} onClose={() => { setEditTarget(null); fetchData(); }} />}
             {deleteTarget && <ConfirmDeleteDialog ev={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} deleting={deleting} />}
         </div>
     );
 };
 
-export { EventRegistrationModal };
+export { EventDetailModal };
 export default Events;

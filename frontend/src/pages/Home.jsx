@@ -14,7 +14,7 @@ import { getEvents } from '../api/events.js';
 import { getRecentVideos, getVideoStreamUrl } from '../api/resources.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import UpgradeModal from '../components/modals/UpgradeModal.jsx';
-import { EventRegistrationModal } from './Events.jsx';
+import { EventDetailModal } from './Events.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
@@ -1361,7 +1361,7 @@ const Home = () => {
             )}
 
             <UpgradeModal isOpen={upgradeModal.isOpen} onClose={upgradeModal.close} />
-            {regTarget && <EventRegistrationModal ev={regTarget} onClose={() => setRegTarget(null)} onSuccess={() => { showToast('Successfully registered for the event!', 'success'); setRegTarget(null); }} />}
+            {regTarget && <EventDetailModal ev={regTarget} onClose={() => setRegTarget(null)} isAuthenticated={!!user} />}
         </>
     );
 };

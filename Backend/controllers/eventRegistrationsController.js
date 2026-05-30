@@ -23,7 +23,7 @@ export const registerForEvent = async (req, res, next) => {
 
         // Check event exists and is upcoming
         const [[event]] = await pool.query(
-            'SELECT id, title, is_upcoming FROM events WHERE id = ?',
+            'SELECT id, title, is_upcoming, max_capacity FROM events WHERE id = ?',
             [eventId]
         );
         if (!event) {
@@ -31,6 +31,17 @@ export const registerForEvent = async (req, res, next) => {
         }
         if (!event.is_upcoming) {
             return res.status(400).json({ success: false, message: 'Registration is only available for upcoming events.' });
+        }
+
+        // Check capacity
+        if (event.max_capacity !== null && event.max_capacity !== undefined) {
+            const [[{ count }]] = await pool.query(
+                'SELECT COUNT(*) as count FROM event_registrations WHERE event_id = ?',
+                [eventId]
+            );
+            if (count >= event.max_capacity) {
+                return res.status(403).json({ success: false, message: 'Registration is currently full for this event.' });
+            }
         }
 
         // Check for duplicate registration
