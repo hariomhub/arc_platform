@@ -194,11 +194,15 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                         </div>
                     )}
                     {actualFileType === 'office' && (
-                        // Microsoft Office Online viewer — works with public URLs
-                        <iframe
-                            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
-                            title={title}
-                            style={{ width:'100%', height:'600px', border:'none', display:'block' }} />
+                        // Google Docs Viewer — handles Azure SAS URLs better than Microsoft Office Viewer
+                        <div style={{ position: 'relative', height: '600px', overflow: 'hidden', background: '#1e293b' }}>
+                            <iframe
+                                src={`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`}
+                                title={title}
+                                style={{ width:'100%', height:'100%', border:'none', display:'block' }} />
+                            {/* Overlay to hide the pop-out/download button on the top right */}
+                            <div style={{ position: 'absolute', top: 0, right: '12px', width: '54px', height: '48px', background: '#141414', zIndex: 10 }} />
+                        </div>
                     )}
                     {actualFileType === 'other' && (
                         <div style={{ padding:'2rem', textAlign:'center', background:'#f8fafc' }}>
