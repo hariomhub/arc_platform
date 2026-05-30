@@ -176,8 +176,9 @@ export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = 
         return blobUrl;
     }
 
-    const startsOn = new Date();
-    const expiresOn = new Date(startsOn.getTime() + expiryHours * 60 * 60 * 1000);
+    // Subtract 5 minutes to account for clock skew between the server and Azure Storage
+    const startsOn = new Date(new Date().getTime() - 5 * 60 * 1000);
+    const expiresOn = new Date(startsOn.getTime() + (expiryHours * 60 * 60 * 1000) + (5 * 60 * 1000));
 
     const sasOptions = {
         containerName: parsed.containerName,
