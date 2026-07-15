@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ShieldCheck, Star, Search, ChevronLeft, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
-import { getProducts } from '../api/productReviews.js';
+import { ShieldCheck, Star, Search, ChevronLeft, ArrowRight, Loader2, AlertCircle, Award } from 'lucide-react';
+import { getProducts, getProductCategories } from '../api/productReviews.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import CategoryCombobox from '../components/common/CategoryCombobox.jsx';
 
 // ─── Star display helper ──────────────────────────────────────────────────────
 const StarRating = ({ rating, size = 14 }) => {
@@ -25,8 +26,8 @@ const ProductCard = ({ product, onClick }) => (
         <div style={{ height: '4px', background: 'linear-gradient(90deg, #003366, #0055A4)' }} />
         <div style={{ padding: 'clamp(1rem,2.5vw,1.5rem)', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <ShieldCheck size={22} color="#003366" />
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                    {product.product_logo_url ? <img src={product.product_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <ShieldCheck size={22} color="#003366" />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={{ margin: 0, fontSize: 'clamp(0.9rem,2vw,1rem)', fontWeight: '800', color: '#1E293B', lineHeight: '1.3' }}>{product.name}</h3>
@@ -46,6 +47,13 @@ const ProductCard = ({ product, onClick }) => (
                 <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B' }}>{Number(product.avg_rating).toFixed(1)}</span>
                 <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>({product.review_count} review{product.review_count !== 1 ? 's' : ''})</span>
             </div>
+            {product.avg_test_score != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Award size={13} color="#D97706" />
+                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#D97706' }}>Avg Test Score: {parseFloat(product.avg_test_score).toFixed(1)}/10</span>
+                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>({product.tested_count} test{product.tested_count !== 1 ? 's' : ''})</span>
+                </div>
+            )}
         </div>
         <div style={{ padding: 'clamp(0.75rem,1.5vw,1rem) clamp(1rem,2.5vw,1.5rem)', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: '700', color: '#003366' }}>
@@ -63,23 +71,29 @@ const ProductReviews = () => {
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
+    const [categoryId, setCategoryId] = useState(null);
+    const [categories, setCategories] = useState([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
 
     useEffect(() => { document.title = 'Product Reviews | AI Risk Council'; }, []);
 
+    useEffect(() => {
+        getProductCategories().then(res => setCategories(res.data?.data || [])).catch(() => {});
+    }, []);
+
     const fetchProducts = useCallback(async () => {
         setLoading(true); setError('');
         try {
-            const res = await getProducts({ page, limit: 12, search: search || undefined });
+            const res = await getProducts({ page, limit: 12, search: search || undefined, category: categoryId || undefined });
             const payload = res.data;
             setProducts(Array.isArray(payload.data) ? payload.data : []);
             setTotalPages(payload.totalPages ?? 1);
             setTotal(payload.total ?? 0);
         } catch (err) { setError(getErrorMessage(err)); }
         finally { setLoading(false); }
-    }, [page, search]);
+    }, [page, search, categoryId]);
 
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -89,7 +103,11 @@ const ProductReviews = () => {
         setPage(1);
     };
 
-    const clearSearch = () => { setSearchInput(''); setSearch(''); setPage(1); };
+    const handleCategoryChange = (id) => { setCategoryId(id); setPage(1); };
+
+    const clearFilters = () => { setSearchInput(''); setSearch(''); setCategoryId(null); setPage(1); };
+
+    const selectedCategoryName = categories.find(c => String(c.id) === String(categoryId))?.name;
 
     return (
         <>
@@ -127,20 +145,27 @@ const ProductReviews = () => {
             <div style={{ background: '#F8FAFC', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,3vw,2rem) 2.5rem', minHeight: '60vh' }}>
                 <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
-                    {/* Result count / clear */}
+                    {/* Filters */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ width: 'min(280px, 100%)' }}>
+                            <CategoryCombobox categories={categories} value={categoryId} onChange={handleCategoryChange} placeholder="All Categories" clearLabel="All Categories" />
+                        </div>
+                        {(search || categoryId) && (
+                            <button onClick={clearFilters} style={{ background: 'none', border: '1px solid #CBD5E1', padding: '4px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', color: '#64748B', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
+                                Clear filters
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Result count */}
                     {!loading && !error && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ marginBottom: '1.75rem' }}>
                             <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748B', fontWeight: '600' }}>
-                                {search
-                                    ? <>{total} result{total !== 1 ? 's' : ''} for "<strong style={{ color: '#1E293B' }}>{search}</strong>"</>
-                                    : <>{total} product review{total !== 1 ? 's' : ''} available</>
-                                }
+                                {total} result{total !== 1 ? 's' : ''}
+                                {search && <> for "<strong style={{ color: '#1E293B' }}>{search}</strong>"</>}
+                                {selectedCategoryName && <> in <strong style={{ color: '#1E293B' }}>{selectedCategoryName}</strong></>}
+                                {!search && !selectedCategoryName && ' available'}
                             </p>
-                            {search && (
-                                <button onClick={clearSearch} style={{ background: 'none', border: '1px solid #CBD5E1', padding: '4px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', color: '#64748B', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
-                                    Clear search
-                                </button>
-                            )}
                         </div>
                     )}
 

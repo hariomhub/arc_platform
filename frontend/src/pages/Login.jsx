@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { Eye, EyeOff, AlertCircle, AlertTriangle, Loader2, ShieldCheck, BookOpen, Users, TrendingUp } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { loginUser } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const FEATURES = [
     { icon: ShieldCheck, title: 'AI Governance Framework', desc: 'Comprehensive risk assessment and governance toolkit.' },
@@ -47,7 +50,9 @@ const Login = () => {
     const [serverError, setServerError] = useState('');
     const [isPending, setIsPending] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [recaptchaToken, setRecaptchaToken] = useState('');
     const emailRef = useRef(null);
+    const recaptchaRef = useRef(null);
 
     useEffect(() => { document.title = 'Sign In | AI Risk Council'; }, []);
     useEffect(() => { emailRef.current?.focus(); }, []);
@@ -75,6 +80,7 @@ const Login = () => {
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter a valid email address.';
         if (!password) e.password = 'Password is required.';
         else if (password.length < 8) e.password = 'Password must be at least 8 characters.';
+        if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
         return e;
     };
 
@@ -85,7 +91,7 @@ const Login = () => {
         if (Object.keys(errors).length) { setFieldErrors(errors); return; }
         setFieldErrors({}); setSubmitting(true);
         try {
-            const res = await loginUser({ email: email.trim().toLowerCase(), password });
+            const res = await loginUser({ email: email.trim().toLowerCase(), password, recaptchaToken });
             if (res.data?.success) {
                 const u = res.data.data.user;
                 login(u);
@@ -97,6 +103,8 @@ const Login = () => {
             const msg = getErrorMessage(err);
             if (msg?.toLowerCase().includes('pending')) setIsPending(true);
             else setServerError(msg);
+            recaptchaRef.current?.reset();
+            setRecaptchaToken('');
         } finally { setSubmitting(false); }
     };
 
@@ -289,6 +297,17 @@ const Login = () => {
                                     </button>
                                 </div>
                             </Field>
+
+                            {RECAPTCHA_SITE_KEY && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'center', transform: 'scale(0.95)', transformOrigin: 'center' }}>
+                                        <ReCAPTCHA ref={recaptchaRef} sitekey={RECAPTCHA_SITE_KEY}
+                                            onChange={(token) => { setRecaptchaToken(token || ''); clear('recaptcha'); }}
+                                            onExpired={() => setRecaptchaToken('')} />
+                                    </div>
+                                    {fieldErrors.recaptcha && <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: '0.75rem', color: '#DC2626', marginTop: '0.4rem' }}><AlertCircle size={11} />{fieldErrors.recaptcha}</span>}
+                                </div>
+                            )}
 
                             <button type="submit" disabled={submitting} className="auth-btn"
                                 style={{ width: '100%', padding: '0.88rem', background: submitting ? '#94A3B8' : 'linear-gradient(135deg,#003366,#005099)', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.93rem', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'all 0.18s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: '0.3rem', boxShadow: submitting ? 'none' : '0 4px 14px rgba(0,51,102,0.28)' }}>

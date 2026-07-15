@@ -141,7 +141,6 @@ const Footer = () => (
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                 <MapPin size={15} style={{ marginTop: '3px', flexShrink: 0, opacity: 0.7 }} aria-hidden="true" />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', lineHeight: '1.55' }}>
-                                    <span><strong style={{ color: '#e2e8f0' }}>USA:</strong> Costa Mesa, California (CA) 92626</span>
                                     <span><strong style={{ color: '#e2e8f0' }}>UAE:</strong> Villa 43, Street 2, Springs 3, Dubai</span>
                                     <span><strong style={{ color: '#e2e8f0' }}>India:</strong> 902, Unitech Arcadia, Sector 49, Gurugram, Haryana</span>
                                     <span><strong style={{ color: '#e2e8f0' }}>Canada:</strong> 3105, 50 Charles street East M4Y 0C3, Toronto ON</span>

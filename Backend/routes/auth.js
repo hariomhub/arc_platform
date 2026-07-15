@@ -5,6 +5,7 @@ import auth from '../middleware/auth.js';
 import optionalAuth from '../middleware/optionalAuth.js';
 import passport from '../middleware/passport.js';
 import { rateLimit } from 'express-rate-limit';
+import { verifyRecaptchaMiddleware } from '../middleware/verifyRecaptcha.js';
 
 const authLimiter = rateLimit({
     windowMs:       15 * 60 * 1000,
@@ -65,8 +66,10 @@ router.post(
             .withMessage('Invalid role selected.'),
         body('organization_name').optional().trim().isLength({ max: 255 }).withMessage('Organisation name must be 255 characters or fewer.'),
         body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
+        body('recaptchaToken').notEmpty().withMessage('Please complete the reCAPTCHA verification.'),
     ],
     validate,
+    verifyRecaptchaMiddleware,
     authController.register
 );
 
@@ -77,8 +80,10 @@ router.post(
     [
         body('email').trim().isEmail().withMessage('A valid email address is required.').normalizeEmail(),
         body('password').notEmpty().withMessage('Password is required.'),
+        body('recaptchaToken').notEmpty().withMessage('Please complete the reCAPTCHA verification.'),
     ],
     validate,
+    verifyRecaptchaMiddleware,
     authController.login
 );
 

@@ -76,8 +76,9 @@ export const verifyRecaptchaMiddleware = async (req, res, next) => {
     const result = await verifyRecaptchaToken(recaptchaToken, remoteIp);
 
     if (!result.success) {
-      return res.status(400).json({ 
-        error: result.error || 'reCAPTCHA verification failed' 
+      return res.status(400).json({
+        success: false,
+        message: result.error || 'reCAPTCHA verification failed. Please try again.',
       });
     }
 
@@ -86,8 +87,9 @@ export const verifyRecaptchaMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('reCAPTCHA middleware error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to verify reCAPTCHA' 
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify reCAPTCHA. Please try again.',
     });
   }
 };

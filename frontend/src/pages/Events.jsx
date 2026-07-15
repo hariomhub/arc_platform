@@ -200,21 +200,16 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
         setVoteError('');
         if (!anonymousEmail.trim()) { setVoteError('Please enter your email address'); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(anonymousEmail)) { setVoteError('Please enter a valid email address'); return; }
-        let token = recaptchaToken;
-        if (!token && recaptchaRef.current) {
-            try { token = await recaptchaRef.current.executeAsync(); setRecaptchaToken(token); }
-            catch { setVoteError('reCAPTCHA verification failed. Please try again.'); return; }
-        }
-        if (!token) { setVoteError('Please complete the reCAPTCHA verification'); return; }
+        if (!recaptchaToken) { setVoteError('Please complete the reCAPTCHA verification'); return; }
         setVoting(true);
         try {
-            await castVote(nominee.id, { isAnonymous: true, anonymousEmail: anonymousEmail.trim(), recaptchaToken: token });
+            await castVote(nominee.id, { isAnonymous: true, anonymousEmail: anonymousEmail.trim(), recaptchaToken });
             showToast('Your vote has been cast successfully!', 'success');
             onClose();
             if (onVoteSuccess) onVoteSuccess(nominee.category_id);
         } catch (err) {
             setVoteError(getErrorMessage(err) || 'Failed to cast vote. Please try again.');
-            if (recaptchaRef.current) { recaptchaRef.current.reset(); setRecaptchaToken(''); }
+            recaptchaRef.current?.reset(); setRecaptchaToken('');
         } finally { setVoting(false); }
     };
 
@@ -247,12 +242,14 @@ const VoteOptionsModal = ({ nominee, onClose, onVoteSuccess }) => {
                                 onFocus={e => { e.target.style.borderColor = '#111827'; e.target.style.boxShadow = '0 0 0 3px rgba(17,24,39,0.05)'; }} onBlur={e => { e.target.style.borderColor = '#D1D5DB'; e.target.style.boxShadow = 'none'; }} />
                             <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#6B7280' }}>Used only to prevent duplicate votes</p>
                         </div>
-                        {RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== 'your_recaptcha_site_key_here' && (
+                        {RECAPTCHA_SITE_KEY && (
                             <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-                                <ReCAPTCHA ref={recaptchaRef} sitekey={RECAPTCHA_SITE_KEY} size="invisible" onChange={token => setRecaptchaToken(token)} />
+                                <ReCAPTCHA ref={recaptchaRef} sitekey={RECAPTCHA_SITE_KEY}
+                                    onChange={(token) => { setRecaptchaToken(token || ''); setVoteError(''); }}
+                                    onExpired={() => setRecaptchaToken('')} />
                             </div>
                         )}
-                        <button type="submit" disabled={voting} style={{ width: '100%', background: voting ? '#D1D5DB' : '#111827', color: 'white', border: 'none', borderRadius: '8px', padding: '0.875rem 1.25rem', fontWeight: '600', fontSize: '0.9375rem', cursor: voting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit' }} onMouseOver={e => { if (!voting) e.currentTarget.style.background = '#1F2937'; }} onMouseOut={e => { if (!voting) e.currentTarget.style.background = '#111827'; }}>
+                        <button type="submit" disabled={voting || (RECAPTCHA_SITE_KEY && !recaptchaToken)} style={{ width: '100%', background: (voting || (RECAPTCHA_SITE_KEY && !recaptchaToken)) ? '#D1D5DB' : '#111827', color: 'white', border: 'none', borderRadius: '8px', padding: '0.875rem 1.25rem', fontWeight: '600', fontSize: '0.9375rem', cursor: (voting || (RECAPTCHA_SITE_KEY && !recaptchaToken)) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'background 0.15s', fontFamily: 'inherit' }} onMouseOver={e => { if (!voting) e.currentTarget.style.background = '#1F2937'; }} onMouseOut={e => { if (!voting) e.currentTarget.style.background = '#111827'; }}>
                             {voting ? <><Loader2 size={18} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : <>Submit Vote</>}
                         </button>
                     </form>

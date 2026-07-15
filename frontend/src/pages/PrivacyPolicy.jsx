@@ -275,7 +275,6 @@ export default function PrivacyPolicy() {
                     <MapPin size={15} color="var(--primary)" /><strong style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>Offices</strong>
                   </div>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                    <li><strong style={{ color: 'var(--text-main)' }}>USA:</strong> Costa Mesa, CA 92626</li>
                     <li><strong style={{ color: 'var(--text-main)' }}>UAE:</strong> Villa 43, Street 2, Springs 3, Dubai</li>
                     <li><strong style={{ color: 'var(--text-main)' }}>India:</strong> 902 Unitech Arcadia, Sector 49, Gurugram</li>
                     <li><strong style={{ color: 'var(--text-main)' }}>Canada:</strong> 50 Charles St E M4Y 0C3, Toronto</li>

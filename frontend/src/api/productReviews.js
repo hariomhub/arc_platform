@@ -1,12 +1,19 @@
 import api from './axios.js';
 
 // ─── Products (public) ────────────────────────────────────────────────────────
-// params: { category, search, page, limit }
+// params: { category (category_id), search, page, limit }
 export const getProducts = (params) =>
     api.get('/product-reviews', { params });
 
 export const getProductById = (id) =>
     api.get(`/product-reviews/${id}`);
+
+// ─── Categories (public list, admin create) ────────────────────────────────────
+export const getProductCategories = () =>
+    api.get('/product-reviews/categories');
+
+export const createProductCategory = (name) =>
+    api.post('/product-reviews/categories', { name });
 
 // ─── Admin: Product CRUD ──────────────────────────────────────────────────────
 export const createProduct = (data) =>
@@ -17,6 +24,17 @@ export const updateProduct = (id, data) =>
 
 export const deleteProduct = (id) =>
     api.delete(`/product-reviews/${id}`);
+
+// ─── Admin: Logos ─────────────────────────────────────────────────────────────
+export const uploadProductLogo = (productId, file) => {
+    const fd = new FormData(); fd.append('logo', file);
+    return api.post(`/product-reviews/${productId}/upload-product-logo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+
+export const uploadCompanyLogo = (productId, file) => {
+    const fd = new FormData(); fd.append('logo', file);
+    return api.post(`/product-reviews/${productId}/upload-company-logo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
 
 // ─── Admin: Feature Tests ─────────────────────────────────────────────────────
 export const addFeatureTest = (productId, data) =>
@@ -45,6 +63,9 @@ export const uploadEvidence = (productId, formData) =>
 
 export const deleteEvidence = (productId, evidenceId) =>
     api.delete(`/product-reviews/${productId}/evidences/${evidenceId}`);
+
+export const getEvidenceDownloadUrl = (productId, evidenceId) =>
+    api.get(`/product-reviews/${productId}/evidences/${evidenceId}/download`);
 
 // ─── User Reviews ─────────────────────────────────────────────────────────────
 export const submitUserReview = (productId, data) =>

@@ -29,6 +29,16 @@ const mediaUpload = multer({
     },
 });
 
+// ─── Multer: Logos — memory storage ────────────────────────────────────────────
+const logoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Logo must be an image file.'));
+    },
+});
+
 // ─── Multer: Evidence Files — memory storage ──────────────────────────────────
 const ALLOWED_EVIDENCE = [
     'application/pdf',
@@ -52,11 +62,24 @@ const evidenceUpload = multer({
 const productValidation = [
     body('name').trim().notEmpty().withMessage('Product name is required.').isLength({ max: 255 }),
     body('vendor').trim().notEmpty().withMessage('Vendor name is required.').isLength({ max: 255 }),
-    body('category').optional().trim().isLength({ max: 255 }),
+    body('category_id').optional({ checkFalsy: true }).isInt().withMessage('Invalid category.'),
     body('portal_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Portal URL must be a valid URL.'),
     body('short_description').optional().trim(),
     body('overview').optional().trim(),
     body('version_tested').optional().trim().isLength({ max: 100 }),
+    body('key_features').optional().custom((value) => {
+        if (value == null) return true;
+        if (!Array.isArray(value)) throw new Error('key_features must be an array.');
+        for (const f of value) {
+            const name = typeof f === 'string' ? f : f?.name;
+            const description = typeof f === 'string' ? '' : f?.description;
+            if (!name || !name.toString().trim()) throw new Error('Each key feature must have a name.');
+            if (description && description.toString().length > ctrl.MAX_FEATURE_DESC_LEN) {
+                throw new Error(`Key feature description must be ${ctrl.MAX_FEATURE_DESC_LEN} characters or fewer.`);
+            }
+        }
+        return true;
+    }),
 ];
 
 const featureTestValidation = [
@@ -71,12 +94,18 @@ const userReviewValidation = [
 
 // ─── Public Routes ─────────────────────────────────────────────────────────────
 router.get('/', ctrl.getProducts);
+router.get('/categories', ctrl.getCategories);
 router.get('/:id(\\d+)', ctrl.getProductById);
 
 // ─── Admin Routes ──────────────────────────────────────────────────────────────
+router.post('/categories', auth, requireRole('founding_member'), ctrl.createCategory);
 router.post('/', auth, requireRole('founding_member'), productValidation, validate, ctrl.createProduct);
 router.put('/:id(\\d+)', auth, requireRole('founding_member'), productValidation, validate, ctrl.updateProduct);
 router.delete('/:id(\\d+)', auth, requireRole('founding_member'), ctrl.deleteProduct);
+
+// Logos
+router.post('/:id(\\d+)/upload-product-logo', auth, requireRole('founding_member'), logoUpload.single('logo'), ctrl.uploadProductLogo);
+router.post('/:id(\\d+)/upload-company-logo', auth, requireRole('founding_member'), logoUpload.single('logo'), ctrl.uploadCompanyLogo);
 
 // Feature tests
 router.post('/:id(\\d+)/feature-tests', auth, requireRole('founding_member'), featureTestValidation, validate, ctrl.addFeatureTest);
@@ -90,6 +119,7 @@ router.delete('/:productId(\\d+)/media/:mediaId(\\d+)', auth, requireRole('found
 // Evidence uploads
 router.post('/:id(\\d+)/evidences', auth, requireRole('founding_member'), evidenceUpload.array('files', 20), ctrl.uploadEvidence);
 router.delete('/:productId(\\d+)/evidences/:evidenceId(\\d+)', auth, requireRole('founding_member'), ctrl.deleteEvidence);
+router.get('/:productId(\\d+)/evidences/:evidenceId(\\d+)/download', ctrl.downloadEvidence);
 
 // ─── Auth Routes (any logged-in user) ─────────────────────────────────────────
 router.post('/:id(\\d+)/user-reviews', auth, userReviewValidation, validate, ctrl.submitUserReview);

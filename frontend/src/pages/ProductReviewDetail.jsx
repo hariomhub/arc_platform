@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import {
     ShieldCheck, Star, ChevronLeft, ChevronRight, ExternalLink, Loader2, AlertCircle,
     FileText, Image as ImageIcon, Video, Download, User, CheckCircle2, FlaskConical,
-    ListChecks, X, ZoomIn, Award, BarChart3, MessageSquare, Eye,
+    X, ZoomIn, Award, BarChart3, MessageSquare, Eye, Building,
 } from 'lucide-react';
-import { getProductById, submitUserReview, deleteUserReview } from '../api/productReviews.js';
+import { getProductById, submitUserReview, deleteUserReview, getEvidenceDownloadUrl } from '../api/productReviews.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// Normalizes to exactly one "v" prefix regardless of whether the admin typed
+// it themselves (e.g. "v2.4.1") or not (e.g. "2.4.1") — avoids "vv2.4.1".
+const formatVersion = (v) => v ? `v${String(v).trim().replace(/^v+/i, '')}` : null;
+
 const StarRating = ({ rating, size = 16 }) => {
     const filled = Math.round(Number(rating) || 0);
     return (
@@ -109,12 +114,106 @@ const Lightbox = ({ media, index, onClose, onNav }) => {
     );
 };
 
+// ─── Evidence viewer modal ──────────────────────────────────────────────────────
+// Sized to the content: images/video get a viewport-relative box, PDFs and Office
+// docs (via the Google Docs Viewer embed) get a fixed reading panel with a
+// blocked-iframe fallback, everything else gets a simple "can't preview" card.
+const getEvidenceViewType = (fileType) => {
+    if (!fileType) return 'other';
+    if (fileType.startsWith('image/')) return 'image';
+    if (fileType.startsWith('video/')) return 'video';
+    if (fileType === 'application/pdf') return 'pdf';
+    if (fileType.includes('word') || fileType.includes('document') || fileType.includes('spreadsheet') || fileType.includes('excel')) return 'office';
+    return 'other';
+};
+
+const DocPanel = ({ evidence, src, onClose, onDownload }) => {
+    const [state, setState] = useState('loading'); // loading → loaded | failed
+
+    useEffect(() => {
+        setState('loading');
+        const timer = setTimeout(() => setState(prev => prev === 'loading' ? 'failed' : prev), 4000);
+        return () => clearTimeout(timer);
+    }, [src]);
+
+    return (
+        <div style={{ width: 'min(900px, 95vw)', height: '88vh', borderRadius: 10, overflow: 'hidden', background: '#F8FAFC', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <EvidenceIcon fileType={evidence.file_type} />
+                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{evidence.file_name}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <button onClick={onDownload} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#003366', color: 'white', border: 'none', fontSize: '0.79rem', fontWeight: '700', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Download</button>
+                    <div style={{ width: 1, height: 24, background: '#E2E8F0' }} />
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: '#64748B', display: 'flex' }}><X size={20} /></button>
+                </div>
+            </div>
+            <div style={{ flex: 1, position: 'relative', background: '#F1F5F9', overflow: 'hidden' }}>
+                {state === 'loading' && (
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#F8FAFC' }}>
+                        <Loader2 size={30} style={{ animation: 'spin 1s linear infinite' }} color="#003366" />
+                        <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B', fontWeight: '600' }}>Loading document…</p>
+                    </div>
+                )}
+                {state === 'failed' && (
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: '#F8FAFC', padding: '2rem' }}>
+                        <AlertCircle size={32} color="#D97706" />
+                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '700', color: '#1E293B', textAlign: 'center' }}>Inline preview unavailable</p>
+                        <button onClick={onDownload} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#003366', color: 'white', border: 'none', fontSize: '0.875rem', fontWeight: '700', padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={15} /> Download Instead</button>
+                    </div>
+                )}
+                <iframe src={src} title={evidence.file_name} onLoad={() => setState('loaded')} onError={() => setState('failed')}
+                    style={{ width: '100%', height: '100%', border: 'none', position: 'absolute', inset: 0, opacity: state === 'loaded' ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: state === 'loaded' ? 'auto' : 'none' }} />
+            </div>
+        </div>
+    );
+};
+
+const EvidenceModal = ({ evidence, onClose, onDownload }) => {
+    useEffect(() => {
+        const handler = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', handler);
+        document.body.style.overflow = 'hidden';
+        return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = ''; };
+    }, [onClose]);
+
+    if (!evidence) return null;
+    const viewType = getEvidenceViewType(evidence.file_type);
+
+    return createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
+            <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', maxWidth: '95vw', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
+                {(viewType === 'image' || viewType === 'video') && (
+                    <button onClick={onClose} style={{ position: 'absolute', top: '-44px', right: 0, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}><X size={18} /></button>
+                )}
+                {viewType === 'image' && <img src={evidence.file_url} alt={evidence.file_name} style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }} />}
+                {viewType === 'video' && <video src={evidence.file_url} controls autoPlay style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }} />}
+                {viewType === 'pdf' && <DocPanel evidence={evidence} src={`${evidence.file_url}#toolbar=1`} onClose={onClose} onDownload={onDownload} />}
+                {viewType === 'office' && <DocPanel evidence={evidence} src={`https://docs.google.com/viewer?url=${encodeURIComponent(evidence.file_url)}&embedded=true`} onClose={onClose} onDownload={onDownload} />}
+                {viewType === 'other' && (
+                    <div style={{ width: 'min(420px, 90vw)', background: 'white', borderRadius: 14, padding: '2rem', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+                        <button onClick={onClose} style={{ position: 'absolute', top: '-44px', right: 0, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}><X size={18} /></button>
+                        <div style={{ width: 56, height: 56, borderRadius: 14, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}><EvidenceIcon fileType={evidence.file_type} /></div>
+                        <p style={{ margin: '0 0 0.4rem', fontSize: '0.95rem', fontWeight: '700', color: '#1E293B', wordBreak: 'break-word' }}>{evidence.file_name}</p>
+                        <p style={{ margin: '0 0 1.25rem', fontSize: '0.82rem', color: '#64748B' }}>This file type can't be previewed in the browser.</p>
+                        <button onClick={onDownload} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#003366', color: 'white', border: 'none', fontSize: '0.875rem', fontWeight: '700', padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={15} /> Download</button>
+                    </div>
+                )}
+                {viewType === 'image' && evidence.file_name && (
+                    <p style={{ textAlign: 'center', margin: '0.5rem 0 0', fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>{evidence.file_name}</p>
+                )}
+            </div>
+        </div>,
+        document.body
+    );
+};
+
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
-    { key: 'about',    label: 'Overview',    icon: Eye },
-    { key: 'tests',    label: 'Test Results', icon: BarChart3 },
-    { key: 'evidence', label: 'Evidences',   icon: ListChecks },
-    { key: 'reviews',  label: 'Reviews',     icon: MessageSquare },
+    { key: 'about',   label: 'Overview',     icon: Eye },
+    { key: 'tests',   label: 'Test Results and Evidences', icon: BarChart3 },
+    { key: 'reviews', label: 'Reviews',      icon: MessageSquare },
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -129,6 +228,8 @@ const ProductReviewDetail = () => {
     const [activeTab, setActiveTab] = useState('about');
     const [galleryIndex, setGalleryIndex] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [viewingEvidence, setViewingEvidence] = useState(null);
+    const [viewingLogo, setViewingLogo] = useState(null);
     const thumbsRef = useRef(null);
 
     const [reviewRating, setReviewRating] = useState(0);
@@ -171,6 +272,13 @@ const ProductReviewDetail = () => {
         finally { setDeletingReview(false); }
     };
 
+    const handleDownloadEvidence = async (evidence) => {
+        try {
+            const res = await getEvidenceDownloadUrl(id, evidence.id);
+            window.location.href = res.data?.url;
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+    };
+
     const navGallery = useCallback((dir) => {
         setGalleryIndex(prev => {
             const media = product?.media || [];
@@ -202,7 +310,8 @@ const ProductReviewDetail = () => {
     if (!product) return null;
 
     const { media = [], featureTests = [], evidences = [], userReviews = [] } = product;
-    const keyFeatures = Array.isArray(product.key_features) ? product.key_features : (product.key_features ? [product.key_features] : []);
+    const keyFeatures = (Array.isArray(product.key_features) ? product.key_features : (product.key_features ? [product.key_features] : []))
+        .map((f) => (typeof f === 'string' ? { name: f, description: '' } : f));
     const userOwnReview = user ? userReviews.find((r) => r.user_id === user.id) : null;
     const otherReviews = userOwnReview ? userReviews.filter((r) => r.id !== userOwnReview.id) : userReviews;
     const avgScore = featureTests.filter(ft => ft.score != null).length > 0
@@ -218,6 +327,7 @@ const ProductReviewDetail = () => {
                 .prd-tab-btn:hover { color: #003366 !important; background: rgba(255,255,255,0.95) !important; }
                 .prd-tab-btn:hover span { background: #EFF6FF !important; color: #003366 !important; }
                 .prd-thumb:hover { border-color: #F59E0B !important; opacity: 1 !important; }
+                .prd-logo-btn:hover { transform: scale(1.06); box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; }
                 .prd-review-card:hover { box-shadow: 0 6px 24px rgba(0,51,102,0.09) !important; transform: translateY(-2px) !important; }
                 .prd-evidence-card:hover { box-shadow: 0 6px 20px rgba(0,51,102,0.10) !important; transform: translateY(-2px); }
                 .prd-feature-row:hover { background: #F8FAFC !important; }
@@ -238,51 +348,90 @@ const ProductReviewDetail = () => {
                         onMouseOut={e => e.currentTarget.style.opacity = '0.85'}>
                         <ChevronLeft size={15} /> Back to Product Reviews
                     </Link>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '2rem', flexWrap: 'wrap', animation: 'fadeUp 0.45s ease' }}>
-                        <div style={{ flex: 1, minWidth: 'min(260px, 100%)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                                <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
-                                    <ShieldCheck size={26} color="white" />
-                                </div>
-                                <h1 style={{ margin: 0, color: 'white', fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', lineHeight: '1.15', letterSpacing: '-0.02em' }}>{product.name}</h1>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-                                <span style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: '0.8rem', fontWeight: '700', padding: '4px 12px', borderRadius: '100px', backdropFilter: 'blur(4px)' }}>{product.vendor}</span>
-                                {product.category && <span style={{ background: 'rgba(255,255,255,0.1)', color: '#CBD5E1', fontSize: '0.75rem', fontWeight: '600', padding: '4px 12px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{product.category}</span>}
-                                {product.version_tested && <span style={{ background: 'rgba(245,158,11,0.2)', color: '#FCD34D', fontSize: '0.75rem', fontWeight: '700', padding: '4px 12px', borderRadius: '100px', border: '1px solid rgba(245,158,11,0.3)' }}>v{product.version_tested}</span>}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <StarRating rating={product.avg_rating} size={20} />
-                                    <span style={{ color: 'white', fontWeight: '800', fontSize: '1.25rem' }}>{Number(product.avg_rating).toFixed(1)}</span>
-                                    <span style={{ color: '#93C5FD', fontSize: '0.85rem' }}>({product.review_count} review{product.review_count !== 1 ? 's' : ''})</span>
-                                </div>
-                                {avgScore && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <Award size={16} color="#FCD34D" />
-                                        <span style={{ color: '#FCD34D', fontWeight: '700', fontSize: '0.9rem' }}>Avg Test Score: {avgScore}/10</span>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '2.5rem', flexWrap: 'wrap', animation: 'fadeUp 0.45s ease' }}>
+                        {/* LEFT — product identity, description, vendor */}
+                        <div style={{ flex: '1 1 340px', minWidth: 'min(300px, 100%)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+                                {product.product_logo_url ? (
+                                    <button onClick={() => setViewingLogo({ url: product.product_logo_url, label: `${product.name} logo` })} title="Click to view full size"
+                                        className="prd-logo-btn"
+                                        style={{ width: '76px', height: '76px', borderRadius: '50%', background: 'linear-gradient(155deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05))', border: '1.5px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'zoom-in', boxShadow: '0 8px 22px rgba(0,0,0,0.38)', transition: 'transform 0.15s, box-shadow 0.15s', overflow: 'hidden' }}>
+                                        <img src={product.product_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                    </button>
+                                ) : (
+                                    <div style={{ width: '76px', height: '76px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
+                                        <ShieldCheck size={34} color="white" />
                                     </div>
                                 )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap', rowGap: '0.5rem' }}>
+                                    <h1 style={{ margin: 0, color: 'white', fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', lineHeight: '1.15', letterSpacing: '-0.02em' }}>{product.name}</h1>
+                                    {product.category && <span style={{ background: 'rgba(255,255,255,0.14)', color: 'white', fontSize: '0.85rem', fontWeight: '700', padding: '6px 14px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{product.category}</span>}
+                                    {product.version_tested && <span style={{ background: 'rgba(245,158,11,0.22)', color: '#FCD34D', fontSize: '0.85rem', fontWeight: '700', padding: '6px 14px', borderRadius: '100px', border: '1px solid rgba(245,158,11,0.35)' }}>{formatVersion(product.version_tested)}</span>}
+                                </div>
                             </div>
+
                             {product.short_description && (
-                                <p style={{ margin: '1rem 0 0', color: '#CBD5E1', fontSize: '0.9rem', lineHeight: '1.7', maxWidth: '560px' }}>{product.short_description}</p>
+                                <p style={{ margin: '0 0 1.25rem', color: '#CBD5E1', fontSize: '0.9rem', lineHeight: '1.65', maxWidth: '480px' }}>{product.short_description}</p>
+                            )}
+
+                            {/* Vendor */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                {product.company_logo_url ? (
+                                    <button onClick={() => setViewingLogo({ url: product.company_logo_url, label: `${product.vendor} logo` })} title="Click to view full size"
+                                        className="prd-logo-btn"
+                                        style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'linear-gradient(155deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05))', border: '1.5px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'zoom-in', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', transition: 'transform 0.15s, box-shadow 0.15s', overflow: 'hidden' }}>
+                                        <img src={product.company_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                    </button>
+                                ) : (
+                                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Building size={20} color="white" />
+                                    </div>
+                                )}
+                                <div>
+                                    <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: '700', color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Vendor</p>
+                                    <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'white', letterSpacing: '-0.01em', lineHeight: '1.2' }}>{product.vendor}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT — rating, score & CTA */}
+                        <div style={{ flex: '0 1 280px', minWidth: 'min(250px, 100%)', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '16px', padding: '1.25rem 1.4rem', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div>
+                                <p style={{ margin: '0 0 6px', fontSize: '0.68rem', fontWeight: '700', color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Rating</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                                    <StarRating rating={product.avg_rating} size={19} />
+                                    <span style={{ color: 'white', fontWeight: '800', fontSize: '1.3rem' }}>{Number(product.avg_rating).toFixed(1)}</span>
+                                    <span style={{ color: '#93C5FD', fontSize: '0.82rem' }}>({product.review_count} review{product.review_count !== 1 ? 's' : ''})</span>
+                                </div>
+                            </div>
+                            {avgScore && (
+                                <div>
+                                    <p style={{ margin: '0 0 6px', fontSize: '0.68rem', fontWeight: '700', color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Avg Test Score</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                        <Award size={19} color="#FCD34D" />
+                                        <span style={{ color: '#FCD34D', fontWeight: '800', fontSize: '1.3rem' }}>{avgScore}<span style={{ fontSize: '0.85rem', fontWeight: '600' }}>/10</span></span>
+                                    </div>
+                                </div>
+                            )}
+                            {product.portal_url && (
+                                <>
+                                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.12)' }} />
+                                    <a href={product.portal_url} target="_blank" rel="noopener noreferrer"
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#F59E0B', color: '#001830', padding: '0.8rem 1.5rem', borderRadius: '10px', fontWeight: '800', fontSize: '0.9rem', textDecoration: 'none', boxShadow: '0 4px 14px rgba(245,158,11,0.35)', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                                        onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(245,158,11,0.45)'; }}
+                                        onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(245,158,11,0.35)'; }}>
+                                        Visit Portal <ExternalLink size={15} />
+                                    </a>
+                                </>
                             )}
                         </div>
-                        {product.portal_url && (
-                            <a href={product.portal_url} target="_blank" rel="noopener noreferrer"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F59E0B', color: '#001830', padding: '0.85rem 1.85rem', borderRadius: '10px', fontWeight: '800', fontSize: '0.9rem', textDecoration: 'none', flexShrink: 0, boxShadow: '0 4px 14px rgba(245,158,11,0.35)', transition: 'transform 0.15s, box-shadow 0.15s' }}
-                                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(245,158,11,0.45)'; }}
-                                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(245,158,11,0.35)'; }}>
-                                Visit Portal <ExternalLink size={15} />
-                            </a>
-                        )}
                     </div>
 
                     {/* Tabs — scroll on mobile */}
-                    <div style={{ display: 'flex', marginTop: '2.5rem', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                    <div style={{ display: 'flex', marginTop: '1.5rem', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                         {TABS.map(({ key, label, icon: Icon }) => {
                             const active = activeTab === key;
-                            const count = key === 'reviews' ? product.review_count : key === 'tests' ? featureTests.length : key === 'evidence' ? evidences.length : null;
+                            const count = key === 'reviews' ? product.review_count : key === 'tests' ? featureTests.length : null;
                             return (
                                 <button key={key} className="prd-tab-btn" onClick={() => setActiveTab(key)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0.85rem clamp(0.85rem,2vw,1.3rem)', background: active ? 'white' : 'transparent', border: 'none', borderRadius: '10px 10px 0 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.84rem', fontWeight: '700', color: active ? '#003366' : 'rgb(249, 249, 249)', whiteSpace: 'nowrap', transition: 'color 0.15s, background 0.15s', marginRight: '3px', flexShrink: 0 }}>
@@ -350,7 +499,10 @@ const ProductReviewDetail = () => {
                                                 {keyFeatures.map((f, i) => (
                                                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0.65rem 0.85rem' }}>
                                                         <CheckCircle2 size={14} color="#003366" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                        <span style={{ fontSize: '0.855rem', color: '#334155', lineHeight: '1.5' }}>{f}</span>
+                                                        <span style={{ fontSize: '0.855rem', color: '#334155', lineHeight: '1.5' }}>
+                                                            <span style={{ fontWeight: '700' }}>{f.name}</span>
+                                                            {f.description && <><br /><span style={{ fontSize: '0.8rem', color: '#64748B' }}>{f.description}</span></>}
+                                                        </span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -365,7 +517,7 @@ const ProductReviewDetail = () => {
                                     {[
                                         { label: 'Vendor',         value: product.vendor },
                                         { label: 'Category',       value: product.category },
-                                        { label: 'Version Tested', value: product.version_tested },
+                                        { label: 'Version Tested', value: formatVersion(product.version_tested) },
                                         { label: 'Total Reviews',  value: `${product.review_count} review${product.review_count !== 1 ? 's' : ''}` },
                                         { label: 'Avg Rating',     value: `${Number(product.avg_rating).toFixed(1)} / 5.0` },
                                         { label: 'Added',          value: formatDate(product.created_at) },
@@ -396,8 +548,28 @@ const ProductReviewDetail = () => {
                         </div>
                     )}
 
-                    {/* ══ FEATURE TESTS ══ */}
-                    {activeTab === 'tests' && (
+                    {/* ══ FEATURE TESTS + EVIDENCE (unified) ══ */}
+                    {activeTab === 'tests' && (() => {
+                        const evidencesByTest = {}; const unassignedEvidence = [];
+                        evidences.forEach(ev => {
+                            if (ev.feature_test_id) { if (!evidencesByTest[ev.feature_test_id]) evidencesByTest[ev.feature_test_id] = []; evidencesByTest[ev.feature_test_id].push(ev); }
+                            else unassignedEvidence.push(ev);
+                        });
+                        const EvidenceTile = ({ ev }) => {
+                            const isImage = ev.file_type?.startsWith('image/');
+                            return (
+                                <div className="prd-evidence-card" style={{ flex: '1 1 120px', maxWidth: '150px', border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden', background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', transition: 'box-shadow 0.2s, transform 0.15s' }}>
+                                    <button onClick={() => setViewingEvidence(ev)} title="View" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '90px', border: 'none', padding: 0, cursor: 'pointer', background: '#F1F5F9' }}>
+                                        {isImage ? <img src={ev.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <EvidenceIcon fileType={ev.file_type} />}
+                                    </button>
+                                    <div style={{ padding: '0.5rem 0.6rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span title={ev.file_name} style={{ flex: 1, minWidth: 0, fontSize: '0.72rem', fontWeight: '600', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name || 'Evidence'}</span>
+                                        <button onClick={() => handleDownloadEvidence(ev)} title="Download" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', padding: 0, flexShrink: 0 }}><Download size={13} /></button>
+                                    </div>
+                                </div>
+                            );
+                        };
+                        return (
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                                 <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#1E293B' }}>Feature Test Results</h2>
@@ -415,89 +587,54 @@ const ProductReviewDetail = () => {
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                                     {featureTests.map((ft, i) => (
-                                        <div key={ft.id} className="prd-feature-row" style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', padding: 'clamp(0.85rem,2vw,1.25rem) clamp(1rem,2.5vw,1.5rem)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px,100%), 1fr))', gap: 'clamp(0.75rem,2vw,1.5rem)', alignItems: 'center', transition: 'background 0.15s' }}>
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '4px' }}>
-                                                    <span style={{ width: '22px', height: '22px', background: '#EBF0F7', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '800', color: '#003366', flexShrink: 0 }}>{i + 1}</span>
-                                                    <p style={{ margin: 0, fontWeight: '800', fontSize: '0.92rem', color: '#1E293B' }}>{ft.feature_name}</p>
+                                        <div key={ft.id} className="prd-feature-row" style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', padding: 'clamp(0.85rem,2vw,1.25rem) clamp(1rem,2.5vw,1.5rem)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', transition: 'background 0.15s' }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem 1.5rem', alignItems: 'center' }}>
+                                                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '4px' }}>
+                                                        <span style={{ width: '22px', height: '22px', background: '#EBF0F7', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '800', color: '#003366', flexShrink: 0 }}>{i + 1}</span>
+                                                        <p style={{ margin: 0, fontWeight: '800', fontSize: '0.92rem', color: '#1E293B', overflowWrap: 'break-word' }}>{ft.feature_name}</p>
+                                                    </div>
+                                                    {ft.comments && <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', lineHeight: '1.6', paddingLeft: '32px', overflowWrap: 'break-word' }}>{ft.comments}</p>}
                                                 </div>
-                                                {ft.comments && <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', lineHeight: '1.6', paddingLeft: '32px' }}>{ft.comments}</p>}
+                                                <div style={{ flex: '0 1 130px', minWidth: '100px' }}>
+                                                    <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Test Method</p>
+                                                    <p style={{ margin: 0, fontSize: '0.83rem', color: '#334155', fontWeight: '600' }}>{ft.test_method || '—'}</p>
+                                                </div>
+                                                <div style={{ flex: '0 1 110px', minWidth: '90px' }}>
+                                                    <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Result</p>
+                                                    {ft.result ? (
+                                                        <span style={{ display: 'inline-block', background: ft.result.toLowerCase().includes('pass') ? '#F0FDF4' : ft.result.toLowerCase().includes('fail') ? '#FEF2F2' : '#F8FAFC', color: ft.result.toLowerCase().includes('pass') ? '#15803D' : ft.result.toLowerCase().includes('fail') ? '#DC2626' : '#475569', padding: '2px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem' }}>
+                                                            {ft.result}
+                                                        </span>
+                                                    ) : <p style={{ margin: 0, fontSize: '0.83rem', color: '#94A3B8' }}>—</p>}
+                                                </div>
+                                                <div style={{ flex: '0 0 auto' }}>
+                                                    <ScoreBadge score={ft.score} />
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Test Method</p>
-                                                <p style={{ margin: 0, fontSize: '0.83rem', color: '#334155', fontWeight: '600' }}>{ft.test_method || '—'}</p>
-                                            </div>
-                                            <div>
-                                                <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Result</p>
-                                                {ft.result ? (
-                                                    <span style={{ background: ft.result.toLowerCase().includes('pass') ? '#F0FDF4' : ft.result.toLowerCase().includes('fail') ? '#FEF2F2' : '#F8FAFC', color: ft.result.toLowerCase().includes('pass') ? '#15803D' : ft.result.toLowerCase().includes('fail') ? '#DC2626' : '#475569', padding: '2px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem' }}>
-                                                        {ft.result}
-                                                    </span>
-                                                ) : <p style={{ margin: 0, fontSize: '0.83rem', color: '#94A3B8' }}>—</p>}
-                                            </div>
-                                            <ScoreBadge score={ft.score} />
+                                            {evidencesByTest[ft.id]?.length > 0 && (
+                                                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #F1F5F9' }}>
+                                                    <p style={{ margin: '0 0 0.6rem', fontSize: '0.68rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Evidence ({evidencesByTest[ft.id].length})</p>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                                                        {evidencesByTest[ft.id].map(ev => <EvidenceTile key={ev.id} ev={ev} />)}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* ══ EVIDENCE ══ */}
-                    {activeTab === 'evidence' && (
-                        <div>
-                            <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.15rem', fontWeight: '800', color: '#1E293B' }}>Test Evidences</h2>
-                            {evidences.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '6rem 1rem', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', color: '#94A3B8' }}>
-                                    <ListChecks size={44} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.25 }} />
-                                    <p style={{ margin: 0, fontWeight: '700' }}>No evidence files uploaded yet.</p>
-                                </div>
-                            ) : (() => {
-                                const ftOrder = featureTests.map(ft => ft.id);
-                                const grouped = {}; const unassigned = [];
-                                evidences.forEach(ev => {
-                                    if (ev.feature_test_id && ev.feature_test_name) {
-                                        const k = ev.feature_test_id;
-                                        if (!grouped[k]) grouped[k] = { name: ev.feature_test_name, items: [] };
-                                        grouped[k].items.push(ev);
-                                    } else { unassigned.push(ev); }
-                                });
-                                const orderedGroups = ftOrder.filter(id => grouped[id]).map(id => grouped[id]);
-                                Object.keys(grouped).forEach(kid => { if (!ftOrder.includes(parseInt(kid))) orderedGroups.push(grouped[kid]); });
-                                if (unassigned.length) orderedGroups.push({ name: 'General Evidences', items: unassigned });
-                                return (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                                        {orderedGroups.map(g => (
-                                            <div key={g.name}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                                                    <div style={{ width: '4px', height: '22px', background: 'linear-gradient(180deg, #003366, #0284C7)', borderRadius: '2px', flexShrink: 0 }} />
-                                                    <h3 style={{ margin: 0, fontSize: '0.97rem', fontWeight: '800', color: '#1E293B' }}>{g.name}</h3>
-                                                    <span style={{ fontSize: '0.73rem', color: '#94A3B8', fontWeight: '700', background: '#F1F5F9', padding: '2px 8px', borderRadius: '99px' }}>{g.items.length} file{g.items.length !== 1 ? 's' : ''}</span>
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px,100%), 1fr))', gap: '0.75rem' }}>
-                                                    {g.items.map(ev => (
-                                                        <a key={ev.id} href={ev.file_url} target="_blank" rel="noopener noreferrer" className="prd-evidence-card"
-                                                            style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: 'clamp(0.75rem,2vw,1rem) clamp(0.85rem,2vw,1.25rem)', textDecoration: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', transition: 'box-shadow 0.2s, transform 0.15s' }}>
-                                                            <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #E2E8F0' }}>
-                                                                <EvidenceIcon fileType={ev.file_type} />
-                                                            </div>
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <p style={{ margin: 0, fontSize: '0.83rem', fontWeight: '700', color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name || 'Evidence File'}</p>
-                                                                <p style={{ margin: '2px 0 0', fontSize: '0.7rem', color: '#94A3B8', fontWeight: '600' }}>{ev.file_type?.split('/').pop()?.toUpperCase() || 'FILE'}</p>
-                                                            </div>
-                                                            <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                <Download size={14} color="#64748B" />
-                                                            </div>
-                                                        </a>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
+                            {unassignedEvidence.length > 0 && (
+                                <div style={{ marginTop: '2rem' }}>
+                                    <h3 style={{ margin: '0 0 0.85rem', fontSize: '0.97rem', fontWeight: '800', color: '#1E293B' }}>General Evidence</h3>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                                        {unassignedEvidence.map(ev => <EvidenceTile key={ev.id} ev={ev} />)}
                                     </div>
-                                );
-                            })()}
+                                </div>
+                            )}
                         </div>
-                    )}
+                        );
+                    })()}
 
                     {/* ══ REVIEWS ══ */}
                     {activeTab === 'reviews' && (
@@ -597,6 +734,8 @@ const ProductReviewDetail = () => {
             </div>
 
             {lightboxOpen && <Lightbox media={media} index={galleryIndex} onClose={() => setLightboxOpen(false)} onNav={(dir) => navGallery(dir)} />}
+            {viewingEvidence && <EvidenceModal evidence={viewingEvidence} onClose={() => setViewingEvidence(null)} onDownload={() => handleDownloadEvidence(viewingEvidence)} />}
+            {viewingLogo && <Lightbox media={[{ type: 'image', url: viewingLogo.url, label: viewingLogo.label }]} index={0} onClose={() => setViewingLogo(null)} onNav={() => {}} />}
         </>
     );
 };

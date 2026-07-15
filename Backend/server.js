@@ -81,7 +81,7 @@ app.use(helmet({
             mediaSrc:   ["'self'", "blob:", "https:", "http:",
                          "https://*.blob.core.windows.net",
                          "https://www.youtube.com", "https://player.vimeo.com"],
-            frameSrc:   ["'self'", "https://www.google.com",
+            frameSrc:   ["'self'", "https://www.google.com", "https://docs.google.com",
                          "https://www.youtube.com", "https://player.vimeo.com",
                          "https://www.recaptcha.net"],
             connectSrc: ["'self'", "https:", "wss:"],

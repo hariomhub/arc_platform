@@ -5,10 +5,6 @@ const INQUIRY_TYPES = ['Membership Inquiry', 'Assessment Request', 'Press / Medi
 
 const OFFICES = [
     {
-        region: 'USA',
-        address: 'Costa Mesa, California (CA) 92626',
-    },
-    {
         region: 'UAE',
         address: 'Villa 43, Street 2, Springs 3, Dubai',
     },

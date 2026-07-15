@@ -23,6 +23,7 @@ import {
     generateBlobSASQueryParameters,
     BlobSASPermissions,
 } from '@azure/storage-blob';
+import { optimizeImage } from './imageOptimizer.js';
 
 const RAW_KEY = process.env.AZURE_STORAGE_ACCOUNT_KEY || '';
 const PUBLIC_CONTAINER = process.env.AZURE_STORAGE_CONTAINER_NAME || 'arc-uploads';
@@ -119,6 +120,9 @@ const buildBlobName = (folder, originalName) => {
  * @returns {Promise<string>} Full Blob URL
  */
 export const uploadToBlob = async (folder, originalName, buffer, mimeType, opts = {}) => {
+    // Auto-compress large images before upload (skips videos/PDFs/docs — see imageOptimizer.js).
+    ({ buffer, mimetype: mimeType } = await optimizeImage(buffer, mimeType));
+
     const isPrivate = opts.private === true;
     const containerName = isPrivate ? PRIVATE_CONTAINER : PUBLIC_CONTAINER;
     const blobName = buildBlobName(folder, originalName);
@@ -163,9 +167,12 @@ export const deleteFromBlob = async (blobUrl) => {
  * @param {string} blobUrl
  * @param {number} [expiryHours]
  * @param {boolean} [inline] If true, adds contentDisposition: 'inline' to view in browser instead of download
+ * @param {string|null} [downloadFilename] If set, forces a browser "Save As" download with this filename
+ *   (attachment disposition) — needed because cross-origin `<a download>` isn't reliably honored by browsers,
+ *   so the Content-Disposition header has to come from Azure Storage itself via the SAS token.
  * @returns {string} SAS URL
  */
-export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = false) => {
+export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = false, downloadFilename = null) => {
     if (!blobUrl || !blobUrl.startsWith('https://')) return blobUrl;
     const parsed = parseBlobUrl(blobUrl);
     if (!parsed) return blobUrl;
@@ -187,7 +194,10 @@ export const getBlobSasUrl = (blobUrl, expiryHours = SAS_EXPIRY_HOURS, inline = 
         startsOn,
         expiresOn,
     };
-    if (inline) {
+    if (downloadFilename) {
+        const safeName = downloadFilename.replace(/["\r\n]/g, '');
+        sasOptions.contentDisposition = `attachment; filename="${safeName}"`;
+    } else if (inline) {
         sasOptions.contentDisposition = 'inline';
     }
 

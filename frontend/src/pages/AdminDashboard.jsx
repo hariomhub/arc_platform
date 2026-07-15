@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Shield, Users, Check, X, Mail, Building,
@@ -20,11 +20,13 @@ import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.
 import { getTeam, createTeamMember, updateTeamMember, deleteTeamMember } from '../api/team.js';
 import { getResources, deleteResource, getPendingResources, approveResource, rejectResource } from '../api/resources.js';
 import { getFetchStats } from '../api/autoNews.js';
-import { getProducts, getProductById as getProductByIdAPI, createProduct, updateProduct, deleteProduct, addFeatureTest, updateFeatureTest, deleteFeatureTest, uploadProductMedia, deleteProductMedia, uploadEvidence, deleteEvidence, submitUserReview, deleteUserReview } from '../api/productReviews.js';
+import { getProducts, getProductById as getProductByIdAPI, createProduct, updateProduct, deleteProduct, addFeatureTest, updateFeatureTest, deleteFeatureTest, uploadProductMedia, deleteProductMedia, uploadEvidence, deleteEvidence, submitUserReview, deleteUserReview, getProductCategories, createProductCategory, uploadProductLogo, uploadCompanyLogo } from '../api/productReviews.js';
+import { calcAvgTestScore } from '../utils/productScore.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate, formatDateTime } from '../utils/dateFormatter.js';
 import Pagination from '../components/common/Pagination.jsx';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
+import CategoryCombobox from '../components/common/CategoryCombobox.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = [
@@ -1408,18 +1410,58 @@ const ProductReviewsTab = ({ showToast }) => {
     const [managingId, setManagingId] = useState(null);
     const [managingProduct, setManagingProduct] = useState(null);
     const [mpLoading, setMpLoading] = useState(false);
+    const [categories, setCategories] = useState([]);
 
-    const EMPTY_FORM = { name: '', vendor: '', category: '', portal_url: '', short_description: '', overview: '', version_tested: '', key_features: [] };
+    const MAX_FEATURE_DESC = 250;
+    const MAX_EVIDENCE_PER_TEST = 5;
+
+    useEffect(() => {
+        getProductCategories().then(res => setCategories(res.data?.data || [])).catch(() => {});
+    }, []);
+
+    // New categories are inserted right before "Others" — matches the backend's display_order convention.
+    const handleCreateCategory = async (name) => {
+        try {
+            const res = await createProductCategory(name);
+            const cat = res.data?.data;
+            setCategories(prev => {
+                if (prev.some(c => c.id === cat.id)) return prev;
+                const othersIdx = prev.findIndex(c => c.name === 'Others');
+                const next = [...prev];
+                if (othersIdx === -1) next.push(cat); else next.splice(othersIdx, 0, cat);
+                return next;
+            });
+            return cat;
+        } catch (err) { showToast(getErrorMessage(err), 'error'); throw err; }
+    };
+
+    const EMPTY_FORM = { name: '', vendor: '', category_id: null, portal_url: '', short_description: '', overview: '', version_tested: '', key_features: [], product_logo_url: '', company_logo_url: '' };
     const [form, setForm] = useState(EMPTY_FORM);
     const [editId, setEditId] = useState(null);
-    const [kfDraft, setKfDraft] = useState('');
+    const [kfDraft, setKfDraft] = useState({ name: '', description: '' });
+    const [productLogoFile, setProductLogoFile] = useState(null);
+    const [companyLogoFile, setCompanyLogoFile] = useState(null);
+    const productLogoPreview = useMemo(() => productLogoFile ? URL.createObjectURL(productLogoFile) : form.product_logo_url, [productLogoFile, form.product_logo_url]);
+    const companyLogoPreview = useMemo(() => companyLogoFile ? URL.createObjectURL(companyLogoFile) : form.company_logo_url, [companyLogoFile, form.company_logo_url]);
+
+    // Legacy-safe: older products may still have key_features saved as plain strings.
+    const normalizeKF = (arr) => Array.isArray(arr)
+        ? arr.map(f => typeof f === 'string' ? { name: f, description: '' } : { name: f?.name || '', description: f?.description || '' }).filter(f => f.name)
+        : [];
+
+    const addKeyFeature = () => {
+        const name = kfDraft.name.trim();
+        if (!name || form.key_features.some(f => f.name.toLowerCase() === name.toLowerCase())) return;
+        setForm(p => ({ ...p, key_features: [...p.key_features, { name, description: kfDraft.description.trim().slice(0, MAX_FEATURE_DESC) }] }));
+        setKfDraft({ name: '', description: '' });
+    };
 
     const EMPTY_FT = { feature_name: '', test_method: '', result: '', score: '', comments: '', display_order: '0' };
     const [ftForm, setFtForm] = useState(EMPTY_FT);
+    const [ftFiles, setFtFiles] = useState([]);
     const [ftSaving, setFtSaving] = useState(false);
     const [ftEditId, setFtEditId] = useState(null);
     const [showFtForm, setShowFtForm] = useState(false);
-    const [evidenceFtId, setEvidenceFtId] = useState('');
 
     const [adminRating, setAdminRating] = useState(0);
     const [adminHover, setAdminHover] = useState(0);
@@ -1463,9 +1505,22 @@ const ProductReviewsTab = ({ showToast }) => {
         e.preventDefault(); setSaving(true);
         try {
             const payload = { ...form, key_features: Array.isArray(form.key_features) ? form.key_features : [] };
-            if (editId) { await updateProduct(editId, payload); showToast('Product updated.', 'success'); }
-            else { await createProduct(payload); showToast('Product created.', 'success'); }
-            setForm(EMPTY_FORM); setEditId(null); setShowForm(false); setKfDraft(''); fetchProducts();
+            let productId = editId;
+            if (editId) { await updateProduct(editId, payload); }
+            else { const res = await createProduct(payload); productId = res.data?.data?.id; }
+
+            if (productId && (productLogoFile || companyLogoFile)) {
+                await Promise.all([
+                    productLogoFile && uploadProductLogo(productId, productLogoFile),
+                    companyLogoFile && uploadCompanyLogo(productId, companyLogoFile),
+                ].filter(Boolean));
+            }
+
+            showToast(editId ? 'Product updated.' : 'Product created.', 'success');
+            setForm(EMPTY_FORM); setEditId(null); setShowForm(false); setKfDraft({ name: '', description: '' });
+            setProductLogoFile(null); setCompanyLogoFile(null);
+            fetchProducts();
+            if (managingId === productId) fetchManaging(productId);
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setSaving(false); }
     };
@@ -1478,17 +1533,30 @@ const ProductReviewsTab = ({ showToast }) => {
     };
 
     const startEdit = (p) => {
-        setForm({ name: p.name || '', vendor: p.vendor || '', category: p.category || '', portal_url: p.portal_url || '', short_description: p.short_description || '', overview: p.overview || '', version_tested: p.version_tested || '', key_features: Array.isArray(p.key_features) ? [...p.key_features] : (p.key_features ? p.key_features.split('\n').map(f => f.trim()).filter(Boolean) : []) });
-        setKfDraft(''); setEditId(p.id); setShowForm(true); closeManage();
+        setForm({ name: p.name || '', vendor: p.vendor || '', category_id: p.category_id || null, portal_url: p.portal_url || '', short_description: p.short_description || '', overview: p.overview || '', version_tested: p.version_tested || '', key_features: normalizeKF(p.key_features), product_logo_url: p.product_logo_url || '', company_logo_url: p.company_logo_url || '' });
+        setKfDraft({ name: '', description: '' }); setEditId(p.id); setShowForm(true); closeManage();
+        setProductLogoFile(null); setCompanyLogoFile(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // Saves the test result and — if any files were attached — uploads them as
+    // evidence linked to that test, in one submit (no separate evidence step).
     const handleAddFT = async (e) => {
         e.preventDefault(); setFtSaving(true);
         try {
-            if (ftEditId) { await updateFeatureTest(managingId, ftEditId, ftForm); showToast('Feature test updated.', 'success'); }
-            else { await addFeatureTest(managingId, ftForm); showToast('Feature test added.', 'success'); }
-            setFtForm(EMPTY_FT); setFtEditId(null); fetchManaging(managingId);
+            let testId = ftEditId;
+            if (ftEditId) { await updateFeatureTest(managingId, ftEditId, ftForm); }
+            else { const res = await addFeatureTest(managingId, ftForm); testId = res.data?.data?.id; }
+
+            if (ftFiles.length && testId) {
+                const fd = new FormData();
+                ftFiles.forEach(f => fd.append('files', f));
+                fd.append('feature_test_id', testId);
+                await uploadEvidence(managingId, fd);
+            }
+
+            showToast(ftEditId ? 'Feature test updated.' : 'Feature test added.', 'success');
+            setFtForm(EMPTY_FT); setFtEditId(null); setFtFiles([]); fetchManaging(managingId);
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setFtSaving(false); }
     };
@@ -1513,6 +1581,13 @@ const ProductReviewsTab = ({ showToast }) => {
         catch (err) { showToast(getErrorMessage(err), 'error'); }
     };
 
+    const handleUploadManagingLogo = (uploader) => async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        try { await uploader(managingId, file); showToast('Logo updated.', 'success'); fetchManaging(managingId); }
+        catch (err) { showToast(getErrorMessage(err), 'error'); }
+        e.target.value = '';
+    };
+
     const handleUploadMedia = async (e) => {
         const files = Array.from(e.target.files); if (!files.length) return;
         const fd = new FormData(); files.forEach(f => fd.append('files', f));
@@ -1524,15 +1599,6 @@ const ProductReviewsTab = ({ showToast }) => {
     const handleDeleteMedia = async (mediaId) => {
         try { await deleteProductMedia(managingId, mediaId); showToast('Media deleted.', 'success'); fetchManaging(managingId); }
         catch (err) { showToast(getErrorMessage(err), 'error'); }
-    };
-
-    const handleUploadEvidence = async (e) => {
-        const files = Array.from(e.target.files); if (!files.length) return;
-        const fd = new FormData(); files.forEach(f => fd.append('files', f));
-        if (evidenceFtId) fd.append('feature_test_id', evidenceFtId);
-        try { await uploadEvidence(managingId, fd); showToast('Evidence uploaded.', 'success'); fetchManaging(managingId); }
-        catch (err) { showToast(getErrorMessage(err), 'error'); }
-        e.target.value = '';
     };
 
     const handleDeleteEvidence = async (evId) => {
@@ -1548,7 +1614,7 @@ const ProductReviewsTab = ({ showToast }) => {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#1E293B', margin: 0 }}>AI Product Reviews</h3>
-                <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(EMPTY_FORM); closeManage(); }} style={{ ...IBTN('white', '#003366'), padding: '8px 16px', fontSize: '0.82rem' }}>
+                <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(EMPTY_FORM); setProductLogoFile(null); setCompanyLogoFile(null); closeManage(); }} style={{ ...IBTN('white', '#003366'), padding: '8px 16px', fontSize: '0.82rem' }}>
                     <Plus size={13} /> {showForm && !editId ? 'Cancel' : 'Add Product'}
                 </button>
             </div>
@@ -1560,33 +1626,59 @@ const ProductReviewsTab = ({ showToast }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px,100%), 1fr))', gap: '1rem' }}>
                         <div><label style={labelStyle}>Product Name *</label><input required style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. AI Governance Suite" /></div>
                         <div><label style={labelStyle}>Vendor *</label><input required style={inputStyle} value={form.vendor} onChange={e => setForm(p => ({ ...p, vendor: e.target.value }))} placeholder="e.g. Acme Corp" /></div>
-                        <div><label style={labelStyle}>Category</label><input style={inputStyle} value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="e.g. Risk Management" /></div>
-                        <div><label style={labelStyle}>Version Tested</label><input style={inputStyle} value={form.version_tested} onChange={e => setForm(p => ({ ...p, version_tested: e.target.value }))} placeholder="e.g. v2.4.1" /></div>
+                        <div><label style={labelStyle}>Category</label><CategoryCombobox categories={categories} value={form.category_id} onChange={(id) => setForm(p => ({ ...p, category_id: id }))} onCreate={handleCreateCategory} placeholder="Select a category…" clearLabel="— No category —" /></div>
+                        <div><label style={labelStyle}>Version Tested</label><input style={inputStyle} value={form.version_tested} onChange={e => setForm(p => ({ ...p, version_tested: e.target.value }))} placeholder="e.g. 2.4.1 (no need to type the leading v)" /></div>
+                        {[
+                            { label: 'Product Logo', preview: productLogoPreview, set: setProductLogoFile },
+                            { label: 'Company Logo', preview: companyLogoPreview, set: setCompanyLogoFile },
+                        ].map(({ label, preview, set }) => (
+                            <div key={label}>
+                                <label style={labelStyle}>{label}</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                        {preview ? <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Image size={18} color="#CBD5E1" />}
+                                    </div>
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#0284C7', '#EFF6FF'), padding: '7px 12px', cursor: 'pointer' }}>
+                                        <Upload size={12} /> {preview ? 'Change' : 'Choose'}
+                                        <input type="file" accept="image/*" hidden onChange={e => set(e.target.files[0] || null)} />
+                                    </label>
+                                </div>
+                            </div>
+                        ))}
                         <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Portal URL</label><input type="url" style={inputStyle} value={form.portal_url} onChange={e => setForm(p => ({ ...p, portal_url: e.target.value }))} placeholder="https://vendor.com/product" /></div>
                         <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Short Description</label><input style={inputStyle} value={form.short_description} onChange={e => setForm(p => ({ ...p, short_description: e.target.value }))} placeholder="One-liner shown on cards" /></div>
                         <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Overview</label><textarea style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }} value={form.overview} onChange={e => setForm(p => ({ ...p, overview: e.target.value }))} placeholder="Detailed product overview..." /></div>
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>Key Features</label>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                                <input style={{ ...inputStyle, flex: 1, background: 'white' }} placeholder="Type a feature name and press Enter or click Add…" value={kfDraft} onChange={e => setKfDraft(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = kfDraft.trim(); if (v && !form.key_features.includes(v)) setForm(p => ({ ...p, key_features: [...p.key_features, v] })); setKfDraft(''); } }} />
-                                <button type="button" onClick={() => { const v = kfDraft.trim(); if (!v || form.key_features.includes(v)) return; setForm(p => ({ ...p, key_features: [...p.key_features, v] })); setKfDraft(''); }} style={{ ...IBTN('white', '#003366'), padding: '0 14px', height: '38px', flexShrink: 0 }}>
-                                    <Plus size={13} /> Add
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
+                                <input style={{ ...inputStyle, background: 'white' }} placeholder="Feature name…" value={kfDraft.name} onChange={e => setKfDraft(p => ({ ...p, name: e.target.value }))} />
+                                <div>
+                                    <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical', background: 'white' }} maxLength={MAX_FEATURE_DESC}
+                                        placeholder="Short description of this feature — shown to admins adding test results and to visitors…"
+                                        value={kfDraft.description} onChange={e => setKfDraft(p => ({ ...p, description: e.target.value }))} />
+                                    <p style={{ margin: '2px 2px 0', fontSize: '0.7rem', color: kfDraft.description.length >= MAX_FEATURE_DESC ? '#DC2626' : '#94A3B8', textAlign: 'right' }}>{kfDraft.description.length}/{MAX_FEATURE_DESC}</p>
+                                </div>
+                                <button type="button" onClick={addKeyFeature} disabled={!kfDraft.name.trim()} style={{ ...IBTN('white', '#003366'), alignSelf: 'flex-end', padding: '6px 14px', opacity: kfDraft.name.trim() ? 1 : 0.5 }}>
+                                    <Plus size={13} /> Add Feature
                                 </button>
                             </div>
                             {form.key_features.length > 0 ? (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     {form.key_features.map((f, i) => (
-                                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#EBF0F7', color: '#003366', fontSize: '0.78rem', fontWeight: '600', padding: '4px 10px', borderRadius: '6px' }}>
-                                            {f}<button type="button" onClick={() => setForm(p => ({ ...p, key_features: p.key_features.filter((_, j) => j !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003366', display: 'flex', padding: 0, lineHeight: 1, opacity: 0.55 }}><X size={11} /></button>
-                                        </span>
+                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', background: '#EBF0F7', borderRadius: '6px', padding: '8px 12px' }}>
+                                            <div style={{ minWidth: 0 }}>
+                                                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '700', color: '#003366' }}>{f.name}</p>
+                                                {f.description && <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: '#475569', lineHeight: '1.5' }}>{f.description}</p>}
+                                            </div>
+                                            <button type="button" onClick={() => setForm(p => ({ ...p, key_features: p.key_features.filter((_, j) => j !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003366', display: 'flex', padding: 0, lineHeight: 1, opacity: 0.55, flexShrink: 0 }}><X size={13} /></button>
+                                        </div>
                                     ))}
                                 </div>
                             ) : <p style={{ fontSize: '0.75rem', color: '#CBD5E1', margin: '2px 0 0' }}>No features added yet.</p>}
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); setKfDraft(''); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '8px 16px' }}>Cancel</button>
+                        <button type="button" onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); setKfDraft({ name: '', description: '' }); setProductLogoFile(null); setCompanyLogoFile(null); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '8px 16px' }}>Cancel</button>
                         <button type="submit" disabled={saving} style={{ ...IBTN('white', '#003366'), padding: '8px 20px', opacity: saving ? 0.7 : 1 }}>
                             {saving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={12} />} {editId ? 'Update' : 'Create'}
                         </button>
@@ -1595,15 +1687,21 @@ const ProductReviewsTab = ({ showToast }) => {
             )}
 
             {/* Products table */}
-            {loading ? <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Reviews','Added','']}>{[1,2,3,4].map(i => <SkeletonRow key={i} cols={7} />)}</TableWrapper>
+            {loading ? <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Test Score','Reviews','Added','']}>{[1,2,3,4].map(i => <SkeletonRow key={i} cols={8} />)}</TableWrapper>
             : error ? <ErrorState message={error} onRetry={fetchProducts} /> : products.length === 0 ? <EmptyState icon={ShieldCheck} message="No products yet. Add one above." /> : (
-                <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Reviews','Added','']}>
+                <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Test Score','Reviews','Added','']}>
                     {products.map((p) => (
                         <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={e => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={e => (e.currentTarget.style.background = 'white')}>
-                            <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
+                            <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '200px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {p.product_logo_url ? <img src={p.product_logo_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #E2E8F0', flexShrink: 0 }} /> : null}
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                                </div>
+                            </td>
                             <td style={{ padding: '0.9rem 1rem', color: '#475569', fontSize: '0.875rem' }}>{p.vendor || '—'}</td>
                             <td style={{ padding: '0.9rem 1rem' }}>{p.category ? <span style={PILL('#003366', '#EBF0F7')}>{p.category}</span> : '—'}</td>
                             <td style={{ padding: '0.9rem 1rem', color: '#D97706', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_rating ? `★ ${parseFloat(p.avg_rating).toFixed(1)}` : '—'}</td>
+                            <td style={{ padding: '0.9rem 1rem', color: '#0284C7', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_test_score ? `${parseFloat(p.avg_test_score).toFixed(1)}/10` : '—'}</td>
                             <td style={{ padding: '0.9rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{p.review_count ?? 0}</td>
                             <td style={{ padding: '0.9rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(p.created_at)}</td>
                             <td style={{ padding: '0.9rem 1rem' }}>
@@ -1641,6 +1739,25 @@ const ProductReviewsTab = ({ showToast }) => {
                             {/* About Product */}
                             <section style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: 'clamp(1rem,3vw,1.25rem)' }}>
                                 <h5 style={{ fontSize: '0.875rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>About Product</h5>
+                                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                    {[
+                                        { label: 'Product Logo', url: managingProduct.product_logo_url, uploader: uploadProductLogo },
+                                        { label: 'Company Logo', url: managingProduct.company_logo_url, uploader: uploadCompanyLogo },
+                                    ].map(({ label, url, uploader }) => (
+                                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '8px', border: '1px solid #E2E8F0', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                                {url ? <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Image size={20} color="#CBD5E1" />}
+                                            </div>
+                                            <div>
+                                                <p style={{ margin: '0 0 4px', fontSize: '0.7rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+                                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', ...IBTN('#0284C7', '#EFF6FF'), padding: '5px 10px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                                    <Upload size={11} /> {url ? 'Replace' : 'Upload'}
+                                                    <input type="file" accept="image/*" hidden onChange={handleUploadManagingLogo(uploader)} />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px,100%), 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                                     {[['Vendor', managingProduct.vendor], ['Category', managingProduct.category], ['Version Tested', managingProduct.version_tested]].map(([label, val]) => val ? (
                                         <div key={label}><span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span><p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: '#1E293B', fontWeight: '600' }}>{val}</p></div>
@@ -1651,58 +1768,111 @@ const ProductReviewsTab = ({ showToast }) => {
                                 {managingProduct.overview && <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: '1.75', whiteSpace: 'pre-wrap', marginBottom: '0.75rem' }}>{managingProduct.overview}</p>}
                                 {Array.isArray(managingProduct.key_features) && managingProduct.key_features.length > 0 && (
                                     <div><span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Key Features</span>
-                                        <ul style={{ margin: '6px 0 0', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {managingProduct.key_features.map((f, i) => <li key={i} style={{ fontSize: '0.875rem', color: '#475569' }}>{f}</li>)}
+                                        <ul style={{ margin: '6px 0 0', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {managingProduct.key_features.map((f, i) => (
+                                                <li key={i} style={{ fontSize: '0.875rem', color: '#475569' }}>
+                                                    <span style={{ fontWeight: '700', color: '#1E293B' }}>{f.name}</span>
+                                                    {f.description && <span style={{ color: '#64748B' }}> — {f.description}</span>}
+                                                </li>
+                                            ))}
                                         </ul>
                                     </div>
                                 )}
                             </section>
 
-                            {/* Feature Tests */}
+                            {/* Feature Tests (evidence shown inline per test — one unified section) */}
                             <section>
-                                <h5 style={{ fontSize: '0.875rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Feature Tests</h5>
-                                {managingProduct.featureTests?.length > 0 && (
-                                    <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '480px' }}>
-                                            <thead><tr style={{ background: '#F8FAFC' }}>{['Feature','Method','Result','Score','Comments',''].map(h => <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: '700', color: '#64748B', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
-                                            <tbody>
-                                                {managingProduct.featureTests.map(ft => (
-                                                    <tr key={ft.id} style={{ borderTop: '1px solid #F1F5F9' }}>
-                                                        <td style={{ padding: '0.6rem 0.75rem', fontWeight: '600', color: '#1E293B' }}>{ft.feature_name}</td>
-                                                        <td style={{ padding: '0.6rem 0.75rem', color: '#64748B' }}>{ft.test_method || '—'}</td>
-                                                        <td style={{ padding: '0.6rem 0.75rem', color: '#475569' }}>{ft.result || '—'}</td>
-                                                        <td style={{ padding: '0.6rem 0.75rem', fontWeight: '700', color: '#D97706' }}>{ft.score != null ? ft.score : '—'}</td>
-                                                        <td style={{ padding: '0.6rem 0.75rem', color: '#64748B', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ft.comments || '—'}</td>
-                                                        <td style={{ padding: '0.6rem 0.75rem' }}>
-                                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                                <button onClick={() => { setFtForm({ feature_name: ft.feature_name||'', test_method: ft.test_method||'', result: ft.result||'', score: ft.score??'', comments: ft.comments||'', display_order: ft.display_order??'0' }); setFtEditId(ft.id); setShowFtForm(false); }} style={{ ...IBTN('#D97706','#FFFBEB'), padding: '4px 8px' }}><Edit2 size={10} /></button>
-                                                                <button onClick={() => handleDeleteFT(ft.id)} style={{ ...IBTN('#DC2626','#FEF2F2'), padding: '4px 8px' }}><Trash2 size={10} /></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                    <h5 style={{ fontSize: '0.875rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Feature Tests & Evidence</h5>
+                                    {calcAvgTestScore(managingProduct.featureTests) && (
+                                        <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#D97706', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '100px', padding: '3px 12px' }}>
+                                            Avg Score: {calcAvgTestScore(managingProduct.featureTests)}/10
+                                        </span>
+                                    )}
+                                </div>
+                                {(() => {
+                                    const evidencesByTest = {}; const unassignedEvidence = [];
+                                    (managingProduct.evidences || []).forEach(ev => {
+                                        if (ev.feature_test_id) { if (!evidencesByTest[ev.feature_test_id]) evidencesByTest[ev.feature_test_id] = []; evidencesByTest[ev.feature_test_id].push(ev); }
+                                        else unassignedEvidence.push(ev);
+                                    });
+                                    const evidenceChip = (ev) => (
+                                        <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 4px 4px 8px', maxWidth: '210px' }}>
+                                            <FileText size={12} color="#003366" style={{ flexShrink: 0 }} />
+                                            <span title={ev.file_name} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.74rem', fontWeight: '600', color: '#1E293B' }}>{ev.file_name}</span>
+                                            <a href={ev.file_url} target="_blank" rel="noopener noreferrer" title="View evidence" style={{ ...IBTN('#0284C7', '#EFF6FF'), padding: '3px 6px', textDecoration: 'none', flexShrink: 0 }}><Eye size={11} /></a>
+                                            <button onClick={() => handleDeleteEvidence(ev.id)} title="Delete evidence" style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '3px 6px', flexShrink: 0 }}><Trash2 size={11} /></button>
+                                        </div>
+                                    );
+                                    return (
+                                    <>
+                                    {managingProduct.featureTests?.length > 0 && (
+                                        <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '620px' }}>
+                                                <thead><tr style={{ background: '#F8FAFC' }}>{['Feature','Method','Result','Score','Comments','Evidence',''].map(h => <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: '700', color: '#64748B', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+                                                <tbody>
+                                                    {managingProduct.featureTests.map(ft => (
+                                                        <tr key={ft.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                                                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: '600', color: '#1E293B' }}>{ft.feature_name}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#64748B' }}>{ft.test_method || '—'}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#475569' }}>{ft.result || '—'}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: '700', color: '#D97706' }}>{ft.score != null ? ft.score : '—'}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#64748B', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ft.comments || '—'}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', minWidth: '160px' }}>
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                    {(evidencesByTest[ft.id] || []).map(evidenceChip)}
+                                                                    {!(evidencesByTest[ft.id]?.length) && <span style={{ color: '#CBD5E1' }}>—</span>}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '0.6rem 0.75rem' }}>
+                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                    <button onClick={() => { setFtForm({ feature_name: ft.feature_name||'', test_method: ft.test_method||'', result: ft.result||'', score: ft.score??'', comments: ft.comments||'', display_order: ft.display_order??'0' }); setFtEditId(ft.id); setShowFtForm(false); setFtFiles([]); }} style={{ ...IBTN('#D97706','#FFFBEB'), padding: '4px 8px' }}><Edit2 size={10} /></button>
+                                                                    <button onClick={() => handleDeleteFT(ft.id)} style={{ ...IBTN('#DC2626','#FEF2F2'), padding: '4px 8px' }}><Trash2 size={10} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                    {unassignedEvidence.length > 0 && (
+                                        <div style={{ marginBottom: '1rem' }}>
+                                            <p style={{ margin: '0 0 0.35rem', fontSize: '0.75rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Unassigned Evidence</p>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>{unassignedEvidence.map(evidenceChip)}</div>
+                                        </div>
+                                    )}
+                                    </>
+                                    );
+                                })()}
 
                                 {!showFtForm && !ftEditId && (
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                                        <button type="button" onClick={() => { setShowFtForm(true); setFtForm(EMPTY_FT); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                        <button type="button" onClick={() => { setShowFtForm(true); setFtForm(EMPTY_FT); setFtFiles([]); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}>
                                             <Plus size={14} /> Add Test
                                         </button>
                                     </div>
                                 )}
 
-                                {(showFtForm || ftEditId) && (
+                                {(showFtForm || ftEditId) && (() => {
+                                    const testedNames = new Set((managingProduct.featureTests || []).filter(t => t.id !== ftEditId).map(t => t.feature_name));
+                                    const selectedFeature = (managingProduct.key_features || []).find(f => f.name === ftForm.feature_name);
+                                    const existingEvidenceCount = ftEditId ? (managingProduct.evidences || []).filter(ev => ev.feature_test_id === ftEditId).length : 0;
+                                    const remainingSlots = Math.max(0, MAX_EVIDENCE_PER_TEST - existingEvidenceCount);
+                                    return (
                                     <form onSubmit={async (e) => { await handleAddFT(e); if (!ftEditId) setShowFtForm(false); }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px,100%), 1fr))', gap: '0.75rem', background: '#F8FAFC', padding: 'clamp(0.75rem,2vw,1rem)', borderRadius: '8px', marginTop: '0.75rem' }}>
                                         <div>
                                             <label style={labelStyle}>Feature Name *</label>
                                             <select required style={inputStyle} value={ftForm.feature_name} onChange={e => setFtForm(p => ({ ...p, feature_name: e.target.value }))}>
                                                 <option value="">— Select a feature —</option>
-                                                {Array.isArray(managingProduct?.key_features) && managingProduct.key_features.map(f => <option key={f} value={f}>{f}</option>)}
-                                                {ftForm.feature_name && Array.isArray(managingProduct?.key_features) && !managingProduct.key_features.includes(ftForm.feature_name) && <option value={ftForm.feature_name}>{ftForm.feature_name}</option>}
+                                                {(managingProduct.key_features || []).map(f => (
+                                                    <option key={f.name} value={f.name} disabled={testedNames.has(f.name)}>{f.name}{testedNames.has(f.name) ? ' (already tested)' : ''}</option>
+                                                ))}
+                                                {ftForm.feature_name && !(managingProduct.key_features || []).some(f => f.name === ftForm.feature_name) && <option value={ftForm.feature_name}>{ftForm.feature_name}</option>}
                                             </select>
+                                            {selectedFeature?.description && (
+                                                <p style={{ margin: '4px 2px 0', fontSize: '0.76rem', color: '#64748B', lineHeight: '1.5' }}>{selectedFeature.description}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <label style={labelStyle}>Test Method</label>
@@ -1722,14 +1892,43 @@ const ProductReviewsTab = ({ showToast }) => {
                                         </div>
                                         <div><label style={labelStyle}>Score (0–10)</label><input type="number" min="0" max="10" step="0.1" style={inputStyle} value={ftForm.score} onChange={e => setFtForm(p => ({ ...p, score: e.target.value }))} placeholder="e.g. 8.5" /></div>
                                         <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Comments</label><input style={inputStyle} value={ftForm.comments} onChange={e => setFtForm(p => ({ ...p, comments: e.target.value }))} placeholder="Optional notes..." /></div>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <label style={labelStyle}>Evidence Files (optional)</label>
+                                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#0284C7','#EFF6FF'), padding: '8px 14px', cursor: remainingSlots > 0 ? 'pointer' : 'not-allowed', opacity: remainingSlots > 0 ? 1 : 0.5 }}>
+                                                <Upload size={12} /> Choose Evidence Files
+                                                <input type="file" multiple disabled={remainingSlots === 0} accept=".pdf,.xlsx,.xls,.docx,.doc,image/*,video/*" hidden onChange={e => {
+                                                    const files = Array.from(e.target.files);
+                                                    if (files.length > remainingSlots) {
+                                                        showToast(`Only ${remainingSlots} more evidence file${remainingSlots === 1 ? '' : 's'} can be added to this test (max ${MAX_EVIDENCE_PER_TEST} total).`, 'error');
+                                                        setFtFiles(files.slice(0, remainingSlots));
+                                                    } else {
+                                                        setFtFiles(files);
+                                                    }
+                                                }} />
+                                            </label>
+                                            <p style={{ margin: '4px 2px 0', fontSize: '0.72rem', color: '#94A3B8' }}>
+                                                Max {MAX_EVIDENCE_PER_TEST} evidence files per test{ftEditId ? ` — ${existingEvidenceCount} attached, ${remainingSlots} remaining` : ''}.
+                                            </p>
+                                            {ftFiles.length > 0 && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                                                    {ftFiles.map((f, i) => (
+                                                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#EBF0F7', color: '#003366', fontSize: '0.74rem', fontWeight: '600', padding: '3px 8px', borderRadius: '6px' }}>
+                                                            {f.name}
+                                                            <button type="button" onClick={() => setFtFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003366', display: 'flex', padding: 0, lineHeight: 1, opacity: 0.55 }}><X size={10} /></button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                         <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                                            <button type="button" onClick={() => { setShowFtForm(false); setFtEditId(null); setFtForm(EMPTY_FT); }} style={{ ...IBTN('#64748B','#F1F5F9'), padding: '0.55rem 1rem', fontSize: '0.85rem' }}>Cancel</button>
+                                            <button type="button" onClick={() => { setShowFtForm(false); setFtEditId(null); setFtForm(EMPTY_FT); setFtFiles([]); }} style={{ ...IBTN('#64748B','#F1F5F9'), padding: '0.55rem 1rem', fontSize: '0.85rem' }}>Cancel</button>
                                             <button type="submit" disabled={ftSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: ftSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ftSaving ? 0.7 : 1 }}>
                                                 {ftSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={13} />}{ftEditId ? 'Update Test Result' : 'Submit Test Result'}
                                             </button>
                                         </div>
                                     </form>
-                                )}
+                                    );
+                                })()}
                             </section>
 
                             {/* Media */}
@@ -1750,47 +1949,6 @@ const ProductReviewsTab = ({ showToast }) => {
                                 </label>
                             </section>
 
-                            {/* Evidence */}
-                            <section>
-                                <h5 style={{ fontSize: '0.875rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Evidence Files</h5>
-                                {(() => {
-                                    const grouped = {}; const unassigned = [];
-                                    (managingProduct.evidences || []).forEach(ev => {
-                                        if (ev.feature_test_id && ev.feature_test_name) { if (!grouped[ev.feature_test_id]) grouped[ev.feature_test_id] = { name: ev.feature_test_name, items: [] }; grouped[ev.feature_test_id].items.push(ev); }
-                                        else { unassigned.push(ev); }
-                                    });
-                                    const groups = Object.values(grouped);
-                                    if (unassigned.length) groups.push({ name: 'Unassigned', items: unassigned });
-                                    if (!groups.length) return <p style={{ color: '#94A3B8', fontSize: '0.85rem', marginBottom: '0.75rem' }}>No evidence files uploaded yet.</p>;
-                                    return groups.map(g => (
-                                        <div key={g.name} style={{ marginBottom: '0.85rem' }}>
-                                            <p style={{ margin: '0 0 0.35rem', fontSize: '0.75rem', fontWeight: '700', color: '#003366', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{g.name}</p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                                                {g.items.map(ev => (
-                                                    <div key={ev.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', gap: '8px', flexWrap: 'wrap' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                                                            <FileText size={14} color="#003366" />
-                                                            <span style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name}</span>
-                                                            <span style={{ fontSize: '0.75rem', color: '#94A3B8', flexShrink: 0 }}>{ev.file_type}</span>
-                                                        </div>
-                                                        <button onClick={() => handleDeleteEvidence(ev.id)} style={{ ...IBTN('#DC2626','#FEF2F2'), padding: '4px 8px', flexShrink: 0 }}><Trash2 size={10} /></button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ));
-                                })()}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                                    <select value={evidenceFtId} onChange={e => setEvidenceFtId(e.target.value)} style={{ flex: '1', minWidth: '180px', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.82rem', fontFamily: 'inherit', color: evidenceFtId ? '#1E293B' : '#94A3B8', background: 'white' }}>
-                                        <option value="">— Select Feature (optional) —</option>
-                                        {(managingProduct.featureTests || []).map(ft => <option key={ft.id} value={ft.id}>{ft.feature_name}</option>)}
-                                    </select>
-                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#0284C7','#EFF6FF'), padding: '8px 14px', cursor: 'pointer', flexShrink: 0 }}>
-                                        <Upload size={12} /> Upload Evidence
-                                        <input type="file" accept=".pdf,.xlsx,.xls,.docx,.doc,image/*,video/*" multiple hidden onChange={handleUploadEvidence} />
-                                    </label>
-                                </div>
-                            </section>
 
                             {/* Admin Review */}
                             <section style={{ background: '#FFF9F0', border: '2px solid #FCD34D', borderRadius: '10px', padding: 'clamp(1rem,3vw,1.25rem)' }}>

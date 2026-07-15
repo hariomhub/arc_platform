@@ -108,16 +108,16 @@ export const castVote = async (req, res, next) => {
             if (!emailRegex.test(anonymousEmail)) {
                 return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
             }
-            const recaptchaSecretConfigured = !!process.env.RECAPTCHA_SECRET_KEY;
-            if (recaptchaSecretConfigured) {
-                if (!recaptchaToken) {
-                    return res.status(400).json({ success: false, message: 'reCAPTCHA verification is required for anonymous voting.' });
-                }
-                const remoteIp = req.ip || req.connection.remoteAddress;
-                const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, remoteIp);
-                if (!recaptchaResult.success) {
-                    return res.status(400).json({ success: false, message: recaptchaResult.error || 'reCAPTCHA verification failed. Please try again.' });
-                }
+            // Always required and verified — never skipped, even if RECAPTCHA_SECRET_KEY
+            // happens to be unset (that's a misconfiguration, not a reason to let the
+            // vote through unprotected).
+            if (!recaptchaToken) {
+                return res.status(400).json({ success: false, message: 'reCAPTCHA verification is required for anonymous voting.' });
+            }
+            const remoteIp = req.ip || req.connection.remoteAddress;
+            const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, remoteIp);
+            if (!recaptchaResult.success) {
+                return res.status(400).json({ success: false, message: recaptchaResult.error || 'reCAPTCHA verification failed. Please try again.' });
             }
             voterEmail = anonymousEmail.trim().toLowerCase();
         } else {
