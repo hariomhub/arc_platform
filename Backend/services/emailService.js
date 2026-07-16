@@ -939,3 +939,185 @@ export const sendVerificationEmail = (email, otp) => {
     html,
   });
 };
+
+/**
+ * sendNominationOtpEmail
+ * Sent during the self-nomination flow to verify a non-member's email address.
+ * Decoupled from sendVerificationEmail (registration) so the copy stays accurate.
+ */
+export const sendNominationOtpEmail = (email, otp) => {
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Verify Your Email</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Thanks for submitting your self-nomination to the AI Risk Council Awards. Please use the code below to confirm this email address and finish your submission.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:28px;text-align:center;">
+     <tr>
+      <td style="padding:24px 20px;">
+       <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;">Your Verification Code</p>
+       <div style="font-size:36px;font-weight:800;letter-spacing:0.25em;color:#003366;font-family:monospace;">
+        ${otp}
+       </div>
+      </td>
+     </tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#fffbeb;border-left:3px solid #fcd34d;border-radius:0 8px 8px 0;margin-bottom:4px;">
+     <tr>
+      <td style="padding:14px 18px;">
+       <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">Time-sensitive: Valid for 10 minutes</p>
+       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
+        This code will expire in 10 minutes. If you did not request this, you can safely ignore this email — your nomination will not be submitted without it.
+       </p>
+      </td>
+     </tr>
+    </table>
+  `,
+  `Your AI Risk Council nomination verification code is ${otp}`);
+
+  send({
+    from:  FROM(),
+    to:   email,
+    subject: `Your Nomination Verification Code: ${otp}`,
+    html,
+  });
+};
+
+/**
+ * sendSelfNominationAdminEmail
+ * Sent to founding_member admins when a new self-nomination is awaiting review.
+ *
+ * @param {{ adminEmail: string, adminName?: string, nomination: object }} opts
+ *  nomination: { name, designation, company, award_name, category_name, is_self_nominated_by_member, submitter_email, created_at }
+ */
+export const sendSelfNominationAdminEmail = ({ adminEmail, adminName, nomination }) => {
+  const { name, designation, company, award_name, category_name, submitter_email, created_at } = nomination;
+  const adminFirst = (adminName || 'Admin').split(' ')[0];
+  const submittedOn = formatDate(created_at) || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">New Self-Nomination</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${adminFirst}, someone has submitted a self-nomination and it's awaiting your review before it appears publicly.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d4ed8;">Action Required</p>
+       <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
+        Review this nomination in the admin dashboard's "Pending Self-Nominations" queue and approve or reject it.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Nomination Details</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+     ${infoRow('Name',    name)}
+     ${infoRow('Designation', designation || '—')}
+     ${infoRow('Company',  company || '—')}
+     ${infoRow('Award',    award_name)}
+     ${infoRow('Category',  category_name)}
+     ${infoRow('Contact Email', submitter_email || '—')}
+     ${infoRow('Submitted On', submittedOn)}
+    </table>
+  `,
+  `New self-nomination from ${name} — awaiting review`);
+
+  send({
+    from:  FROM(),
+    to:   adminEmail,
+    subject: `New Self-Nomination Awaiting Review: ${name}`,
+    html,
+  });
+};
+
+/**
+ * sendSelfNominationReceivedEmail
+ * Confirmation sent to the nominee after a self-nomination is submitted.
+ */
+export const sendSelfNominationReceivedEmail = ({ name, email, awardName, categoryName }) => {
+  const firstName = (name || '').split(' ')[0] || 'there';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Nomination Received, ${firstName}!</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Thanks for nominating yourself for the AI Risk Council Awards. Here's a summary of what you submitted.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">Pending Review</p>
+       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
+        Our team reviews every self-nomination before it goes live for public voting. We'll let you know once a decision is made.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+     ${infoRow('Award',   awardName)}
+     ${infoRow('Category', categoryName)}
+    </table>
+  `,
+  `Your self-nomination for ${awardName} has been received`);
+
+  send({
+    from:  FROM(),
+    to:   email,
+    subject: `We've received your self-nomination`,
+    html,
+  });
+};
+
+/**
+ * sendSelfNominationDecisionEmail
+ * Sent to the nominee once an admin approves or rejects their self-nomination.
+ */
+export const sendSelfNominationDecisionEmail = ({ name, email, awardName, categoryName, approved, adminNotes }) => {
+  const firstName = (name || '').split(' ')[0] || 'there';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">
+      ${approved ? `Great news, ${firstName}!` : `Update on your nomination`}
+    </h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      ${approved
+        ? `Your self-nomination for <strong>${categoryName}</strong> (${awardName}) has been approved and is now live for public voting.`
+        : `Thanks for submitting your self-nomination for <strong>${categoryName}</strong> (${awardName}). After review, our team has decided not to move forward with it at this time.`}
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:${approved ? '#f0fdf4' : '#fef2f2'};border:1.5px solid ${approved ? '#bbf7d0' : '#fecaca'};border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${approved ? '#166534' : '#991b1b'};">
+        ${approved ? 'Approved & Live' : 'Not Approved'}
+       </p>
+       <p style="margin:0;font-size:13px;color:${approved ? '#166534' : '#991b1b'};line-height:1.6;">
+        ${approved
+          ? 'Share your nomination with your network and encourage votes before the category closes.'
+          : (adminNotes ? adminNotes : 'If you have questions about this decision, feel free to reach out to us.')}
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    ${approved ? ctaButton('View Nominees', `${APP_URL()}/nominees`) : ''}
+  `,
+  approved ? `Your self-nomination for ${categoryName} has been approved!` : `Update on your self-nomination for ${categoryName}`);
+
+  send({
+    from:  FROM(),
+    to:   email,
+    subject: approved ? `Your self-nomination has been approved!` : `Update on your self-nomination`,
+    html,
+  });
+};

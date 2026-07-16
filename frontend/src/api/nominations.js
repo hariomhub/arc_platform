@@ -12,8 +12,17 @@ export const castVote = (id, voteData = {}) => {
 };
 export const getMyVotes  = ()       => api.get('/nominations/my-votes');
 
+// ── Self-nomination — supports both logged-in members and anonymous ──────────
+export const sendNominationOtp   = (email)     => api.post('/nominations/self-nominate/send-otp', { email });
+export const verifyNominationOtp = (email, otp) => api.post('/nominations/self-nominate/verify-otp', { email, otp });
+export const submitSelfNomination = (formData) =>
+    api.post('/nominations/self-nominate', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const getLeaderboard    = ()           => api.get('/nominations/leaderboard');
+export const getPendingSelfNominations = ()   => api.get('/nominations/nominees', { params: { all: true, status: 'pending' } });
+export const approveSelfNomination = (id)     => api.post(`/nominations/pending/${id}/approve`);
+export const rejectSelfNomination  = (id, admin_notes) => api.post(`/nominations/pending/${id}/reject`, { admin_notes });
 
 export const createAward       = (data)       => api.post('/nominations/awards', data);
 export const updateAward       = (id, data)   => api.put(`/nominations/awards/${id}`, data);

@@ -156,7 +156,7 @@ const Services = () => {
                                     Half-day and full-day immersive sessions for Board Directors and C-Suite leaders to build AI risk literacy and fulfil their fiduciary oversight responsibilities.
                                 </p>
                                 <ul style={{ listStyle:'none', padding:0, margin:'0 0 2rem', display:'flex', flexDirection:'column', gap:'0.6rem', flex:1 }}>
-                                    {['Governing AI for Innovation Across Industries', 'AI Governance fundamentals and risk appetite design','RAI controls, testing and validation deep dive','Regulatory horizon scanning and briefings'].map(f => (
+                                    {['Foundation models, enterprise adoption & the rise of Agentic AI — the market reality every board must understand', 'GenAI, Copilots & AI Agents — the executive mental model for cutting through the hype', 'Enterprise value-chain workshop to pinpoint where AI actually moves the needle', 'AI governance, regulation & board fiduciary oversight', 'Hands-on labs: Microsoft 365 Copilot, Excel & agentic workflows', 'Benchmarking Claude, ChatGPT, Gemini & the enterprise AI landscape'].map(f => (
                                         <li key={f} style={{ display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'0.875rem', color:'#475569' }}>
                                             <CheckCircle size={15} color="#7C3AED" style={{ flexShrink:0, marginTop:'2px' }}/>{f}
                                         </li>

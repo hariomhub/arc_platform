@@ -13,6 +13,7 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import StarRating from '../components/resources/StarRating.jsx';
 import ReviewSection from '../components/resources/ReviewSection.jsx';
+import DownloadLimitModal from '../components/resources/DownloadLimitModal.jsx';
 
 const TYPE_COLORS = {
     article: '#3B82F6', whitepaper: '#8B5CF6', tech_reels: '#EC4899',
@@ -200,8 +201,9 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                                 src={`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`}
                                 title={title}
                                 style={{ width:'100%', height:'100%', border:'none', display:'block' }} />
-                            {/* Overlay to hide the pop-out/download button on the top right */}
-                            <div style={{ position: 'absolute', top: 0, right: '12px', width: '54px', height: '48px', background: '#141414', zIndex: 10 }} />
+                            {/* Transparent click-catcher over Google's own "open in new window" icon —
+                                that view is outside our download tracking/quota, so it must not be reachable. */}
+                            <div style={{ position:'absolute', top:0, right:0, width:'64px', height:'64px', zIndex:10, background:'transparent' }} />
                         </div>
                     )}
                     {actualFileType === 'other' && (
@@ -251,6 +253,7 @@ const ResourceDetail = () => {
     const [error,       setError]       = useState('');
     const [notFound,    setNotFound]    = useState(false);
     const [downloading, setDownloading] = useState(false);
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
 
     const fetchResource = useCallback(async () => {
         setLoading(true); setError(''); setNotFound(false);
@@ -272,6 +275,7 @@ const ResourceDetail = () => {
             const res = await downloadResource(id);
             window.open(res.data.url, '_blank', 'noopener,noreferrer');
             showToast('Download started!', 'success');
+            setShowDownloadModal(false);
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setDownloading(false); }
     };
@@ -469,7 +473,7 @@ const ResourceDetail = () => {
                                                 <Lock size={14} /> Sign in
                                             </Link>
                                         ) : canDownload ? (
-                                            <button onClick={handleDownload} disabled={downloading}
+                                            <button onClick={() => setShowDownloadModal(true)} disabled={downloading}
                                                 style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:downloading?'#94a3b8':'#003366', color:'white', border:'none', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', cursor:downloading?'not-allowed':'pointer', fontFamily:'inherit', transition:'background 0.15s' }}
                                                 onMouseOver={e => { if(!downloading) e.currentTarget.style.background='#002244'; }}
                                                 onMouseOut={e => { if(!downloading) e.currentTarget.style.background='#003366'; }}>
@@ -554,6 +558,8 @@ const ResourceDetail = () => {
 
                 </div>
             </div>
+
+            <DownloadLimitModal isOpen={showDownloadModal} onClose={() => setShowDownloadModal(false)} onConfirm={handleDownload} confirming={downloading} />
         </div>
     );
 };

@@ -1,12 +1,22 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
+import { rateLimit } from 'express-rate-limit';
 import * as ctrl from '../controllers/nominationsController.js';
+import * as submissionCtrl from '../controllers/nominationSubmissionsController.js';
 import auth from '../middleware/auth.js';
 import optionalAuth from '../middleware/optionalAuth.js';
 import requireRole from '../middleware/requireRole.js';
 
 const router = Router();
+
+const otpLimiter = rateLimit({
+    windowMs:       15 * 60 * 1000,
+    max:            10,
+    standardHeaders: true,
+    legacyHeaders:  false,
+    message: { success: false, message: 'Too many attempts. Please wait 15 minutes before trying again.' },
+});
 
 // ── Multer: nominee photo — memory storage; blob upload in controller ─────────
 const upload = multer({
@@ -56,6 +66,18 @@ const nomineeValidation = [
     body('is_active').optional().isBoolean(),
 ];
 
+// ── Self-nomination validation ────────────────────────────────────────────────
+const selfNominationValidation = [
+    body('award_id').notEmpty().withMessage('Award ID is required.').isInt(),
+    body('category_id').notEmpty().withMessage('Category ID is required.').isInt(),
+    body('designation').optional().trim().isLength({ max: 255 }),
+    body('company').optional().trim().isLength({ max: 255 }),
+    body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
+    body('achievements').optional().trim(),
+    body('description').optional().trim(),
+    body('consent_to_terms').custom((v) => String(v) === 'true').withMessage('You must agree to the Terms & Conditions.'),
+];
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.get('/awards', ctrl.getAwards);
 router.get('/nominees', ctrl.getNominees);
@@ -65,10 +87,17 @@ router.get('/nominees/:id', ctrl.getNomineeById);
 router.post('/nominees/:id/vote', optionalAuth, ctrl.castVote);  // Supports both authenticated and anonymous
 router.get('/my-votes', auth, ctrl.getMyVotes);
 
+// ── Self-nomination — supports both logged-in members and anonymous ──────────
+router.post('/self-nominate/send-otp', otpLimiter, submissionCtrl.sendNominationOtp);
+router.post('/self-nominate/verify-otp', otpLimiter, submissionCtrl.verifyNominationOtp);
+router.post('/self-nominate', otpLimiter, optionalAuth, upload.single('photo'), selfNominationValidation, validate, submissionCtrl.submitSelfNomination);
+
 // ── Admin-only routes ─────────────────────────────────────────────────────────
 const admin = [auth, requireRole('founding_member')];
 
 router.get('/leaderboard', ...admin, ctrl.getLeaderboard);
+router.post('/pending/:id/approve', ...admin, submissionCtrl.approveSelfNomination);
+router.post('/pending/:id/reject', ...admin, submissionCtrl.rejectSelfNomination);
 
 // Awards
 router.post('/awards', ...admin, awardValidation, validate, ctrl.createAward);

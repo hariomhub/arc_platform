@@ -42,6 +42,8 @@ const MediaHub = lazy(() => import('./pages/MediaHub.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 const PrivacyPolicy  = lazy(() => import('./pages/PrivacyPolicy.jsx'));
 const DeleteAccount  = lazy(() => import('./pages/DeleteAccount.jsx'));
+const SelfNominate   = lazy(() => import('./pages/SelfNominate.jsx'));
+const NominationTerms = lazy(() => import('./pages/NominationTerms.jsx'));
 
 // ── OAuth landing: waits for cookie/session restore then routes correctly ──
 const OAuthLanding = () => {
@@ -105,6 +107,8 @@ function App() {
               <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />
               <Route path="/nominees" element={<AllNominees />} />
               <Route path="/winners" element={<AllWinners />} />
+              <Route path="/self-nominate" element={<SelfNominate />} />
+              <Route path="/nomination-terms" element={<NominationTerms />} />
 
               {/* ── Guest-only routes ── */}
               <Route path="/membership" element={<Membership />} />

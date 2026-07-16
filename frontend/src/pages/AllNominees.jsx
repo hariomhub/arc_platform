@@ -486,10 +486,18 @@ const AllNominees = () => {
                         <Trophy size={12} color="#FCD34D" />
                         <span style={{ color: '#FDE68A', fontWeight: '700', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Awards & Nominations 2026</span>
                     </div>
-                    <h1 style={{ color: 'white', fontSize: 'clamp(1.75rem,4vw,2.8rem)', fontWeight: '900', margin: '0 0 0.75rem', letterSpacing: '-0.025em', lineHeight: '1.15' }}>All Nominees</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 'clamp(0.85rem,1.5vw,0.98rem)', lineHeight: '1.7', maxWidth: '520px', margin: 0 }}>
-                        Discover and vote for outstanding leaders in AI governance, cybersecurity, and risk management.
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
+                        <div>
+                            <h1 style={{ color: 'white', fontSize: 'clamp(1.75rem,4vw,2.8rem)', fontWeight: '900', margin: '0 0 0.75rem', letterSpacing: '-0.025em', lineHeight: '1.15' }}>All Nominees</h1>
+                            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 'clamp(0.85rem,1.5vw,0.98rem)', lineHeight: '1.7', maxWidth: '520px', margin: 0 }}>
+                                Discover and vote for outstanding leaders in AI governance, cybersecurity, and risk management.
+                            </p>
+                        </div>
+                        <button onClick={() => navigate('/self-nominate')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#F59E0B,#D97706)', color: 'white', border: 'none', padding: '0.8rem 1.4rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(217,119,6,0.35)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                            <Trophy size={15} /> Nominate Yourself
+                        </button>
+                    </div>
                     {!loading && (
                         <div style={{ display: 'flex', gap: 'clamp(1rem,3vw,2rem)', marginTop: '2.25rem', flexWrap: 'wrap' }}>
                             {[

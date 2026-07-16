@@ -3,6 +3,7 @@ import {
     Trophy, Plus, Trash2, Edit2, Save, X, Loader2,
     Award, Star, Users, ChevronDown, ChevronRight,
     Upload, AlertCircle, RefreshCw, Linkedin, BadgeCheck,
+    Eye, Phone, Mail, Calendar, Building2, FileText, Gavel, Sparkles, Globe,
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
@@ -14,7 +15,9 @@ import {
     createCategory, updateCategory, deleteCategory,
     createNominee, updateNominee, deleteNominee,
     uploadNomineePhoto,
+    getPendingSelfNominations, approveSelfNomination, rejectSelfNomination,
 } from '../api/nominations.js';
+import { getPanelMembers, createPanelMember, updatePanelMember, deletePanelMember } from '../api/awardPanel.js';
 
 // ─── Shared Styles ────────────────────────────────────────────────────────────
 const PILL = (color, bg) => ({
@@ -663,9 +666,391 @@ const LeaderboardTab = ({ showToast }) => {
     );
 };
 
+// ─── 4. Pending Self-Nominations Tab ──────────────────────────────────────────
+const PendingTab = ({ showToast }) => {
+    const [pending, setPending] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState({});
+    const [rejectTarget, setRejectTarget] = useState(null);
+    const [rejectNotes, setRejectNotes] = useState('');
+    const [viewTarget, setViewTarget] = useState(null);
+
+    const fetchPending = useCallback(async () => {
+        setLoading(true); setError('');
+        try {
+            const res = await getPendingSelfNominations();
+            const payload = res.data?.data;
+            setPending(Array.isArray(payload) ? payload : []);
+        } catch (err) { setError(getErrorMessage(err)); }
+        finally { setLoading(false); }
+    }, []);
+
+    useEffect(() => { fetchPending(); }, [fetchPending]);
+
+    const handleApprove = async (id) => {
+        setBusy((p) => ({ ...p, [id]: true }));
+        try {
+            await approveSelfNomination(id);
+            setPending((prev) => prev.filter((n) => n.id !== id));
+            setViewTarget((v) => (v?.id === id ? null : v));
+            showToast('Self-nomination approved and now live!', 'success');
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setBusy((p) => ({ ...p, [id]: false })); }
+    };
+
+    const handleReject = async () => {
+        const { id } = rejectTarget; setBusy((p) => ({ ...p, [id]: true }));
+        try {
+            await rejectSelfNomination(id, rejectNotes);
+            setPending((prev) => prev.filter((n) => n.id !== id));
+            setViewTarget((v) => (v?.id === id ? null : v));
+            showToast('Self-nomination rejected.', 'success');
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setBusy((p) => ({ ...p, [id]: false })); setRejectTarget(null); setRejectNotes(''); }
+    };
+
+    if (loading) return <TableWrapper headers={['Nominee', 'Category', 'Contact', 'Submitted', '']}>{[1,2,3].map(i => <SkeletonRow key={i} cols={5} />)}</TableWrapper>;
+    if (error) return <ErrorState message={error} onRetry={fetchPending} />;
+    if (!pending.length) return <EmptyState icon={BadgeCheck} message="No pending self-nominations. All caught up!" />;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <TableWrapper headers={['Nominee', 'Category', 'Contact', 'Submitted', '']}>
+                {pending.map((n) => (
+                    <tr key={n.id} style={{ borderBottom: '1px solid #F1F5F9' }}
+                        onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')}
+                        onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {n.photo_url
+                                    ? <img src={n.photo_url} alt={n.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid #E2E8F0' }} />
+                                    : <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #003366, #0284C7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontSize: '0.85rem', fontWeight: '800' }}>{n.name?.charAt(0)?.toUpperCase()}</div>}
+                                <div>
+                                    <div style={{ fontWeight: '700', color: '#1E293B', fontSize: '0.875rem' }}>{n.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{[n.designation, n.company].filter(Boolean).join(' · ') || '—'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>{n.category_name || '—'}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{n.award_name || '—'}</div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', color: '#64748B', fontSize: '0.82rem' }}>
+                            {n.submitter_email || '—'}{n.submitted_by_user_id ? <span style={PILL('#0284C7', '#EFF6FF')}> Member</span> : null}
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', color: '#94A3B8', fontSize: '0.8rem' }}>{formatDate ? formatDate(n.created_at) : n.created_at}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                <button onClick={() => setViewTarget(n)} style={{ ...IBTN('#475569', '#F1F5F9'), padding: '5px 10px' }}>
+                                    <Eye size={11} /> View
+                                </button>
+                                <button onClick={() => handleApprove(n.id)} disabled={busy[n.id]} style={{ ...IBTN('#15803D', '#F0FDF4'), padding: '5px 10px', opacity: busy[n.id] ? 0.5 : 1 }}>
+                                    {busy[n.id] ? <Loader2 size={11} style={{ animation: 'an-spin 1s linear infinite' }} /> : <BadgeCheck size={11} />} Approve
+                                </button>
+                                <button onClick={() => setRejectTarget({ id: n.id, name: n.name })} disabled={busy[n.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '5px 10px', opacity: busy[n.id] ? 0.5 : 1 }}>
+                                    <X size={11} /> Reject
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                ))}
+            </TableWrapper>
+
+            {rejectTarget && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '14px', padding: 'clamp(1.25rem,4vw,1.75rem)', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                        <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>Reject "{rejectTarget.name}"?</h4>
+                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: '#64748B' }}>Optionally add a note — this will be included in the notification email to the nominee.</p>
+                        <textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '1rem' }} placeholder="Reason for rejection (optional)…" />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                            <button onClick={() => { setRejectTarget(null); setRejectNotes(''); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '8px 14px' }}>Cancel</button>
+                            <button onClick={handleReject} style={{ ...IBTN('white', '#DC2626'), padding: '8px 18px' }}>Confirm Reject</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {viewTarget && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setViewTarget(null)}>
+                    <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '90dvh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setViewTarget(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <X size={15} />
+                        </button>
+
+                        <div style={{ padding: '1.75rem 1.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: '1px solid #F1F5F9' }}>
+                            {viewTarget.photo_url
+                                ? <img src={viewTarget.photo_url} alt={viewTarget.name} style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #E2E8F0', flexShrink: 0 }} />
+                                : <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, #003366, #0284C7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontSize: '1.2rem', fontWeight: '800' }}>{viewTarget.name?.charAt(0)?.toUpperCase()}</div>}
+                            <div>
+                                <h3 style={{ margin: '0 0 3px', fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>{viewTarget.name}</h3>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B' }}>{[viewTarget.designation, viewTarget.company].filter(Boolean).join(' · ') || 'No designation / company provided'}</p>
+                                <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                    <span style={PILL('#D97706', '#FFFBEB')}>Pending Review</span>
+                                    <span style={PILL(viewTarget.submitted_by_user_id ? '#0284C7' : '#64748B', viewTarget.submitted_by_user_id ? '#EFF6FF' : '#F1F5F9')}>{viewTarget.submitted_by_user_id ? 'Registered Member' : 'Guest (non-member)'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <p style={{ margin: '0 0 6px', fontSize: '0.68rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Award &amp; Category</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', borderRadius: '8px', padding: '0.65rem 0.85rem' }}>
+                                    <Trophy size={14} color="#D97706" />
+                                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B' }}>{viewTarget.category_name || '—'}</span>
+                                    <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>{viewTarget.award_name || '—'}</span>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#475569' }}>
+                                    <Mail size={13} color="#94A3B8" /> {viewTarget.submitter_email || '—'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#475569' }}>
+                                    <Phone size={13} color="#94A3B8" /> {viewTarget.submitter_phone || '—'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#475569' }}>
+                                    <Building2 size={13} color="#94A3B8" /> {viewTarget.company || '—'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
+                                    <Linkedin size={13} color="#94A3B8" />
+                                    {viewTarget.linkedin_url ? <a href={viewTarget.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ color: '#0A66C2', fontWeight: 600 }}>View Profile</a> : <span style={{ color: '#475569' }}>—</span>}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#475569' }}>
+                                    <Calendar size={13} color="#94A3B8" /> Submitted {formatDate ? formatDate(viewTarget.created_at) : viewTarget.created_at}
+                                </div>
+                            </div>
+
+                            {viewTarget.achievements && (
+                                <div>
+                                    <p style={{ margin: '0 0 6px', fontSize: '0.68rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Key Achievements</p>
+                                    <ul style={{ margin: 0, paddingLeft: '1.1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {viewTarget.achievements.split(';').map((a) => a.trim()).filter(Boolean).map((a, i) => (
+                                            <li key={i} style={{ fontSize: '0.83rem', color: '#374151', lineHeight: 1.5 }}>{a}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {viewTarget.description && (
+                                <div>
+                                    <p style={{ margin: '0 0 6px', fontSize: '0.68rem', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 5 }}><FileText size={11} /> Why They Should Win</p>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#374151', lineHeight: 1.65, background: '#F8FAFC', borderRadius: '8px', padding: '0.75rem 0.9rem' }}>{viewTarget.description}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', padding: '1rem 1.75rem 1.5rem', borderTop: '1px solid #F1F5F9' }}>
+                            <button onClick={() => { setRejectTarget({ id: viewTarget.id, name: viewTarget.name }); }} disabled={busy[viewTarget.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '8px 16px', opacity: busy[viewTarget.id] ? 0.5 : 1 }}>
+                                <X size={13} /> Reject
+                            </button>
+                            <button onClick={() => handleApprove(viewTarget.id)} disabled={busy[viewTarget.id]} style={{ ...IBTN('#15803D', '#F0FDF4'), padding: '8px 16px', opacity: busy[viewTarget.id] ? 0.5 : 1 }}>
+                                {busy[viewTarget.id] ? <Loader2 size={13} style={{ animation: 'an-spin 1s linear infinite' }} /> : <BadgeCheck size={13} />} Approve &amp; Publish
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── 5. Jury & Presenters Tab ─────────────────────────────────────────────────
+const PanelTab = ({ showToast, awards }) => {
+    const EMPTY_FORM = { name: '', role: '', panel_type: 'jury', bio: '', linkedin_url: '', is_active: true, award_ids: [] };
+
+    const [members, setMembers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState(EMPTY_FORM);
+    const [editId, setEditId] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [photoFile, setPhotoFile] = useState(null);
+    const [confirm, setConfirm] = useState(null);
+    const [deleting, setDeleting] = useState({});
+
+    const fetchMembers = useCallback(async () => {
+        setLoading(true); setError('');
+        try {
+            const res = await getPanelMembers({ all: true });
+            setMembers(Array.isArray(res.data?.data) ? res.data.data : []);
+        } catch (err) { setError(getErrorMessage(err)); }
+        finally { setLoading(false); }
+    }, []);
+
+    useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+    const resetForm = () => { setForm(EMPTY_FORM); setEditId(null); setShowForm(false); setPhotoFile(null); };
+
+    const toggleAward = (id) => setForm((p) => ({ ...p, award_ids: p.award_ids.includes(id) ? p.award_ids.filter((a) => a !== id) : [...p.award_ids, id] }));
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) { showToast('Name is required.', 'error'); return; }
+        setSubmitting(true);
+        try {
+            const fd = new FormData();
+            fd.append('name', form.name); fd.append('role', form.role || ''); fd.append('panel_type', form.panel_type);
+            fd.append('bio', form.bio || ''); fd.append('linkedin_url', form.linkedin_url || '');
+            fd.append('is_active', String(form.is_active)); fd.append('award_ids', form.award_ids.join(','));
+            if (photoFile) fd.append('photo', photoFile);
+
+            if (editId) { await updatePanelMember(editId, fd); showToast('Panel member updated!', 'success'); }
+            else { await createPanelMember(fd); showToast('Panel member added!', 'success'); }
+            resetForm(); fetchMembers();
+        } catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setSubmitting(false); }
+    };
+
+    const startEdit = (m) => {
+        setForm({ name: m.name, role: m.role || '', panel_type: m.panel_type, bio: m.bio || '', linkedin_url: m.linkedin_url || '', is_active: !!m.is_active, award_ids: m.award_ids || [] });
+        setEditId(m.id); setPhotoFile(null); setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async () => {
+        const { id } = confirm; setConfirm(null);
+        setDeleting((p) => ({ ...p, [id]: true }));
+        try { await deletePanelMember(id); setMembers((prev) => prev.filter((m) => m.id !== id)); showToast('Panel member removed.', 'success'); }
+        catch (err) { showToast(getErrorMessage(err), 'error'); }
+        finally { setDeleting((p) => ({ ...p, [id]: false })); }
+    };
+
+    const formGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px,100%), 1fr))', gap: '1rem' };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B', maxWidth: '520px' }}>
+                    Shown to nominees on the self-nomination page. A member with no awards checked applies to <strong>every</strong> award; check specific awards to scope them.
+                </p>
+                <button onClick={() => { resetForm(); setShowForm((p) => !p); }} style={{ ...IBTN('white', '#003366'), padding: '8px 16px', fontSize: '0.82rem' }}>
+                    <Plus size={13} /> {showForm && !editId ? 'Cancel' : 'Add Member'}
+                </button>
+            </div>
+
+            {showForm && (
+                <form onSubmit={handleSubmit} noValidate style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: 'clamp(1.25rem,3vw,1.75rem)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.25rem', fontSize: '0.95rem', fontWeight: '700', color: '#1E293B' }}>{editId ? 'Edit Panel Member' : 'Add Panel Member'}</h4>
+                    <div style={formGrid}>
+                        <div>
+                            <label style={labelStyle}>Full Name *</label>
+                            <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} style={inputStyle} placeholder="Dr. Jane Smith" />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Role / Title</label>
+                            <input value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} style={inputStyle} placeholder="Chief Risk Officer, Acme Corp" />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Panel Type *</label>
+                            <select value={form.panel_type} onChange={(e) => setForm((p) => ({ ...p, panel_type: e.target.value }))} style={inputStyle}>
+                                <option value="jury">Jury — finalizes winners</option>
+                                <option value="presenter">Presenter — hands out awards</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={labelStyle}>LinkedIn URL</label>
+                            <input type="url" value={form.linkedin_url} onChange={(e) => setForm((p) => ({ ...p, linkedin_url: e.target.value }))} style={inputStyle} placeholder="https://linkedin.com/in/…" />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Bio</label>
+                            <textarea value={form.bio} onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))} rows={2} style={{ ...inputStyle, resize: 'vertical', minHeight: '60px' }} placeholder="Short bio shown when a nominee clicks their card…" />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Profile Photo</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                                    <Upload size={13} /> {photoFile ? 'Change photo' : 'Choose photo…'}
+                                    <input type="file" accept="image/*" hidden onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                                </label>
+                                {photoFile && <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{photoFile.name}</span>}
+                            </div>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={labelStyle}>Applies To</label>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                {awards.map((a) => (
+                                    <label key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: form.award_ids.includes(a.id) ? '#EEF4FF' : '#F8FAFC', border: `1.5px solid ${form.award_ids.includes(a.id) ? '#003366' : '#E2E8F0'}`, borderRadius: '100px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: '600', color: form.award_ids.includes(a.id) ? '#003366' : '#64748B' }}>
+                                        <input type="checkbox" checked={form.award_ids.includes(a.id)} onChange={() => toggleAward(a.id)} style={{ width: '13px', height: '13px' }} />
+                                        {a.name}
+                                    </label>
+                                ))}
+                            </div>
+                            <p style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '6px', marginBottom: 0 }}>{form.award_ids.length === 0 ? 'Applies to all awards (global).' : `Scoped to ${form.award_ids.length} award(s).`}</p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="checkbox" id="panel_active" checked={form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} style={{ width: '15px', height: '15px' }} />
+                            <label htmlFor="panel_active" style={{ ...labelStyle, margin: 0, cursor: 'pointer' }}>Active / Visible</label>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button type="button" onClick={resetForm} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '8px 16px' }}>Cancel</button>
+                        <button type="submit" disabled={submitting} style={{ ...IBTN('white', '#003366'), padding: '8px 20px', opacity: submitting ? 0.6 : 1 }}>
+                            {submitting ? <Loader2 size={13} style={{ animation: 'an-spin 1s linear infinite' }} /> : <Save size={13} />}
+                            {editId ? 'Update Member' : 'Add Member'}
+                        </button>
+                    </div>
+                </form>
+            )}
+
+            {loading ? (
+                <TableWrapper headers={['Member', 'Type', 'Applies To', 'Status', '']}>{[1,2].map(i => <SkeletonRow key={i} cols={5} />)}</TableWrapper>
+            ) : error ? <ErrorState message={error} onRetry={fetchMembers} /> : members.length === 0 ? (
+                <EmptyState icon={Gavel} message="No jury or presenter members yet. Add one above." />
+            ) : (
+                <TableWrapper headers={['Member', 'Type', 'Applies To', 'Status', '']}>
+                    {members.map((m) => (
+                        <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }}
+                            onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')}
+                            onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {m.photo_url
+                                        ? <img src={m.photo_url} alt={m.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid #E2E8F0' }} />
+                                        : <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #003366, #0284C7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontSize: '0.85rem', fontWeight: '800' }}>{m.name?.charAt(0)?.toUpperCase()}</div>}
+                                    <div>
+                                        <div style={{ fontWeight: '700', color: '#1E293B', fontSize: '0.875rem' }}>{m.name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{m.role || '—'}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                {m.panel_type === 'jury'
+                                    ? <span style={PILL('#7C3AED', '#FAF5FF')}><Gavel size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />Jury</span>
+                                    : <span style={PILL('#D97706', '#FFFBEB')}><Sparkles size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />Presenter</span>}
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                {(!m.award_ids || m.award_ids.length === 0)
+                                    ? <span style={PILL('#0284C7', '#EFF6FF')}><Globe size={10} style={{ verticalAlign: '-1px', marginRight: 3 }} />All Awards</span>
+                                    : <span style={{ fontSize: '0.78rem', color: '#475569' }}>{m.award_ids.map((id) => awards.find((a) => a.id === id)?.name).filter(Boolean).join(', ') || `${m.award_ids.length} award(s)`}</span>}
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                <span style={PILL(m.is_active ? '#15803D' : '#64748B', m.is_active ? '#F0FDF4' : '#F1F5F9')}>{m.is_active ? '● Active' : '○ Hidden'}</span>
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                <div style={{ display: 'flex', gap: '5px' }}>
+                                    <button onClick={() => startEdit(m)} style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '5px 8px' }}><Edit2 size={11} /></button>
+                                    <button onClick={() => setConfirm({ id: m.id, name: m.name })} disabled={deleting[m.id]}
+                                        style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '5px 8px', opacity: deleting[m.id] ? 0.5 : 1 }}>
+                                        {deleting[m.id] ? <Loader2 size={11} style={{ animation: 'an-spin 1s linear infinite' }} /> : <Trash2 size={11} />}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </TableWrapper>
+            )}
+            <ConfirmDialog isOpen={!!confirm} title="Remove Panel Member" message={`Remove "${confirm?.name}" from the jury/presenter panel?`} confirmLabel="Remove" onConfirm={handleDelete} onClose={() => setConfirm(null)} />
+        </div>
+    );
+};
+
 // ─── AdminNominees ────────────────────────────────────────────────────────────
 const INNER_TABS = [
     { key: 'nominees',    label: 'Nominees',             icon: Users },
+    { key: 'pending',     label: 'Pending Self-Noms',    icon: BadgeCheck },
+    { key: 'panel',       label: 'Jury & Presenters',    icon: Gavel },
     { key: 'awards',      label: 'Awards & Categories',  icon: Award },
     { key: 'leaderboard', label: 'Leaderboard',          icon: Trophy },
 ];
@@ -730,6 +1115,8 @@ const AdminNominees = ({ embedded = false }) => {
                 ) : (
                     <>
                         {tab === 'nominees'    && <NomineesTab    showToast={showToast} awards={awards} />}
+                        {tab === 'pending'     && <PendingTab     showToast={showToast} />}
+                        {tab === 'panel'       && <PanelTab       showToast={showToast} awards={awards} />}
                         {tab === 'awards'      && <AwardsTab      showToast={showToast} awards={awards} onRefreshAwards={fetchAwards} />}
                         {tab === 'leaderboard' && <LeaderboardTab showToast={showToast} />}
                     </>

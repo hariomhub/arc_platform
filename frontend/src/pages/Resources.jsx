@@ -12,6 +12,7 @@ import { requestSubTypeUpgrade } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import StarRating from '../components/resources/StarRating.jsx';
+import DownloadLimitModal from '../components/resources/DownloadLimitModal.jsx';
 
 const TYPE_OPTIONS = ['article', 'whitepaper', 'tech_reels', 'tool', 'news', 'homepage_video', 'lab_result', 'product'];
 const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
@@ -516,6 +517,7 @@ const Resources = () => {
     const [modal,        setModal]        = useState(null);
     const [deleteId,     setDeleteId]     = useState(null);
     const [downloading,  setDownloading]  = useState({});
+    const [downloadModalResource, setDownloadModalResource] = useState(null);
     // Upgrade request state for final_year_undergrad
     const [upgradeRequested, setUpgradeRequested] = useState(!!user?.pending_sub_type_upgrade);
 
@@ -573,6 +575,7 @@ const Resources = () => {
             window.open(res.data.url, '_blank', 'noopener,noreferrer');
             setResources(prev => prev.map(x => x.id === r.id ? { ...x, download_count: (x.download_count || 0) + 1 } : x));
             showToast('Download started!', 'success');
+            setDownloadModalResource(null);
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setDownloading(p => ({ ...p, [r.id]: false })); }
     };
@@ -889,7 +892,7 @@ const Resources = () => {
                                     key={r.id}
                                     resource={r}
                                     currentUser={user}
-                                    onDownload={handleDownload}
+                                    onDownload={setDownloadModalResource}
                                     onEdit={res => setModal({ mode: 'edit', resource: res })}
                                     onDelete={setDeleteId}
                                     downloading={downloading[r.id]}
@@ -904,6 +907,8 @@ const Resources = () => {
 
             {modal    && <ResourceModal resource={modal.mode === 'edit' ? modal.resource : null} userRole={user?.role} onClose={() => setModal(null)} onSaved={handleSaved} showToast={showToast} />}
             {deleteId && <DeleteDialog onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />}
+            <DownloadLimitModal isOpen={!!downloadModalResource} onClose={() => setDownloadModalResource(null)}
+                onConfirm={() => handleDownload(downloadModalResource)} confirming={!!downloading[downloadModalResource?.id]} />
         </div>
     );
 };

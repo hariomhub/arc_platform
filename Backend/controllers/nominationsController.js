@@ -37,10 +37,16 @@ export const getNominees = async (req, res, next) => {
             SELECT n.*,
                    ac.name     AS category_name,
                    ac.timeline AS category_timeline,
-                   a.name      AS award_name
+                   a.name      AS award_name,
+                   COALESCE(v.vote_count, 0) AS vote_count
             FROM nominees n
             JOIN award_categories ac ON ac.id = n.category_id
             JOIN awards           a  ON a.id  = n.award_id
+            LEFT JOIN (
+                SELECT nominee_id, COUNT(*) AS vote_count
+                FROM votes
+                GROUP BY nominee_id
+            ) v ON v.nominee_id = n.id
             WHERE ${showAll ? '1=1' : 'n.is_active = 1'}
         `;
         const params = [];
@@ -53,6 +59,11 @@ export const getNominees = async (req, res, next) => {
         if (req.query.is_winner !== undefined) {
             sql += ' AND n.is_winner = ?';
             params.push(req.query.is_winner === 'true' ? 1 : 0);
+        }
+
+        if (req.query.status) {
+            sql += ' AND n.status = ?';
+            params.push(req.query.status);
         }
 
         sql += ' ORDER BY n.created_at DESC';

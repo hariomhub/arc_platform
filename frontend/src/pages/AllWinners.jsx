@@ -542,6 +542,10 @@ const AllWinners = () => {
                             See all currently open nominations and vote for the professionals you believe deserve recognition this cycle.
                         </p>
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button onClick={() => navigate('/self-nominate')}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'linear-gradient(135deg,#F59E0B,#D97706)', color: 'white', border: 'none', padding: '0.8rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                <Trophy size={14} /> Nominate Yourself
+                            </button>
                             <button onClick={() => navigate('/nominees')}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: '#003366', color: 'white', border: 'none', padding: '0.8rem 1.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'background 0.15s', whiteSpace: 'nowrap' }}
                                 onMouseOver={e => e.currentTarget.style.background = '#002244'}

@@ -18,50 +18,63 @@ const StarRating = ({ rating, size = 14 }) => {
 };
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-const ProductCard = ({ product, onClick }) => (
-    <div onClick={onClick}
-        style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', display: 'flex', flexDirection: 'column' }}
-        onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,51,102,0.13)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-        onMouseOut={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-        <div style={{ height: '4px', background: 'linear-gradient(90deg, #003366, #0055A4)' }} />
-        <div style={{ padding: 'clamp(1rem,2.5vw,1.5rem)', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {product.product_logo_url ? <img src={product.product_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <ShieldCheck size={22} color="#003366" />}
+const ProductCard = ({ product, onClick }) => {
+    const hasLogo = !!product.product_logo_url;
+    const rating = Number(product.avg_rating) || 0;
+    const isTopRated = rating >= 4.5 && Number(product.review_count) > 0;
+    return (
+        <div onClick={onClick}
+            style={{ position: 'relative', background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', display: 'flex', flexDirection: 'column' }}
+            onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,51,102,0.13)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+            {/* Decorative corner glow — subtle brand-color accent, no flat top bar */}
+            <div style={{ position: 'absolute', top: '-36px', right: '-36px', width: '130px', height: '130px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,85,164,0.16) 0%, rgba(0,85,164,0) 70%)', pointerEvents: 'none', zIndex: 0 }} />
+            {isTopRated && (
+                <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, display: 'flex', alignItems: 'center', gap: '3px', background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: 'white', fontSize: '0.64rem', fontWeight: '800', padding: '3px 9px', borderRadius: '100px', boxShadow: '0 2px 8px rgba(217,119,6,0.35)', letterSpacing: '0.02em' }}>
+                    <Star size={10} fill="white" /> Top Rated
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ margin: 0, fontSize: 'clamp(0.9rem,2vw,1rem)', fontWeight: '800', color: '#1E293B', lineHeight: '1.3' }}>{product.name}</h3>
-                    <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '0.72rem', fontWeight: '700', color: '#0055A4', background: '#EFF6FF', padding: '2px 8px', borderRadius: '100px' }}>{product.vendor}</span>
+            )}
+            <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(1rem,2.5vw,1.5rem)', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div style={{ width: 'clamp(52px,15vw,64px)', height: 'clamp(52px,15vw,64px)', borderRadius: '14px', background: 'linear-gradient(135deg, #003366, #0055A4)', padding: '2px', flexShrink: 0 }}>
+                        <div style={{ width: '100%', height: '100%', borderRadius: '12px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            {hasLogo ? <img src={product.product_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ShieldCheck size={28} color="#003366" />}
+                        </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{ margin: 0, fontSize: 'clamp(0.9rem,2vw,1rem)', fontWeight: '800', color: '#1E293B', lineHeight: '1.3' }}>{product.name}</h3>
+                        <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '0.72rem', fontWeight: '700', color: '#0055A4', background: '#EFF6FF', padding: '2px 8px', borderRadius: '100px' }}>{product.vendor}</span>
+                    </div>
                 </div>
+                {product.category && (
+                    <span style={{ alignSelf: 'flex-start', fontSize: '0.71rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
+                        {product.category}
+                    </span>
+                )}
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569', lineHeight: '1.65', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
+                    {product.short_description || 'No description available.'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.25rem', flexWrap: 'wrap' }}>
+                    <StarRating rating={product.avg_rating} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B' }}>{Number(product.avg_rating).toFixed(1)}</span>
+                    <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>({product.review_count} review{product.review_count !== 1 ? 's' : ''})</span>
+                </div>
+                {product.avg_test_score != null && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Award size={13} color="#D97706" />
+                        <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#D97706' }}>Avg Test Score: {parseFloat(product.avg_test_score).toFixed(1)}/10</span>
+                        <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>({product.tested_count} test{product.tested_count !== 1 ? 's' : ''})</span>
+                    </div>
+                )}
             </div>
-            {product.category && (
-                <span style={{ alignSelf: 'flex-start', fontSize: '0.71rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
-                    {product.category}
+            <div style={{ padding: 'clamp(0.75rem,1.5vw,1rem) clamp(1rem,2.5vw,1.5rem)', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: '700', color: '#003366' }}>
+                    View Review <ArrowRight size={14} />
                 </span>
-            )}
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569', lineHeight: '1.65', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
-                {product.short_description || 'No description available.'}
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.25rem', flexWrap: 'wrap' }}>
-                <StarRating rating={product.avg_rating} />
-                <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B' }}>{Number(product.avg_rating).toFixed(1)}</span>
-                <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>({product.review_count} review{product.review_count !== 1 ? 's' : ''})</span>
             </div>
-            {product.avg_test_score != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Award size={13} color="#D97706" />
-                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#D97706' }}>Avg Test Score: {parseFloat(product.avg_test_score).toFixed(1)}/10</span>
-                    <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>({product.tested_count} test{product.tested_count !== 1 ? 's' : ''})</span>
-                </div>
-            )}
         </div>
-        <div style={{ padding: 'clamp(0.75rem,1.5vw,1rem) clamp(1rem,2.5vw,1.5rem)', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: '700', color: '#003366' }}>
-                View Review <ArrowRight size={14} />
-            </span>
-        </div>
-    </div>
-);
+    );
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ProductReviews = () => {
