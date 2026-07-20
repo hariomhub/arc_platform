@@ -34,6 +34,8 @@ const teamValidation = [
     body('bio').optional().trim(),
     body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
     body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Email must be a valid email address.'),
+    body('member_category').optional().isIn(['founding', 'permanent']).withMessage('Invalid member category.'),
+    body('is_governing_body').optional().isBoolean().withMessage('is_governing_body must be a boolean.'),
 ];
 
 // Public

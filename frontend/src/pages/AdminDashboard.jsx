@@ -1138,7 +1138,7 @@ const NewsTab = ({ showToast }) => {
 
 // ─── 5. Manage Team Tab ───────────────────────────────────────────────────────
 const TeamTab = ({ showToast }) => {
-    const EMPTY_FORM = { name: '', role: '', bio: '', linkedin_url: '', email: '', image: null };
+    const EMPTY_FORM = { name: '', role: '', bio: '', linkedin_url: '', email: '', member_category: 'founding', is_governing_body: false, image: null };
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -1176,6 +1176,8 @@ const TeamTab = ({ showToast }) => {
         try {
             const fd = new FormData();
             fd.append('name', form.name); fd.append('role', form.role); fd.append('bio', form.bio || '');
+            fd.append('member_category', form.member_category || 'founding');
+            fd.append('is_governing_body', String(!!form.is_governing_body));
             if (form.linkedin_url) fd.append('linkedin_url', form.linkedin_url);
             else fd.append('linkedin_url', '');
             if (form.email) fd.append('email', form.email);
@@ -1215,6 +1217,18 @@ const TeamTab = ({ showToast }) => {
                             <FormField label="Email ID (Optional)"><input type="email" value={form.email || ''} onChange={field('email')} className="adm-input" placeholder="member@example.com" /></FormField>
                             <FormField label="LinkedIn URL (Optional)"><input type="url" value={form.linkedin_url || ''} onChange={field('linkedin_url')} className="adm-input" placeholder="https://linkedin.com/in/..." /></FormField>
                         </div>
+                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', alignItems: 'end' }}>
+                            <FormField label="Category" required>
+                                <select value={form.member_category} onChange={field('member_category')} className="adm-input">
+                                    <option value="founding">Founding Member</option>
+                                    <option value="permanent">Permanent Member (Chapter Lead)</option>
+                                </select>
+                            </FormField>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '10px' }}>
+                                <input type="checkbox" id="is_governing_body" checked={!!form.is_governing_body} onChange={(e) => setForm((p) => ({ ...p, is_governing_body: e.target.checked }))} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#003366' }} />
+                                <label htmlFor="is_governing_body" style={{ fontSize: '0.82rem', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Also on the Governing Body</label>
+                            </div>
+                        </div>
                         <div style={{ gridColumn: '1 / -1' }}><FormField label="Bio"><textarea value={form.bio || ''} onChange={field('bio')} rows={3} className="adm-input" style={{ resize: 'vertical' }} placeholder="Short biography…" /></FormField></div>
                         <div style={{ gridColumn: '1 / -1' }}>
                             <FormField label="Profile Photo">
@@ -1235,9 +1249,9 @@ const TeamTab = ({ showToast }) => {
                 </form>
             )}
 
-            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Details', 'Added', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={5} />)}</TableWrapper>
+            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={6} />)}</TableWrapper>
             : error ? <ErrorState message={error} onRetry={fetchTeam} /> : members.length === 0 ? <EmptyState icon={Users} message="No team members yet." /> : (
-                <TableWrapper headers={['Member', 'Role / Title', 'Details', 'Added', '']}>
+                <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>
                     {members.map((m) => (
                         <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
                             <td style={{ padding: '0.85rem 1rem' }}>
@@ -1247,6 +1261,14 @@ const TeamTab = ({ showToast }) => {
                                 </div>
                             </td>
                             <td style={{ padding: '0.85rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{m.role || m.title || '—'}</td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                    <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: m.member_category === 'permanent' ? '#0284C7' : '#7C3AED', background: m.member_category === 'permanent' ? '#EFF6FF' : '#FAF5FF' }}>
+                                        {m.member_category === 'permanent' ? 'Permanent Member' : 'Founding Member'}
+                                    </span>
+                                    {!!m.is_governing_body && <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: '#D97706', background: '#FFFBEB' }}>Governing Body</span>}
+                                </div>
+                            </td>
                             <td style={{ padding: '0.85rem 1rem', maxWidth: '200px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
                                     {m.linkedin_url && (
@@ -1263,7 +1285,7 @@ const TeamTab = ({ showToast }) => {
                             <td style={{ padding: '0.85rem 1rem' }}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button onClick={() => {
-                                        setForm({ name: m.name, role: m.role || m.title || '', bio: m.bio || '', linkedin_url: m.linkedin_url || '', email: m.email || '', image: null });
+                                        setForm({ name: m.name, role: m.role || m.title || '', bio: m.bio || '', linkedin_url: m.linkedin_url || '', email: m.email || '', member_category: m.member_category || 'founding', is_governing_body: !!m.is_governing_body, image: null });
                                         setEditingId(m.id);
                                         setFormErrors({});
                                         setShowForm(true);

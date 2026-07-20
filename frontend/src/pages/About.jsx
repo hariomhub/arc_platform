@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Shield, Award, Users, BookOpen, Target, Linkedin, X, User, AlertCircle, RefreshCw, Mail } from 'lucide-react';
 import { getTeam } from '../api/team.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
@@ -11,8 +11,14 @@ const SkeletonCard = () => (
     </div>
 );
 
-const TeamCard = ({ member, onSelect }) => {
+const CATEGORY_META = {
+    permanent: { label: 'Permanent Member', color: '#0284C7', bg: '#EFF6FF' },
+    founding:  { label: 'Founding Member',  color: '#7C3AED', bg: '#FAF5FF' },
+};
+
+const TeamCard = ({ member, onSelect, showCategoryBadge }) => {
     const [imgError, setImgError] = useState(false);
+    const cat = CATEGORY_META[member.member_category] || CATEGORY_META.founding;
     return (
         <div onClick={() => onSelect(member)} role="button" tabIndex={0} aria-label={`View ${member.name}'s bio`}
             onKeyDown={(e) => e.key === 'Enter' && onSelect(member)}
@@ -25,7 +31,10 @@ const TeamCard = ({ member, onSelect }) => {
                 ) : <User size={40} color="#CBD5E1" />}
             </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1A202C', marginBottom: '0.35rem' }}>{member.name}</h3>
-            <p style={{ color: '#4A5568', fontSize: '0.85rem', fontWeight: '500', marginBottom: member.bio ? '0.75rem' : '1rem' }}>{member.role}</p>
+            <p style={{ color: '#4A5568', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>{member.role}</p>
+            {showCategoryBadge && (
+                <span style={{ display: 'inline-block', fontSize: '0.68rem', fontWeight: '700', color: cat.color, background: cat.bg, padding: '2px 10px', borderRadius: '100px', marginBottom: '0.75rem' }}>{cat.label}</span>
+            )}
             {member.bio && (
                 <p style={{ color: '#64748B', fontSize: '0.8rem', lineHeight: '1.5', margin: '0 auto 1.25rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {member.bio}
@@ -36,6 +45,56 @@ const TeamCard = ({ member, onSelect }) => {
                     <Linkedin size={15} /> LinkedIn
                 </div>
             )}
+        </div>
+    );
+};
+
+// Continuously-scrolling row of member cards. Below MIN_TO_SCROLL, there's
+// too little content for motion to read as intentional — render a static,
+// centered row instead. At or above it, the track is padded up to a minimum
+// card count (by repeating the sequence) so it always fills the row and
+// keeps moving at a consistent speed.
+const MemberMarquee = ({ members, onSelect, showCategoryBadge }) => {
+    const CARD_WIDTH = 240;
+    const MIN_TRACK_ITEMS = 8;
+    const MIN_TO_SCROLL = 3;
+
+    if (!members.length) return null;
+
+    if (members.length <= MIN_TO_SCROLL) {
+        return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1.5rem' }} aria-live="polite">
+                {members.map((member) => (
+                    <div key={member.id} style={{ width: `${CARD_WIDTH}px`, flexShrink: 0 }}>
+                        <TeamCard member={member} onSelect={onSelect} showCategoryBadge={showCategoryBadge} />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    const repeatCount = Math.max(1, Math.ceil(MIN_TRACK_ITEMS / members.length));
+    const sequence = Array.from({ length: repeatCount }, () => members).flat();
+    const durationSec = Math.max(18, sequence.length * 3.2);
+
+    return (
+        <div className="member-marquee" style={{ overflow: 'hidden', width: '100%' }}>
+            <div className="member-marquee-track" style={{ display: 'flex', width: 'max-content', animationDuration: `${durationSec}s` }}>
+                {[sequence, sequence].map((copy, copyIdx) => (
+                    <div key={copyIdx} style={{ display: 'flex', gap: '1.5rem', paddingRight: '1.5rem' }} aria-hidden={copyIdx === 1}>
+                        {copy.map((member, i) => (
+                            <div key={`${member.id}-${copyIdx}-${i}`} style={{ width: `${CARD_WIDTH}px`, flexShrink: 0 }}>
+                                <TeamCard member={member} onSelect={onSelect} showCategoryBadge={showCategoryBadge} />
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+            <style>{`
+                @keyframes member-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+                .member-marquee-track { animation-name: member-marquee-scroll; animation-timing-function: linear; animation-iteration-count: infinite; }
+                .member-marquee:hover .member-marquee-track { animation-play-state: paused; }
+            `}</style>
         </div>
     );
 };
@@ -114,6 +173,12 @@ const About = () => {
             if (!signal?.aborted) setTeamLoading(false);
         }
     }, []);
+
+    // Governing Body is a cross-cutting flag — a person can appear there AND
+    // in their base category (a Founding Member who also sits on the board).
+    const governingBody = useMemo(() => team.filter((m) => m.is_governing_body), [team]);
+    const foundingMembers = useMemo(() => team.filter((m) => (m.member_category || 'founding') === 'founding'), [team]);
+    const permanentMembers = useMemo(() => team.filter((m) => m.member_category === 'permanent'), [team]);
 
     useEffect(() => {
         const ctrl = new AbortController();
@@ -224,7 +289,7 @@ const About = () => {
                 <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Leadership &amp; Contributors</h2>
-                        <p style={{ color: '#64748B', fontSize: '1rem' }}>Meet the experts guiding our initiatives</p>
+                        <p style={{ color: '#64748B', fontSize: '1rem' }}>Meet the people guiding our initiatives</p>
                     </div>
 
                     {teamLoading && (
@@ -249,8 +314,31 @@ const About = () => {
                     )}
 
                     {!teamLoading && !teamError && team.length > 0 && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(240px,100%),1fr))', gap: '1.5rem' }} aria-live="polite">
-                            {team.map(member => <TeamCard key={member.id} member={member} onSelect={setSelectedMember} />)}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
+                            {foundingMembers.length > 0 && (
+                                <div>
+                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Founding Members</h3>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1.5rem' }} aria-live="polite">
+                                        {foundingMembers.map(member => (
+                                            <div key={`fnd-${member.id}`} style={{ width: '240px', flexShrink: 0 }}>
+                                                <TeamCard member={member} onSelect={setSelectedMember} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {permanentMembers.length > 0 && (
+                                <div>
+                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Permanent Members</h3>
+                                    <MemberMarquee members={permanentMembers} onSelect={setSelectedMember} />
+                                </div>
+                            )}
+                            {governingBody.length > 0 && (
+                                <div>
+                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Governing Body</h3>
+                                    <MemberMarquee members={governingBody} onSelect={setSelectedMember} showCategoryBadge />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
