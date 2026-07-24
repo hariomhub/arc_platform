@@ -80,7 +80,8 @@ const Login = () => {
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter a valid email address.';
         if (!password) e.password = 'Password is required.';
         else if (password.length < 8) e.password = 'Password must be at least 8 characters.';
-        if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
+        // CAPTCHA disabled for now — will be re-enabled later.
+        // if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
         return e;
     };
 
@@ -298,6 +299,7 @@ const Login = () => {
                                 </div>
                             </Field>
 
+                            {/* CAPTCHA disabled for now — will be re-enabled later.
                             {RECAPTCHA_SITE_KEY && (
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'center', transform: 'scale(0.95)', transformOrigin: 'center' }}>
@@ -308,6 +310,7 @@ const Login = () => {
                                     {fieldErrors.recaptcha && <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: '0.75rem', color: '#DC2626', marginTop: '0.4rem' }}><AlertCircle size={11} />{fieldErrors.recaptcha}</span>}
                                 </div>
                             )}
+                            */}
 
                             <button type="submit" disabled={submitting} className="auth-btn"
                                 style={{ width: '100%', padding: '0.88rem', background: submitting ? '#94A3B8' : 'linear-gradient(135deg,#003366,#005099)', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.93rem', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'all 0.18s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: '0.3rem', boxShadow: submitting ? 'none' : '0 4px 14px rgba(0,51,102,0.28)' }}>

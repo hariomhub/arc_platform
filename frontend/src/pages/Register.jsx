@@ -161,7 +161,8 @@ const Register = () => {
             if (!form.linkedin_url.trim()) e.linkedin_url = 'LinkedIn profile URL is required.';
             else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(form.linkedin_url.trim())) e.linkedin_url = 'Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).';
         }
-        if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
+        // CAPTCHA disabled for now — will be re-enabled later.
+        // if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
         return e;
     };
 
@@ -533,6 +534,7 @@ const Register = () => {
                                 <a href="#" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</a>.
                             </p>
 
+                            {/* CAPTCHA disabled for now — will be re-enabled later.
                             {RECAPTCHA_SITE_KEY && (
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'center', transform: 'scale(0.95)', transformOrigin: 'center' }}>
@@ -543,9 +545,10 @@ const Register = () => {
                                     {fieldErrors.recaptcha && <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: '0.74rem', color: '#DC2626', marginTop: '0.4rem' }}><AlertCircle size={11} />{fieldErrors.recaptcha}</span>}
                                 </div>
                             )}
+                            */}
 
-                            <button type="submit" disabled={submitting || emailVerificationPhase !== 'verified' || !recaptchaToken} className="ra-btn"
-                                style={{ width: '100%', padding: '0.88rem', background: (submitting || emailVerificationPhase !== 'verified' || !recaptchaToken) ? '#94A3B8' : 'linear-gradient(135deg,#003366,#005099)', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.92rem', cursor: (submitting || emailVerificationPhase !== 'verified' || !recaptchaToken) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'all 0.18s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: (submitting || emailVerificationPhase !== 'verified' || !recaptchaToken) ? 'none' : '0 4px 14px rgba(0,51,102,0.28)' }}>
+                            <button type="submit" disabled={submitting || emailVerificationPhase !== 'verified'} className="ra-btn"
+                                style={{ width: '100%', padding: '0.88rem', background: (submitting || emailVerificationPhase !== 'verified') ? '#94A3B8' : 'linear-gradient(135deg,#003366,#005099)', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.92rem', cursor: (submitting || emailVerificationPhase !== 'verified') ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'all 0.18s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: (submitting || emailVerificationPhase !== 'verified') ? 'none' : '0 4px 14px rgba(0,51,102,0.28)' }}>
                                 {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Creating account…</> : 'Create Account →'}
                             </button>
                         </form>
