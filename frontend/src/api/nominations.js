@@ -27,6 +27,10 @@ export const rejectSelfNomination  = (id, admin_notes) => api.post(`/nominations
 export const createAward       = (data)       => api.post('/nominations/awards', data);
 export const updateAward       = (id, data)   => api.put(`/nominations/awards/${id}`, data);
 export const deleteAward       = (id)         => api.delete(`/nominations/awards/${id}`);
+export const uploadAwardBanner = (id, form)   =>
+    api.post(`/nominations/awards/${id}/banner`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
 
 export const createCategory    = (data)       => api.post('/nominations/categories', data);
 export const updateCategory    = (id, data)   => api.put(`/nominations/categories/${id}`, data);

@@ -11,7 +11,7 @@ import { formatDate } from '../utils/dateFormatter.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import {
     getAwards, getNominees, getLeaderboard,
-    createAward, updateAward, deleteAward,
+    createAward, updateAward, deleteAward, uploadAwardBanner,
     createCategory, updateCategory, deleteCategory,
     createNominee, updateNominee, deleteNominee,
     uploadNomineePhoto,
@@ -390,8 +390,17 @@ const NomineesTab = ({ showToast, awards }) => {
 };
 
 // ─── 2. Awards & Categories Tab ───────────────────────────────────────────────
+// datetime-local inputs need "YYYY-MM-DDTHH:mm" — MySQL returns "YYYY-MM-DD HH:mm:ss" or an ISO string.
+const toDatetimeLocal = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const AwardsTab = ({ showToast, awards, onRefreshAwards }) => {
-    const EMPTY_AWARD = { name: '', description: '', is_active: true };
+    const EMPTY_AWARD = { name: '', description: '', is_active: true, nominations_open: false, nominations_close_at: '' };
     const EMPTY_CAT   = { award_id: '', name: '', timeline: 'quarterly' };
 
     const [awardForm, setAwardForm] = useState(EMPTY_AWARD);
@@ -400,6 +409,7 @@ const AwardsTab = ({ showToast, awards, onRefreshAwards }) => {
     const [showAwardForm, setShowAwardForm] = useState(false);
     const [awardConfirm, setAwardConfirm] = useState(null);
     const [awardDeleting, setAwardDeleting] = useState({});
+    const [bannerFile, setBannerFile] = useState(null);
 
     const [catForm, setCatForm] = useState(EMPTY_CAT);
     const [catEditId, setCatEditId] = useState(null);
@@ -415,9 +425,16 @@ const AwardsTab = ({ showToast, awards, onRefreshAwards }) => {
         e.preventDefault(); if (!awardForm.name.trim()) return;
         setAwardSubmitting(true);
         try {
-            if (awardEditId) { await updateAward(awardEditId, awardForm); showToast('Award updated!', 'success'); }
-            else { await createAward(awardForm); showToast('Award created!', 'success'); }
-            setAwardForm(EMPTY_AWARD); setAwardEditId(null); setShowAwardForm(false); onRefreshAwards();
+            const payload = { ...awardForm, nominations_close_at: awardForm.nominations_close_at || '' };
+            let id = awardEditId;
+            if (awardEditId) { await updateAward(awardEditId, payload); showToast('Award updated!', 'success'); }
+            else { const r = await createAward(payload); id = r.data?.data?.id; showToast('Award created!', 'success'); }
+            if (bannerFile && id) {
+                const fd = new FormData(); fd.append('banner', bannerFile);
+                try { await uploadAwardBanner(id, fd); }
+                catch { showToast('Award saved, but banner upload failed.', 'warning'); }
+            }
+            setAwardForm(EMPTY_AWARD); setAwardEditId(null); setShowAwardForm(false); setBannerFile(null); onRefreshAwards();
         } catch (err) { showToast(getErrorMessage(err), 'error'); }
         finally { setAwardSubmitting(false); }
     };
@@ -478,8 +495,35 @@ const AwardsTab = ({ showToast, awards, onRefreshAwards }) => {
                             <input type="checkbox" id="aw_active" checked={awardForm.is_active} onChange={(e) => setAwardForm((p) => ({ ...p, is_active: e.target.checked }))} style={{ width: '15px', height: '15px' }} />
                             <label htmlFor="aw_active" style={{ ...labelStyle, margin: 0, cursor: 'pointer' }}>Active</label>
                         </div>
+
+                        <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '0.85rem' }}>
+                            <p style={{ margin: '0 0 0.6rem', fontSize: '0.82rem', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Star size={13} color="#D97706" /> Homepage Nomination Carousel
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem' }}>
+                                <input type="checkbox" id="aw_noms_open" checked={awardForm.nominations_open} onChange={(e) => setAwardForm((p) => ({ ...p, nominations_open: e.target.checked }))} style={{ width: '15px', height: '15px' }} />
+                                <label htmlFor="aw_noms_open" style={{ ...labelStyle, margin: 0, cursor: 'pointer' }}>Nominations Open — show this award in the homepage carousel</label>
+                            </div>
+                            <div style={awardFormGrid}>
+                                <div>
+                                    <label style={labelStyle}>Nominations Close On <span style={{ fontWeight: '400', color: '#94A3B8' }}>(optional)</span></label>
+                                    <input type="datetime-local" value={awardForm.nominations_close_at} onChange={(e) => setAwardForm((p) => ({ ...p, nominations_close_at: e.target.value }))} style={inputStyle} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Carousel Banner Image</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>
+                                            <Upload size={13} /> {bannerFile ? 'Change image' : 'Choose image…'}
+                                            <input type="file" accept="image/*" hidden onChange={(e) => setBannerFile(e.target.files?.[0] || null)} />
+                                        </label>
+                                        {bannerFile && <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{bannerFile.name}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', flexWrap: 'wrap' }}>
-                            <button type="button" onClick={() => { setShowAwardForm(false); setAwardEditId(null); setAwardForm(EMPTY_AWARD); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '7px 14px' }}>Cancel</button>
+                            <button type="button" onClick={() => { setShowAwardForm(false); setAwardEditId(null); setAwardForm(EMPTY_AWARD); setBannerFile(null); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '7px 14px' }}>Cancel</button>
                             <button type="submit" disabled={awardSubmitting} style={{ ...IBTN('white', '#003366'), padding: '7px 16px', opacity: awardSubmitting ? 0.6 : 1 }}>
                                 {awardSubmitting ? <Loader2 size={12} style={{ animation: 'an-spin 1s linear infinite' }} /> : <Save size={12} />}
                                 {awardEditId ? 'Update Award' : 'Create Award'}
@@ -497,10 +541,14 @@ const AwardsTab = ({ showToast, awards, onRefreshAwards }) => {
                                 <Trophy size={16} color="#D97706" />
                                 <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1E293B' }}>{aw.name}</span>
                                 <span style={PILL(aw.is_active ? '#15803D' : '#64748B', aw.is_active ? '#F0FDF4' : '#F1F5F9')}>{aw.is_active ? 'Active' : 'Inactive'}</span>
+                                {!!aw.nominations_open && <span style={PILL('#D97706', '#FFFBEB')}>🏆 Carousel Live</span>}
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{(aw.categories || []).length} categories</span>
                             </div>
                             <div style={{ display: 'flex', gap: '5px' }} onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => { setAwardForm({ name: aw.name, description: aw.description || '', is_active: aw.is_active }); setAwardEditId(aw.id); setShowAwardForm(true); }}
+                                <button onClick={() => {
+                                    setAwardForm({ name: aw.name, description: aw.description || '', is_active: aw.is_active, nominations_open: !!aw.nominations_open, nominations_close_at: toDatetimeLocal(aw.nominations_close_at) });
+                                    setAwardEditId(aw.id); setBannerFile(null); setShowAwardForm(true);
+                                }}
                                     style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '4px 8px' }}><Edit2 size={11} /></button>
                                 <button onClick={() => setAwardConfirm({ id: aw.id, name: aw.name })} disabled={awardDeleting[aw.id]}
                                     style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '4px 8px', opacity: awardDeleting[aw.id] ? 0.5 : 1 }}>

@@ -41,6 +41,8 @@ const awardValidation = [
     body('name').trim().notEmpty().withMessage('Award name is required.').isLength({ max: 255 }),
     body('description').optional().trim(),
     body('is_active').optional().isBoolean(),
+    body('nominations_open').optional().isBoolean(),
+    body('nominations_close_at').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid close date.'),
 ];
 
 const categoryValidation = [
@@ -103,6 +105,7 @@ router.post('/pending/:id/reject', ...admin, submissionCtrl.rejectSelfNomination
 router.post('/awards', ...admin, awardValidation, validate, ctrl.createAward);
 router.put('/awards/:id', ...admin, awardValidation, validate, ctrl.updateAward);
 router.delete('/awards/:id', ...admin, ctrl.deleteAward);
+router.post('/awards/:id/banner', ...admin, upload.single('banner'), ctrl.uploadAwardBanner);
 
 // Categories
 router.post('/categories', ...admin, categoryValidation, validate, ctrl.createCategory);

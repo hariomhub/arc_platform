@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Shield, Award, Users, BookOpen, Target, Linkedin, X, User, AlertCircle, RefreshCw, Mail } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { Shield, Award, Users, BookOpen, Target, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { getTeam } from '../api/team.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import TeamCard from '../components/team/TeamCard.jsx';
+import TeamBioModal from '../components/team/TeamBioModal.jsx';
 
 const SkeletonCard = () => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', border: '1px solid #E2E8F0', textAlign: 'center' }}>
@@ -11,50 +14,12 @@ const SkeletonCard = () => (
     </div>
 );
 
-const CATEGORY_META = {
-    permanent: { label: 'Permanent Member', color: '#0284C7', bg: '#EFF6FF' },
-    founding:  { label: 'Founding Member',  color: '#7C3AED', bg: '#FAF5FF' },
-};
-
-const TeamCard = ({ member, onSelect, showCategoryBadge }) => {
-    const [imgError, setImgError] = useState(false);
-    const cat = CATEGORY_META[member.member_category] || CATEGORY_META.founding;
-    return (
-        <div onClick={() => onSelect(member)} role="button" tabIndex={0} aria-label={`View ${member.name}'s bio`}
-            onKeyDown={(e) => e.key === 'Enter' && onSelect(member)}
-            style={{ background: 'white', borderRadius: '12px', padding: '2rem', textAlign: 'center', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08)', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,51,102,0.12)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.08)'; }}>
-            <div style={{ width: '100px', height: '100px', margin: '0 auto 1.25rem', borderRadius: '50%', overflow: 'hidden', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #E2E8F0' }}>
-                {member.photo_url && !imgError ? (
-                    <img src={member.photo_url} alt={member.name} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : <User size={40} color="#CBD5E1" />}
-            </div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1A202C', marginBottom: '0.35rem' }}>{member.name}</h3>
-            <p style={{ color: '#4A5568', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>{member.role}</p>
-            {showCategoryBadge && (
-                <span style={{ display: 'inline-block', fontSize: '0.68rem', fontWeight: '700', color: cat.color, background: cat.bg, padding: '2px 10px', borderRadius: '100px', marginBottom: '0.75rem' }}>{cat.label}</span>
-            )}
-            {member.bio && (
-                <p style={{ color: '#64748B', fontSize: '0.8rem', lineHeight: '1.5', margin: '0 auto 1.25rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {member.bio}
-                </p>
-            )}
-            {member.linkedin_url && (
-                <div style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.82rem' }}>
-                    <Linkedin size={15} /> LinkedIn
-                </div>
-            )}
-        </div>
-    );
-};
-
 // Continuously-scrolling row of member cards. Below MIN_TO_SCROLL, there's
 // too little content for motion to read as intentional — render a static,
 // centered row instead. At or above it, the track is padded up to a minimum
 // card count (by repeating the sequence) so it always fills the row and
 // keeps moving at a consistent speed.
-const MemberMarquee = ({ members, onSelect, showCategoryBadge }) => {
+const MemberMarquee = ({ members, onSelect }) => {
     const CARD_WIDTH = 240;
     const MIN_TRACK_ITEMS = 8;
     const MIN_TO_SCROLL = 3;
@@ -66,7 +31,7 @@ const MemberMarquee = ({ members, onSelect, showCategoryBadge }) => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1.5rem' }} aria-live="polite">
                 {members.map((member) => (
                     <div key={member.id} style={{ width: `${CARD_WIDTH}px`, flexShrink: 0 }}>
-                        <TeamCard member={member} onSelect={onSelect} showCategoryBadge={showCategoryBadge} />
+                        <TeamCard member={member} onSelect={onSelect} />
                     </div>
                 ))}
             </div>
@@ -84,7 +49,7 @@ const MemberMarquee = ({ members, onSelect, showCategoryBadge }) => {
                     <div key={copyIdx} style={{ display: 'flex', gap: '1.5rem', paddingRight: '1.5rem' }} aria-hidden={copyIdx === 1}>
                         {copy.map((member, i) => (
                             <div key={`${member.id}-${copyIdx}-${i}`} style={{ width: `${CARD_WIDTH}px`, flexShrink: 0 }}>
-                                <TeamCard member={member} onSelect={onSelect} showCategoryBadge={showCategoryBadge} />
+                                <TeamCard member={member} onSelect={onSelect} />
                             </div>
                         ))}
                     </div>
@@ -95,61 +60,6 @@ const MemberMarquee = ({ members, onSelect, showCategoryBadge }) => {
                 .member-marquee-track { animation-name: member-marquee-scroll; animation-timing-function: linear; animation-iteration-count: infinite; }
                 .member-marquee:hover .member-marquee-track { animation-play-state: paused; }
             `}</style>
-        </div>
-    );
-};
-
-const BioModal = ({ member, onClose }) => {
-    const [imgError, setImgError] = useState(false);
-    const closeBtnRef = useRef(null);
-    useEffect(() => {
-        closeBtnRef.current?.focus();
-        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [onClose]);
-    return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
-            onClick={onClose} aria-modal="true" role="dialog" aria-label={`${member.name}'s biography`}>
-            <div style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,4vw,2.5rem)', maxWidth: '580px', width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', position: 'relative', maxHeight: '90dvh', overflowY: 'auto' }}
-                onClick={(e) => e.stopPropagation()}>
-                <button ref={closeBtnRef} onClick={onClose} aria-label="Close bio"
-                    style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', padding: '4px' }}>
-                    <X size={22} />
-                </button>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div style={{ width: '110px', height: '110px', borderRadius: '50%', overflow: 'hidden', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #E2E8F0' }}>
-                        {member.photo_url && !imgError ? (
-                            <img src={member.photo_url} alt={member.name} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : <User size={44} color="#CBD5E1" />}
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <h2 style={{ fontSize: 'clamp(1.25rem,4vw,1.6rem)', fontWeight: '800', color: '#1A202C', marginBottom: '4px' }}>{member.name}</h2>
-                        <p style={{ fontSize: '0.95rem', color: '#003366', fontWeight: '600' }}>{member.role}</p>
-                    </div>
-                </div>
-                {member.bio ? (
-                    <div style={{ fontSize: '0.95rem', color: '#4A5568', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>{member.bio}</div>
-                ) : (
-                    <p style={{ color: '#94A3B8', textAlign: 'center', fontStyle: 'italic' }}>No biography available.</p>
-                )}
-                {(member.linkedin_url || member.email) && (
-                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                        {member.email && (
-                            <a href={`mailto:${member.email}`}
-                                style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.95rem' }}>
-                                <Mail size={18} /> Email Contact
-                            </a>
-                        )}
-                        {member.linkedin_url && (
-                            <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer"
-                                style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: '700', fontSize: '0.95rem' }}>
-                                <Linkedin size={18} /> Connect on LinkedIn
-                            </a>
-                        )}
-                    </div>
-                )}
-            </div>
         </div>
     );
 };
@@ -173,12 +83,6 @@ const About = () => {
             if (!signal?.aborted) setTeamLoading(false);
         }
     }, []);
-
-    // Governing Body is a cross-cutting flag — a person can appear there AND
-    // in their base category (a Founding Member who also sits on the board).
-    const governingBody = useMemo(() => team.filter((m) => m.is_governing_body), [team]);
-    const foundingMembers = useMemo(() => team.filter((m) => (m.member_category || 'founding') === 'founding'), [team]);
-    const permanentMembers = useMemo(() => team.filter((m) => m.member_category === 'permanent'), [team]);
 
     useEffect(() => {
         const ctrl = new AbortController();
@@ -288,8 +192,11 @@ const About = () => {
             <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
                 <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Leadership &amp; Contributors</h2>
-                        <p style={{ color: '#64748B', fontSize: '1rem' }}>Meet the people guiding our initiatives</p>
+                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Members</h2>
+                        <p style={{ color: '#64748B', fontSize: '1rem', marginBottom: '0.75rem' }}>Meet the people guiding our initiatives</p>
+                        <Link to="/members" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#003366', fontWeight: '700', fontSize: '0.85rem', textDecoration: 'none' }}>
+                            View All Members <ArrowRight size={14} />
+                        </Link>
                     </div>
 
                     {teamLoading && (
@@ -314,37 +221,12 @@ const About = () => {
                     )}
 
                     {!teamLoading && !teamError && team.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
-                            {foundingMembers.length > 0 && (
-                                <div>
-                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Founding Members</h3>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1.5rem' }} aria-live="polite">
-                                        {foundingMembers.map(member => (
-                                            <div key={`fnd-${member.id}`} style={{ width: '240px', flexShrink: 0 }}>
-                                                <TeamCard member={member} onSelect={setSelectedMember} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {permanentMembers.length > 0 && (
-                                <div>
-                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Permanent Members</h3>
-                                    <MemberMarquee members={permanentMembers} onSelect={setSelectedMember} />
-                                </div>
-                            )}
-                            {governingBody.length > 0 && (
-                                <div>
-                                    <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>Governing Body</h3>
-                                    <MemberMarquee members={governingBody} onSelect={setSelectedMember} showCategoryBadge />
-                                </div>
-                            )}
-                        </div>
+                        <MemberMarquee members={team} onSelect={setSelectedMember} />
                     )}
                 </div>
             </div>
 
-            {selectedMember && <BioModal member={selectedMember} onClose={handleCloseBio} />}
+            {selectedMember && <TeamBioModal member={selectedMember} onClose={handleCloseBio} />}
         </>
     );
 };

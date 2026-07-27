@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import {
     Trophy, Award, CheckCircle, Loader2, AlertCircle, Upload, Linkedin,
@@ -263,6 +263,8 @@ const ConsentBox = ({ checked, onChange, error, submitting }) => (
 const SelfNominate = () => {
     const { user } = useAuth();
     const isMember = Boolean(user);
+    const [searchParams] = useSearchParams();
+    const preselectedAwardId = searchParams.get('award');
 
     const [accessChoice, setAccessChoice] = useState(null); // null | 'guest' — irrelevant once isMember
     const [formStep, setFormStep] = useState(1); // guest flow only: 1 = details, 2 = verify & submit
@@ -271,7 +273,7 @@ const SelfNominate = () => {
     const [awardsLoading, setAwardsLoading] = useState(true);
 
     const [form, setForm] = useState({
-        award_id: '', category_id: '', name: '', designation: '', company: '',
+        award_id: preselectedAwardId || '', category_id: '', name: '', designation: '', company: '',
         linkedin_url: '', achievements: '', description: '', consent_to_terms: false,
         phone: '', submitter_email: '',
     });

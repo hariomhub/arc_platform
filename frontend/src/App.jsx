@@ -12,6 +12,7 @@ import { useAuth } from './hooks/useAuth.js';
 // ─── Lazy page imports ────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home.jsx'));
 const About = lazy(() => import('./pages/About.jsx'));
+const AllMembers = lazy(() => import('./pages/AllMembers.jsx'));
 const Events = lazy(() => import('./pages/Events.jsx'));
 const Services = lazy(() => import('./pages/Services.jsx'));
 const Framework = lazy(() => import('./pages/Framework.jsx'));
@@ -86,6 +87,7 @@ function App() {
               {/* ── Public routes ── */}
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
+              <Route path="/members" element={<AllMembers />} />
               <Route path="/events" element={<Events />} />
               <Route path="/services" element={<Services />} />
               <Route path="/framework" element={<Framework />} />

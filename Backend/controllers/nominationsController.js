@@ -227,10 +227,10 @@ export const getLeaderboard = async (req, res, next) => {
 // ── AWARD CRUD (admin) ────────────────────────────────────────────────────────
 export const createAward = async (req, res, next) => {
     try {
-        const { name, description, is_active = true } = req.body;
+        const { name, description, is_active = true, nominations_open = false, nominations_close_at } = req.body;
         const [r] = await pool.query(
-            `INSERT INTO awards (name, description, is_active) VALUES (?, ?, ?)`,
-            [name.trim(), description?.trim() || null, Boolean(is_active)]
+            `INSERT INTO awards (name, description, is_active, nominations_open, nominations_close_at) VALUES (?, ?, ?, ?, ?)`,
+            [name.trim(), description?.trim() || null, Boolean(is_active), Boolean(nominations_open), nominations_close_at || null]
         );
         const [[row]] = await pool.query(`SELECT * FROM awards WHERE id = ?`, [r.insertId]);
         return res.status(201).json({ success: true, data: row });
@@ -239,13 +239,36 @@ export const createAward = async (req, res, next) => {
 
 export const updateAward = async (req, res, next) => {
     try {
-        const { name, description, is_active } = req.body;
+        const { name, description, is_active, nominations_open = false, nominations_close_at } = req.body;
         await pool.query(
-            `UPDATE awards SET name=?, description=?, is_active=? WHERE id=?`,
-            [name.trim(), description?.trim() || null, Boolean(is_active), req.params.id]
+            `UPDATE awards SET name=?, description=?, is_active=?, nominations_open=?, nominations_close_at=? WHERE id=?`,
+            [name.trim(), description?.trim() || null, Boolean(is_active), Boolean(nominations_open), nominations_close_at || null, req.params.id]
         );
         const [[row]] = await pool.query(`SELECT * FROM awards WHERE id = ?`, [req.params.id]);
         return res.json({ success: true, data: row });
+    } catch (err) { next(err); }
+};
+
+// ── POST /api/nominations/awards/:id/banner  (admin, multipart) ──────────────
+export const uploadAwardBanner = async (req, res, next) => {
+    try {
+        const [[award]] = await pool.query(`SELECT id, banner_image_url FROM awards WHERE id = ?`, [req.params.id]);
+        if (!award) return res.status(404).json({ success: false, message: 'Award not found.' });
+        if (!req.file) return res.status(422).json({ success: false, message: 'No image provided.' });
+
+        await deleteFromBlob(award.banner_image_url);
+
+        const banner_image_url = await uploadToBlob(
+            'awards/banners',
+            req.file.originalname,
+            req.file.buffer,
+            req.file.mimetype
+        );
+
+        await pool.query(`UPDATE awards SET banner_image_url = ? WHERE id = ?`, [banner_image_url, award.id]);
+
+        const [[updated]] = await pool.query(`SELECT * FROM awards WHERE id = ?`, [award.id]);
+        return res.json({ success: true, data: updated });
     } catch (err) { next(err); }
 };
 

@@ -4,7 +4,7 @@ import {
     Globe, ChevronLeft, ChevronRight, X, ArrowRight,
     Calendar, MapPin, CheckCircle, Lock, AlertCircle,
     RefreshCw, Users, BookOpen, Zap, Star,
-    Volume2, VolumeX, Play, Pause
+    Volume2, VolumeX, Play, Pause, Trophy
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -12,6 +12,7 @@ import { useModal } from '../hooks/useModal.js';
 import { getNews } from '../api/news.js';
 import { getEvents } from '../api/events.js';
 import { getRecentVideos, getVideoStreamUrl } from '../api/resources.js';
+import { getAwards } from '../api/nominations.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import UpgradeModal from '../components/modals/UpgradeModal.jsx';
 import { EventDetailModal } from './Events.jsx';
@@ -524,6 +525,138 @@ const HeroVideoCarousel = ({ videos, viewAllHref }) => {
 };
 
 
+// ─── Nomination carousel — only renders once at least one award is marked
+// "nominations open" by an admin; otherwise nothing is shown at all. ─────────
+const NominationCarousel = () => {
+    const [awards, setAwards] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [activeIdx, setActiveIdx] = useState(0);
+    const [paused, setPaused] = useState(false);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        getAwards()
+            .then((res) => {
+                if (cancelled) return;
+                const open = (res.data?.data || []).filter((a) => a.is_active && a.nominations_open);
+                setAwards(open);
+            })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, []);
+
+    const goNext = () => setActiveIdx((i) => (i + 1) % awards.length);
+
+    useEffect(() => {
+        if (paused || awards.length < 2) return;
+        timerRef.current = setInterval(goNext, 2200);
+        return () => clearInterval(timerRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [paused, awards.length, activeIdx]);
+
+    if (loading || awards.length === 0) return null;
+
+    const renderSlide = (award) => {
+        const deadline = award.nominations_close_at
+            ? new Date(award.nominations_close_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+            : null;
+        const countdown = getCountdown(award.nominations_close_at);
+        return (
+            <div className="nom-carousel-slide" key={award.id}>
+                <div className="nom-carousel-content">
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '100px', padding: '4px 12px', marginBottom: '0.5rem', width: 'fit-content' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80', flexShrink: 0 }} />
+                        <span style={{ color: '#DCFCE7', fontSize: '0.66rem', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Nominations Open</span>
+                    </div>
+                    <h2 style={{ color: 'white', fontSize: 'clamp(1.3rem,3vw,1.9rem)', fontWeight: '800', margin: '0 0 0.4rem', lineHeight: 1.22, letterSpacing: '-0.01em', maxWidth: '380px' }}>{award.name}</h2>
+                    {award.description && (
+                        <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.92rem', lineHeight: 1.5, margin: '0 0 0.9rem', maxWidth: '380px' }}>
+                            {award.description}
+                        </p>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+                        <Link to={`/self-nominate?award=${award.id}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg,#F59E0B,#D97706)', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '9px', fontWeight: '700', fontSize: '0.85rem', textDecoration: 'none', boxShadow: '0 4px 14px rgba(217,119,6,0.35)' }}>
+                            Nominate Now <ArrowRight size={13} />
+                        </Link>
+                        {deadline && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem' }}>
+                                <Calendar size={12} /> Closes {deadline}{countdown ? ` · ${countdown}` : ''}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="nom-carousel-image">
+                    {award.banner_image_url ? (
+                        <Link to={`/self-nominate?award=${award.id}`} className="nom-carousel-img-link" aria-label={`Nominate for ${award.name}`}>
+                            <img src={award.banner_image_url} alt={award.name} className="nom-carousel-img" />
+                        </Link>
+                    ) : (
+                        <Trophy size={44} color="rgba(255,255,255,0.15)" strokeWidth={1.5} />
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <section style={{ background: '#0B1220', padding: 'clamp(1rem,2.5vw,1.5rem) clamp(1rem,4vw,3rem)' }}
+            onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+            <style>{`
+                .nom-carousel-card { position: relative; border-radius: 16px; overflow: hidden; background: #0B1220; box-shadow: 0 16px 40px rgba(0,10,30,0.35); }
+                .nom-carousel-viewport { overflow: hidden; width: 100%; }
+                .nom-carousel-track { display: flex; transition: transform 0.5s cubic-bezier(0.65,0,0.35,1); }
+                /* Each slide's width comes from the inline style (100 / awards.length) — flex-shrink:0 just
+                   stops it collapsing; no flex-basis/min-width here so it doesn't fight that inline width. */
+                .nom-carousel-slide-wrap { flex-shrink: 0; }
+                /* min-height is a floor for the text side (never clips it) — the image is capped
+                   independently via its own explicit max-height, so its aspect ratio can no longer
+                   stretch the whole card taller than intended (that was the actual bug before). */
+                .nom-carousel-slide { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.35fr); align-items: center; min-height: clamp(210px,27vw,260px); background: linear-gradient(115deg,#001a33 0%,#003366 48%,#0055A4 100%); }
+                .nom-carousel-content { padding: clamp(1rem,2.2vw,1.4rem) clamp(1.25rem,3vw,1.85rem); min-width: 0; }
+                .nom-carousel-image { display: flex; align-items: center; justify-content: center; padding: clamp(0.75rem,1.8vw,1.1rem); box-sizing: border-box; min-width: 0; overflow: hidden; height: 100%; }
+                .nom-carousel-img-link { display: block; line-height: 0; border-radius: 10px; }
+                /* max-height is an absolute clamp(), not a %, so it caps the image on its own —
+                   no reliance on a parent's computed height (which is what broke last time). */
+                .nom-carousel-img { display: block; width: auto; height: auto; max-width: 100%; max-height: clamp(190px,25vw,240px); object-fit: contain; border-radius: 10px; box-shadow: 0 0 0 0 rgba(245,158,11,0); transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; cursor: pointer; }
+                .nom-carousel-img-link:hover .nom-carousel-img { transform: scale(1.04); box-shadow: 0 8px 28px rgba(245,158,11,0.28), 0 0 0 2px rgba(245,158,11,0.55); filter: brightness(1.06); }
+                @media (max-width: 760px) {
+                    .nom-carousel-slide { grid-template-columns: 1fr; min-height: 0; }
+                    .nom-carousel-content h2, .nom-carousel-content p { max-width: none !important; }
+                    .nom-carousel-image { min-height: 190px; height: auto; }
+                    .nom-carousel-img { max-height: 190px; }
+                    .nom-carousel-img { max-height: 140px; }
+                }
+            `}</style>
+            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                <div className="nom-carousel-card">
+                    <div className="nom-carousel-viewport">
+                        <div className="nom-carousel-track" style={{ width: `${awards.length * 100}%`, transform: `translateX(-${(100 / awards.length) * activeIdx}%)` }}>
+                            {awards.map((a) => (
+                                <div key={a.id} className="nom-carousel-slide-wrap" style={{ width: `${100 / awards.length}%` }}>
+                                    {renderSlide(a)}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {awards.length > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', padding: '0.55rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                            {awards.map((a, i) => (
+                                <button key={a.id} onClick={() => setActiveIdx(i)} aria-label={`Show ${a.name}`}
+                                    style={{ width: i === activeIdx ? '20px' : '7px', height: '7px', borderRadius: '100px', border: 'none', background: i === activeIdx ? '#F59E0B' : 'rgba(255,255,255,0.25)', cursor: 'pointer', transition: 'all 0.25s', padding: 0 }} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </section>
+    );
+};
+
 // ─── Shared section label ─────────────────────────────────────────────────────
 const SectionLabel = ({ children }) => (
     <span style={{ display: 'inline-block', background: '#EFF6FF', color: '#003366', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '100px', marginBottom: '1rem' }}>
@@ -973,6 +1106,8 @@ const Home = () => {
                     </div>
                 </div>
             </section>
+
+            <NominationCarousel />
 
             {/* ══════════════════════════════════════════════════════════════
                 2. STATS BAR
