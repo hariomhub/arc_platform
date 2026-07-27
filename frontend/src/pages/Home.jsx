@@ -617,18 +617,20 @@ const NominationCarousel = () => {
                    stretch the whole card taller than intended (that was the actual bug before). */
                 .nom-carousel-slide { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.35fr); align-items: center; min-height: clamp(210px,27vw,260px); background: linear-gradient(115deg,#001a33 0%,#003366 48%,#0055A4 100%); }
                 .nom-carousel-content { padding: clamp(1rem,2.2vw,1.4rem) clamp(1.25rem,3vw,1.85rem); min-width: 0; }
-                .nom-carousel-image { display: flex; align-items: center; justify-content: center; padding: clamp(0.75rem,1.8vw,1.1rem); box-sizing: border-box; min-width: 0; overflow: hidden; height: 100%; }
-                .nom-carousel-img-link { display: block; line-height: 0; border-radius: 10px; }
+                .nom-carousel-image { display: flex; align-items: center; justify-content: center; padding: clamp(0.75rem,1.8vw,1.1rem) clamp(0.4rem,1vw,0.6rem) clamp(0.75rem,1.8vw,1.1rem) clamp(0.5rem,1.2vw,0.75rem); box-sizing: border-box; min-width: 0; overflow: hidden; height: 100%; }
+                /* display:contents removes the <Link> from the box model entirely (it's only there
+                   for click-through) so .nom-carousel-img is once again the direct flex child that
+                   gets centered — a wrapping block element here was throwing off the centering. */
+                .nom-carousel-img-link { display: contents; }
                 /* max-height is an absolute clamp(), not a %, so it caps the image on its own —
                    no reliance on a parent's computed height (which is what broke last time). */
-                .nom-carousel-img { display: block; width: auto; height: auto; max-width: 100%; max-height: clamp(190px,25vw,240px); object-fit: contain; border-radius: 10px; box-shadow: 0 0 0 0 rgba(245,158,11,0); transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; cursor: pointer; }
-                .nom-carousel-img-link:hover .nom-carousel-img { transform: scale(1.04); box-shadow: 0 8px 28px rgba(245,158,11,0.28), 0 0 0 2px rgba(245,158,11,0.55); filter: brightness(1.06); }
+                .nom-carousel-img { display: block; width: auto; height: auto; max-width: 100%; max-height: clamp(190px,25vw,240px); object-fit: contain; border-radius: 10px; box-shadow: 0 0 0 2px rgba(245,158,11,0.4); transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; cursor: pointer; }
+                .nom-carousel-img-link:hover .nom-carousel-img { transform: scale(1.04); box-shadow: 0 8px 28px rgba(245,158,11,0.28), 0 0 0 2px rgba(245,158,11,0.75); filter: brightness(1.06); }
                 @media (max-width: 760px) {
                     .nom-carousel-slide { grid-template-columns: 1fr; min-height: 0; }
                     .nom-carousel-content h2, .nom-carousel-content p { max-width: none !important; }
-                    .nom-carousel-image { min-height: 190px; height: auto; }
+                    .nom-carousel-image { min-height: 190px; height: auto; padding: 0.75rem; }
                     .nom-carousel-img { max-height: 190px; }
-                    .nom-carousel-img { max-height: 140px; }
                 }
             `}</style>
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
