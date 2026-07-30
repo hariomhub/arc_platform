@@ -13,7 +13,7 @@ import {
     FileText, Trash2, AlertCircle, Loader2, RefreshCw,
     Upload, ShieldCheck, ArrowLeft, CheckCircle2,
     Bookmark, BookmarkX, ExternalLink, Linkedin,
-    BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp,
+    BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp, Settings
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -30,28 +30,28 @@ import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
 const ROLE_LABELS = {
     founding_member: 'Founding Member',
-    council_member:  'Chapter Lead',
-    executive:       'Chapter Lead',   // legacy safety
-    professional:    'Professional',
+    council_member: 'Chapter Lead',
+    executive: 'Chapter Lead',   // legacy safety
+    professional: 'Professional',
 };
 const ROLE_COLORS = {
     founding_member: '#7C3AED',
-    council_member:  '#003366',
-    executive:       '#003366',
-    professional:    '#0369A1',
+    council_member: '#003366',
+    executive: '#003366',
+    professional: '#0369A1',
 };
 const ROLE_BG = {
     founding_member: 'rgba(124,58,237,0.1)',
-    council_member:  'rgba(0,51,102,0.09)',
-    executive:       'rgba(0,51,102,0.09)',
-    professional:    'rgba(3,105,161,0.09)',
+    council_member: 'rgba(0,51,102,0.09)',
+    executive: 'rgba(0,51,102,0.09)',
+    professional: 'rgba(3,105,161,0.09)',
 };
 
 const Field = ({ label, hint, error, children }) => (
     <div style={{ marginBottom: '1.25rem' }}>
         <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{label}</label>
         {children}
-        {hint  && !error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>{hint}</p>}
+        {hint && !error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>{hint}</p>}
         {error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={11} />{error}</p>}
     </div>
 );
@@ -93,23 +93,23 @@ const SaveBtn = ({ loading, label = 'Save Changes', loadingLabel = 'Saving…', 
 
 // ─── Profile Info ─────────────────────────────────────────────────────────────
 const ProfileInfoSection = ({ user, showToast }) => {
-    const [form, setForm]     = useState({ 
-        name: user?.name || '', 
+    const [form, setForm] = useState({
+        name: user?.name || '',
         organization_name: user?.organization_name || '',
         linkedin_url: user?.linkedin_url || '',
         bio: user?.bio || ''
     });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const [saved, setSaved]   = useState(false);
+    const [saved, setSaved] = useState(false);
 
-    useEffect(() => { 
-        setForm({ 
-            name: user?.name || '', 
+    useEffect(() => {
+        setForm({
+            name: user?.name || '',
             organization_name: user?.organization_name || '',
             linkedin_url: user?.linkedin_url || '',
             bio: user?.bio || ''
-        }); 
+        });
     }, [user]);
 
     const validate = () => {
@@ -202,9 +202,9 @@ const ProfileInfoSection = ({ user, showToast }) => {
 
 // ─── Change Password ──────────────────────────────────────────────────────────
 const ChangePasswordSection = ({ showToast }) => {
-    const [form, setForm]     = useState({ current_password: '', new_password: '', confirm_password: '' });
+    const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
     const [errors, setErrors] = useState({});
-    const [show, setShow]     = useState({ current: false, new: false, confirm: false });
+    const [show, setShow] = useState({ current: false, new: false, confirm: false });
     const [loading, setLoading] = useState(false);
 
     const validate = () => {
@@ -254,7 +254,7 @@ const ChangePasswordSection = ({ showToast }) => {
             <SectionHeader icon={ShieldCheck} title="Change Password" subtitle="Use a strong password of at least 8 characters" accent="#7C3AED" />
             <form onSubmit={handleSubmit} noValidate>
                 <PwInput field="current_password" label="Current Password" showKey="current" />
-                <PwInput field="new_password"     label="New Password"     showKey="new" />
+                <PwInput field="new_password" label="New Password" showKey="new" />
                 <PwInput field="confirm_password" label="Confirm New Password" showKey="confirm" />
                 <SaveBtn loading={loading} label="Update Password" loadingLabel="Updating…" icon={Lock} />
             </form>
@@ -265,10 +265,10 @@ const ChangePasswordSection = ({ showToast }) => {
 // ─── My Uploads ───────────────────────────────────────────────────────────────
 const MyUploadsSection = ({ showToast, navigate }) => {
     const [resources, setResources] = useState([]);
-    const [loading, setLoading]     = useState(true);
-    const [error, setError]         = useState('');
-    const [confirm, setConfirm]     = useState(null);
-    const [deleting, setDeleting]   = useState({});
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [confirm, setConfirm] = useState(null);
+    const [deleting, setDeleting] = useState({});
 
     const fetchMyResources = useCallback(async () => {
         setLoading(true); setError('');
@@ -306,7 +306,7 @@ const MyUploadsSection = ({ showToast, navigate }) => {
 
             {loading && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {[1,2,3].map(i => <div key={i} style={{ height: '62px', background: '#F1F5F9', borderRadius: '10px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
+                    {[1, 2, 3].map(i => <div key={i} style={{ height: '62px', background: '#F1F5F9', borderRadius: '10px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
                 </div>
             )}
 
@@ -370,12 +370,12 @@ const MyUploadsSection = ({ showToast, navigate }) => {
 
 // ─── Saved Posts ──────────────────────────────────────────────────────────────
 const SavedPostsSection = ({ showToast }) => {
-    const [posts,     setPosts]     = useState([]);
-    const [loading,   setLoading]   = useState(true);
-    const [error,     setError]     = useState('');
+    const [posts, setPosts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [saveLimit, setSaveLimit] = useState(10);
-    const [unsaving,  setUnsaving]  = useState({});
-    const [confirm,   setConfirm]   = useState(null);
+    const [unsaving, setUnsaving] = useState({});
+    const [confirm, setConfirm] = useState(null);
 
     const fetchSaved = useCallback(async () => {
         setLoading(true); setError('');
@@ -410,7 +410,7 @@ const SavedPostsSection = ({ showToast }) => {
     };
 
     const usedSlots = posts.length;
-    const pct       = Math.round((usedSlots / saveLimit) * 100);
+    const pct = Math.round((usedSlots / saveLimit) * 100);
 
     return (
         <Card>
@@ -432,7 +432,7 @@ const SavedPostsSection = ({ showToast }) => {
 
             {loading && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {[1,2,3].map(i => <div key={i} style={{ height: '80px', background: '#F1F5F9', borderRadius: '12px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
+                    {[1, 2, 3].map(i => <div key={i} style={{ height: '80px', background: '#F1F5F9', borderRadius: '12px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
                 </div>
             )}
 
@@ -517,19 +517,65 @@ const SavedPostsSection = ({ showToast }) => {
 
 
 
+// ─── Settings Section ──────────────────────────────────────────────────────────
+const SettingsSection = ({ navigate }) => {
+    const [emailNotifications, setEmailNotifications] = useState(true);
+    const [weeklyDigest, setWeeklyDigest] = useState(true);
+
+    return (
+        <Card>
+            <SectionHeader icon={Settings} title="Account Settings" subtitle="Manage notifications, preferences, and account deletion" accent="#003366" />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Notification Preferences */}
+                <div>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Notification Preferences</h3>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', color: '#475569' }}>
+                            <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#003366' }} />
+                            Receive email notifications for upcoming events and workshops
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', color: '#475569' }}>
+                            <input type="checkbox" checked={weeklyDigest} onChange={(e) => setWeeklyDigest(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#003366' }} />
+                            Receive weekly digest of new community posts
+                        </label>
+                    </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Danger Zone</h3>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ flex: '1', minWidth: '240px' }}>
+                            <p style={{ margin: '0 0 4px', fontWeight: '700', fontSize: '0.875rem', color: '#991B1B' }}>Delete Account</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#B91C1C', lineHeight: 1.5 }}>
+                                Permanently delete your Risk AI Council account and all associated data. This action is irreversible.
+                            </p>
+                        </div>
+                        <button onClick={() => navigate('/delete-account')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#DC2626', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'background 0.15s' }}>
+                            <Trash2 size={13} /> Delete Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
 // ─── Profile Page ─────────────────────────────────────────────────────────────
 const Profile = () => {
-    const navigate      = useNavigate();
-    const { user }      = useAuth();
+    const navigate = useNavigate();
+    const { user } = useAuth();
     const { showToast } = useToast();
-    const [profile, setProfile]               = useState(null);
+    const [profile, setProfile] = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
-    const [profileError, setProfileError]     = useState('');
-    const [activeTab, setActiveTab]           = useState('info');
+    const [profileError, setProfileError] = useState('');
+    const [activeTab, setActiveTab] = useState('info');
 
     useEffect(() => { document.title = 'My Profile | AI Risk Council'; }, []);
     useEffect(() => { if (!user) navigate('/login'); }, [user, navigate]);
-    
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('linkedin_connected') === 'true') {
@@ -553,16 +599,17 @@ const Profile = () => {
     if (!user) return null;
 
     const roleColor = ROLE_COLORS[user.role] || '#64748B';
-    const roleLabel = ROLE_LABELS[user.role]  || user.role;
-    const initial   = user.name?.charAt(0).toUpperCase() || '?';
+    const roleLabel = ROLE_LABELS[user.role] || user.role;
+    const initial = user.name?.charAt(0).toUpperCase() || '?';
 
-    const canPost = ['founding_member','council_member'].includes(user.role);
+    const canPost = ['founding_member', 'council_member'].includes(user.role);
 
     const TABS = [
-        { key: 'info',     label: 'Profile Info', icon: User,         show: true   },
-        { key: 'password', label: 'Password',     icon: ShieldCheck,  show: true   },
-        { key: 'uploads',  label: 'My Uploads',   icon: FileText,     show: canPost },
-        { key: 'saved',    label: 'Saved Posts',  icon: Bookmark,     show: true   },
+        { key: 'info', label: 'Profile Info', icon: User, show: true },
+        { key: 'password', label: 'Password', icon: ShieldCheck, show: true },
+        { key: 'uploads', label: 'My Uploads', icon: FileText, show: canPost },
+        { key: 'saved', label: 'Saved Posts', icon: Bookmark, show: true },
+        { key: 'settings', label: 'Settings', icon: Settings, show: true },
     ].filter(t => t.show);
 
     return (
@@ -598,44 +645,44 @@ const Profile = () => {
 
                 {/* Hero */}
                 <div style={{ background: 'linear-gradient(135deg,#001a33 0%,#003366 60%,#004d99 100%)', padding: 'clamp(1.25rem,4vw,2.5rem) clamp(1rem,4vw,2rem) clamp(2.5rem,4.5vw,3rem)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position:'absolute', top:'-60px', right:'-60px', width:'220px', height:'220px', borderRadius:'50%', background:'rgba(255,255,255,0.04)' }}/>
-                    <div style={{ position:'absolute', bottom:'-40px', left:'10%', width:'160px', height:'160px', borderRadius:'50%', background:'rgba(255,255,255,0.03)' }}/>
-                    <div style={{ maxWidth:'800px', margin:'0 auto', position:'relative', zIndex:1 }}>
+                    <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+                    <div style={{ position: 'absolute', bottom: '-40px', left: '10%', width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+                    <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                         <button onClick={() => navigate('/user/dashboard')}
-                            style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)', padding:'0.4rem 0.85rem', borderRadius:'7px', fontSize:'0.78rem', fontWeight:'600', cursor:'pointer', fontFamily:'var(--font-sans)', marginBottom:'1.25rem' }}>
-                            <ArrowLeft size={13}/> Back to Dashboard
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', padding: '0.4rem 0.85rem', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font-sans)', marginBottom: '1.25rem' }}>
+                            <ArrowLeft size={13} /> Back to Dashboard
                         </button>
-                        <div style={{ display:'flex', alignItems:'flex-start', gap:'clamp(0.75rem,2vw,1.25rem)' }}>
-                            <div style={{ width:'clamp(52px,8vw,68px)', height:'clamp(52px,8vw,68px)', borderRadius:'50%', background:'rgba(255,255,255,0.15)', border:'2.5px solid rgba(255,255,255,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'clamp(1.25rem,3vw,1.6rem)', fontWeight:'800', color:'white', flexShrink:0 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'clamp(0.75rem,2vw,1.25rem)' }}>
+                            <div style={{ width: 'clamp(52px,8vw,68px)', height: 'clamp(52px,8vw,68px)', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '2.5px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(1.25rem,3vw,1.6rem)', fontWeight: '800', color: 'white', flexShrink: 0 }}>
                                 {initial}
                             </div>
-                            <div style={{ minWidth:0, flex:1 }}>
-                                <h1 style={{ margin:'0 0 8px', fontSize:'clamp(1.1rem,3vw,1.75rem)', fontWeight:'800', color:'white', lineHeight:1.2, wordBreak:'break-word' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                                <h1 style={{ margin: '0 0 8px', fontSize: 'clamp(1.1rem,3vw,1.75rem)', fontWeight: '800', color: 'white', lineHeight: 1.2, wordBreak: 'break-word' }}>
                                     {user.name}
                                 </h1>
-                                <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
-                                    <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', alignItems:'center' }}>
-                                        <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.72rem', fontWeight:'800', color:roleColor, background:'rgba(255,255,255,0.95)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                        <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '800', color: roleColor, background: 'rgba(255,255,255,0.95)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                                             {roleLabel}
                                         </span>
                                         {user.role === 'professional' && user.professional_sub_type && (
-                                            <span style={{ display:'inline-block', padding:'3px 12px', borderRadius:'100px', fontSize:'0.68rem', fontWeight:'700', color:'white', background:'rgba(255,255,255,0.18)', border:'1px solid rgba(255,255,255,0.25)' }}>
+                                            <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: '100px', fontSize: '0.68rem', fontWeight: '700', color: 'white', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.25)' }}>
                                                 {user.professional_sub_type === 'working_professional' ? '💼 Working Professional' : '🎓 Final Year Undergraduate'}
                                             </span>
                                         )}
                                         {(user.profile_badge || profile?.profile_badge) && (
-                                            <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'3px 10px', borderRadius:'100px', fontSize:'0.68rem', fontWeight:'700', background:'rgba(253,224,71,0.2)', color:'#FDE047', border:'1px solid rgba(253,224,71,0.35)' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '100px', fontSize: '0.68rem', fontWeight: '700', background: 'rgba(253,224,71,0.2)', color: '#FDE047', border: '1px solid rgba(253,224,71,0.35)' }}>
                                                 🏅 {user.profile_badge || profile?.profile_badge}
                                             </span>
                                         )}
                                     </div>
                                     {user.organisation && (
-                                        <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem', color:'rgba(255,255,255,0.7)' }}>
-                                            <Building2 size={12}/> {user.organisation}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
+                                            <Building2 size={12} /> {user.organisation}
                                         </span>
                                     )}
                                     {!loadingProfile && profile?.created_at && (
-                                        <span style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)' }}>
+                                        <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
                                             Member since {formatDate(profile.created_at)}
                                         </span>
                                     )}
@@ -646,13 +693,13 @@ const Profile = () => {
                 </div>
 
                 {/* Main */}
-                <div style={{ maxWidth:'800px', margin:'-2rem auto 0', padding:'0 clamp(0.75rem,3vw,1.5rem) 4rem', position:'relative', zIndex:1 }}>
+                <div style={{ maxWidth: '800px', margin: '-2rem auto 0', padding: '0 clamp(0.75rem,3vw,1.5rem) 4rem', position: 'relative', zIndex: 1 }}>
 
                     {profileError && (
-                        <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:'10px', padding:'0.75rem 1rem', marginBottom:'1.25rem', color:'#DC2626', fontSize:'0.875rem', flexWrap:'wrap' }}>
-                            <AlertCircle size={15} style={{ flexShrink:0 }}/> {profileError}
-                            <button onClick={fetchProfile} style={{ marginLeft:'auto', background:'none', border:'none', color:'#DC2626', cursor:'pointer', fontWeight:'700', fontSize:'0.78rem', fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:'4px' }}>
-                                <RefreshCw size={11}/> Retry
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#DC2626', fontSize: '0.875rem', flexWrap: 'wrap' }}>
+                            <AlertCircle size={15} style={{ flexShrink: 0 }} /> {profileError}
+                            <button onClick={fetchProfile} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontWeight: '700', fontSize: '0.78rem', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <RefreshCw size={11} /> Retry
                             </button>
                         </div>
                     )}
@@ -664,16 +711,17 @@ const Profile = () => {
                                 onClick={() => setActiveTab(key)}
                                 className="profile-tab-btn"
                                 style={{ background: activeTab === key ? '#003366' : 'transparent', color: activeTab === key ? 'white' : '#64748B' }}>
-                                <Icon size={14}/>
+                                <Icon size={14} />
                                 <span className="profile-tab-label">{label}</span>
                             </button>
                         ))}
                     </div>
 
-                    {activeTab === 'info'     && <ProfileInfoSection    user={profile || user} showToast={showToast} />}
+                    {activeTab === 'info' && <ProfileInfoSection user={profile || user} showToast={showToast} />}
                     {activeTab === 'password' && <ChangePasswordSection showToast={showToast} />}
-                    {activeTab === 'uploads'  && <MyUploadsSection      showToast={showToast} navigate={navigate} />}
-                    {activeTab === 'saved'    && <SavedPostsSection     showToast={showToast} />}
+                    {activeTab === 'uploads' && <MyUploadsSection showToast={showToast} navigate={navigate} />}
+                    {activeTab === 'saved' && <SavedPostsSection showToast={showToast} />}
+                    {activeTab === 'settings' && <SettingsSection navigate={navigate} />}
                 </div>
             </div>
         </>

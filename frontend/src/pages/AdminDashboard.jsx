@@ -6,7 +6,7 @@ import {
     Search, Loader2, UserX, UserCheck, ChevronDown,
     Plus, Trash2, FileText, Edit2, Save, ShieldCheck,
     Image, Video, Eye, Upload, Star, Trophy, Newspaper,
-    BookOpen, Mic2, MapPin, Linkedin, Globe,
+    BookOpen, Mic2, MapPin, Linkedin, Globe, AlertTriangle
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
+import { getAdminDeletionRequests, approveAdminDeletionRequest, rejectAdminDeletionRequest } from '../api/accountDeletion.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
 import { getTeam, createTeamMember, updateTeamMember, deleteTeamMember } from '../api/team.js';
@@ -30,22 +31,23 @@ import CategoryCombobox from '../components/common/CategoryCombobox.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = [
-    { key: 'pending',           label: 'Member Approvals',    icon: Clock },
-    { key: 'pending_resources', label: 'Pending Resources',   icon: FileText },
-    { key: 'news',              label: 'Manage News',         icon: FileText },
-    { key: 'auto_news',         label: 'Automated News',      icon: Newspaper },
-    { key: 'events',            label: 'Manage Events',       icon: CalendarDays },
-    { key: 'workshops',         label: 'Exec Workshops',      icon: BookOpen },
-    { key: 'team',              label: 'Manage Team',         icon: Users },
-    { key: 'resources',         label: 'Manage Resources',    icon: FileText },
-    { key: 'product_reviews',   label: 'Product Reviews',     icon: ShieldCheck },
-    { key: 'nominations',       label: 'Nominations',         icon: Trophy },
-    { key: 'framework',         label: 'Framework Content',   icon: Shield },
+    { key: 'pending', label: 'Member Approvals', icon: Clock },
+    { key: 'pending_resources', label: 'Pending Resources', icon: FileText },
+    { key: 'deletion_requests', label: 'Account Deletion', icon: Trash2 },
+    { key: 'news', label: 'Manage News', icon: FileText },
+    { key: 'auto_news', label: 'Automated News', icon: Newspaper },
+    { key: 'events', label: 'Manage Events', icon: CalendarDays },
+    { key: 'workshops', label: 'Exec Workshops', icon: BookOpen },
+    { key: 'team', label: 'Manage Team', icon: Users },
+    { key: 'resources', label: 'Manage Resources', icon: FileText },
+    { key: 'product_reviews', label: 'Product Reviews', icon: ShieldCheck },
+    { key: 'nominations', label: 'Nominations', icon: Trophy },
+    { key: 'framework', label: 'Framework Content', icon: Shield },
 ];
 
 const ROLE_OPTIONS = ['founding_member', 'council_member', 'professional'];
-const ROLE_LABELS  = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
-const ROLE_COLORS  = { founding_member: '#7C3AED', council_member: '#0284C7', professional: '#059669' };
+const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
+const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#0284C7', professional: '#059669' };
 const EVENT_CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast', 'conference'];
 const CATCOLORS = { webinar: '#0284C7', seminar: '#059669', workshop: '#7C3AED', podcast: '#DC2626', conference: '#D97706' };
 
@@ -113,9 +115,9 @@ const TableWrapper = ({ children, headers }) => (
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const BTN_PRIMARY = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#001f3f', color: 'white', border: '1px solid #003060', padding: '8px 16px', borderRadius: '7px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
-const BTN_CANCEL  = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0', padding: '8px 16px', borderRadius: '7px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
-const BTN_WARN    = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', padding: '6px 12px', borderRadius: '7px', fontWeight: '600', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' };
-const BTN_DANGER  = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '6px 12px', borderRadius: '7px', fontWeight: '600', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' };
+const BTN_CANCEL = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0', padding: '8px 16px', borderRadius: '7px', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
+const BTN_WARN = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', padding: '6px 12px', borderRadius: '7px', fontWeight: '600', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' };
+const BTN_DANGER = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '6px 12px', borderRadius: '7px', fontWeight: '600', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' };
 const BTN_SUCCESS = { display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', padding: '6px 12px', borderRadius: '7px', fontWeight: '600', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' };
 
 // SectionHeader — wraps action button below title on narrow screens
@@ -144,6 +146,250 @@ const FormField = ({ label, required, error, children }) => (
     </div>
 );
 
+// ─── Account Deletion Requests Tab ───────────────────────────────────────────
+const STATUS_PILL = {
+    Pending: { bg: '#FEF3C7', color: '#92400E' },
+    Approved: { bg: '#D1FAE5', color: '#065F46' },
+    Rejected: { bg: '#FEE2E2', color: '#991B1B' },
+    Completed: { bg: '#D1FAE5', color: '#065F46' },
+};
+const DeletionRequestsTab = ({ showToast }) => {
+    const [requests, setRequests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [statusFilter, setStatusFilter] = useState('Pending');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+
+    // Modals
+    const [viewModal, setViewModal] = useState(null);
+    const [approveModal, setApproveModal] = useState(null);
+    const [rejectModal, setRejectModal] = useState(null);
+    const [rejectNotes, setRejectNotes] = useState('');
+    const [actioning, setActioning] = useState(false);
+
+    const load = useCallback(async () => {
+        setLoading(true); setError('');
+        try {
+            const res = await getAdminDeletionRequests({ status: statusFilter || undefined, search: search || undefined, page, limit: 20 });
+            setRequests(Array.isArray(res.data?.data) ? res.data.data : []);
+            setTotalPages(res.data?.totalPages || 1);
+            setTotal(res.data?.total || 0);
+        } catch (err) {
+            setError(getErrorMessage(err) || 'Failed to load deletion requests.');
+        } finally {
+            setLoading(false);
+        }
+    }, [statusFilter, search, page]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleApprove = async () => {
+        if (!approveModal) return;
+        setActioning(true);
+        try {
+            await approveAdminDeletionRequest(approveModal.id);
+            showToast('Account permanently deleted and data removed.', 'success');
+            setApproveModal(null);
+            load();
+        } catch (err) {
+            showToast(getErrorMessage(err) || 'Failed to approve request.', 'error');
+        } finally {
+            setActioning(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!rejectModal || !rejectNotes.trim()) return;
+        setActioning(true);
+        try {
+            await rejectAdminDeletionRequest(rejectModal.id, rejectNotes.trim());
+            showToast('Request rejected. User account has been reactivated.', 'success');
+            setRejectModal(null); setRejectNotes('');
+            load();
+        } catch (err) {
+            showToast(getErrorMessage(err) || 'Failed to reject request.', 'error');
+        } finally {
+            setActioning(false);
+        }
+    };
+
+    const ROLE_LABEL = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <SectionHeader
+                icon={Trash2}
+                title="Account Deletion Requests"
+                subtitle={`${total} total request${total !== 1 ? 's' : ''}`}
+            />
+
+            {/* Filters */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                    <input
+                        className="adm-input"
+                        style={{ paddingLeft: '32px' }}
+                        placeholder="Search by name or email…"
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
+                    />
+                </div>
+                <select
+                    className="adm-input"
+                    style={{ width: 'auto', minWidth: '140px' }}
+                    value={statusFilter}
+                    onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+                >
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                <button style={BTN_CANCEL} onClick={load}><RefreshCw size={13} /> Refresh</button>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+                <TableWrapper headers={['User', 'Email', 'Membership', 'Request Date', 'Status', 'Reason', 'Actions']}>
+                    {[...Array(5)].map((_, i) => <SkeletonRow key={i} cols={7} />)}
+                </TableWrapper>
+            ) : error ? (
+                <ErrorState message={error} onRetry={load} />
+            ) : requests.length === 0 ? (
+                <EmptyState icon={Trash2} message="No deletion requests found." />
+            ) : (
+                <TableWrapper headers={['User', 'Email', 'Membership', 'Request Date', 'Status', 'Reason', 'Actions']}>
+                    {requests.map(r => {
+                        const pill = STATUS_PILL[r.status] || STATUS_PILL.Pending;
+                        return (
+                            <tr key={r.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: '#0F172A', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{r.full_name}</td>
+                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem' }}>{r.email}</td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                    <span style={{ ...PILL('#fff', ROLE_COLORS[r.role] || '#64748B'), fontSize: '0.7rem' }}>{ROLE_LABEL[r.role] || r.role || '—'}</span>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{fmtDate(r.requested_at)}</td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                    <span style={{ background: pill.bg, color: pill.color, fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '100px', whiteSpace: 'nowrap' }}>{r.status}</span>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {r.reason || <span style={{ color: '#CBD5E1', fontStyle: 'italic' }}>Not provided</span>}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                        <button style={IBTN('#0284C7', '#EFF6FF')} onClick={() => setViewModal(r)}><Eye size={12} /> View</button>
+                                        {r.status === 'Pending' && (
+                                            <>
+                                                <button style={IBTN('#16A34A', '#F0FDF4')} onClick={() => setApproveModal(r)}><Check size={12} /> Approve</button>
+                                                <button style={IBTN('#DC2626', '#FEF2F2')} onClick={() => { setRejectModal(r); setRejectNotes(''); }}><X size={12} /> Reject</button>
+                                            </>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </TableWrapper>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button style={BTN_CANCEL} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
+                    <span style={{ lineHeight: '34px', fontSize: '0.82rem', color: '#475569' }}>Page {page} of {totalPages}</span>
+                    <button style={BTN_CANCEL} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
+                </div>
+            )}
+
+            {/* View Details Modal */}
+            {viewModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '520px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Deletion Request Details</h3>
+                            <button onClick={() => setViewModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {[['User', viewModal.full_name], ['Email', viewModal.email], ['Membership', ROLE_LABEL[viewModal.role] || viewModal.role || '—'], ['Status', viewModal.status], ['Request Date', fmtDate(viewModal.requested_at)], ['Approved/Rejected At', fmtDate(viewModal.approved_at || viewModal.rejected_at)], ['Reason', viewModal.reason || 'Not provided'], ['Admin Notes', viewModal.admin_notes || '—']].map(([label, val]) => (
+                                <div key={label} style={{ display: 'flex', gap: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '130px', paddingTop: '2px' }}>{label}</span>
+                                    <span style={{ fontSize: '0.875rem', color: '#334155', flex: 1 }}>{val}</span>
+                                </div>
+                            ))}
+                        </div>
+                        {viewModal.status === 'Pending' && (
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #F1F5F9' }}>
+                                <button style={{ ...BTN_SUCCESS, flex: 1, justifyContent: 'center' }} onClick={() => { setViewModal(null); setApproveModal(viewModal); }}><Check size={13} /> Approve</button>
+                                <button style={{ ...BTN_DANGER, flex: 1, justifyContent: 'center' }} onClick={() => { setViewModal(null); setRejectModal(viewModal); setRejectNotes(''); }}><X size={13} /> Reject</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Approve Confirm Modal */}
+            {approveModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '460px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                            <AlertTriangle size={22} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <div>
+                                <h3 style={{ margin: '0 0 0.35rem', fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Approve Account Deletion?</h3>
+                                <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748B', lineHeight: 1.5 }}>
+                                    This will <strong>permanently and irreversibly</strong> delete all data for <strong>{approveModal.full_name}</strong> ({approveModal.email}). This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                            <button style={BTN_CANCEL} disabled={actioning} onClick={() => setApproveModal(null)}>Cancel</button>
+                            <button style={{ ...BTN_DANGER, opacity: actioning ? 0.7 : 1 }} disabled={actioning} onClick={handleApprove}>
+                                {actioning ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={13} />}
+                                {actioning ? 'Deleting…' : 'Confirm & Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reject Modal */}
+            {rejectModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '460px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+                        <h3 style={{ margin: '0 0 0.35rem', fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Reject Deletion Request</h3>
+                        <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#64748B' }}>Provide a reason for rejecting <strong>{rejectModal.full_name}</strong>'s request. The user's account will be reactivated and they will be notified by email.</p>
+                        <textarea
+                            className="adm-input"
+                            rows={4}
+                            placeholder="Reason for rejection (required)…"
+                            value={rejectNotes}
+                            onChange={e => setRejectNotes(e.target.value)}
+                            style={{ resize: 'vertical' }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                            <button style={BTN_CANCEL} disabled={actioning} onClick={() => { setRejectModal(null); setRejectNotes(''); }}>Cancel</button>
+                            <button
+                                style={{ ...BTN_WARN, opacity: (!rejectNotes.trim() || actioning) ? 0.5 : 1 }}
+                                disabled={!rejectNotes.trim() || actioning}
+                                onClick={handleReject}
+                            >
+                                {actioning ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={13} />}
+                                {actioning ? 'Rejecting…' : 'Reject & Reactivate'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── 1. Member Approvals Tab ──────────────────────────────────────────────────
 const PendingTab = ({ showToast, onApproved }) => {
     const [users, setUsers] = useState([]);
@@ -169,19 +415,19 @@ const PendingTab = ({ showToast, onApproved }) => {
     const [appTotalPages, setAppTotalPages] = useState(1);
 
     // Sub-type upgrade state (final_year_undergrad → working_professional)
-    const [subUpgrades, setSubUpgrades]               = useState([]);
+    const [subUpgrades, setSubUpgrades] = useState([]);
     const [subUpgradesLoading, setSubUpgradesLoading] = useState(true);
-    const [subUpgradesError, setSubUpgradesError]     = useState('');
-    const [subActioning, setSubActioning]             = useState({});
-    const [subFilter, setSubFilter]                   = useState('pending');
-    const [subPage, setSubPage]                       = useState(1);
-    const [subTotalPages, setSubTotalPages]           = useState(1);
+    const [subUpgradesError, setSubUpgradesError] = useState('');
+    const [subActioning, setSubActioning] = useState({});
+    const [subFilter, setSubFilter] = useState('pending');
+    const [subPage, setSubPage] = useState(1);
+    const [subTotalPages, setSubTotalPages] = useState(1);
 
-    const [badgeModal, setBadgeModal]                 = useState(null);
-    const [badgeText, setBadgeText]                   = useState('');
-    const [editBadgeModal, setEditBadgeModal]         = useState(null);
-    const [editBadgeText, setEditBadgeText]           = useState('');
-    const [editBadgeSaving, setEditBadgeSaving]       = useState(false);
+    const [badgeModal, setBadgeModal] = useState(null);
+    const [badgeText, setBadgeText] = useState('');
+    const [editBadgeModal, setEditBadgeModal] = useState(null);
+    const [editBadgeText, setEditBadgeText] = useState('');
+    const [editBadgeSaving, setEditBadgeSaving] = useState(false);
 
     const fetch = useCallback(async () => {
         setLoading(true); setError('');
@@ -321,7 +567,7 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setEditBadgeSaving(false); }
     };
 
-    const ROLE_BADGE   = { council_member: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
+    const ROLE_BADGE = { council_member: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
     const STATUS_BADGE = { pending: { color: '#92400e', bg: '#fffbeb' }, approved: { color: '#15803d', bg: '#f0fdf4' }, rejected: { color: '#991b1b', bg: '#fef2f2' } };
 
     return (
@@ -344,7 +590,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                 </div>
             </div>
 
-            {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1,2,3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
+            {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1, 2, 3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
             {error && <ErrorState message={error} onRetry={fetch} />}
             {!loading && !error && users.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'white', borderRadius: '14px', border: '1px solid #F1F5F9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: '0.5rem' }}>
@@ -369,7 +615,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px', alignSelf: 'flex-start', marginTop: '2px' }}>Registered: {formatDate(u.created_at)}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                                <button onClick={() => setViewUser(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background='#f0f4f8'} onMouseOut={e => e.currentTarget.style.background='white'}>
+                                <button onClick={() => setViewUser(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#f0f4f8'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
                                     <Eye size={14} /> View Details
                                 </button>
                                 {u.status === 'pending' && (
@@ -445,7 +691,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                     <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>· Pre-filled below, edit if needed</span>
                                 </div>
                             )}
-                            <input 
+                            <input
                                 type="text"
                                 className="adm-input"
                                 placeholder="e.g. Microsoft Lead"
@@ -543,7 +789,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                     </div>
                 </div>
 
-                {appsLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1,2].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '80px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
+                {appsLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1, 2].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '80px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
                 {appsError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.85rem 1rem', color: '#DC2626', fontSize: '0.875rem' }}>{appsError}</div>}
                 {!appsLoading && !appsError && apps.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
@@ -554,9 +800,9 @@ const PendingTab = ({ showToast, onApproved }) => {
                 {!appsLoading && apps.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                         {apps.map(a => {
-                            const roleBadge   = ROLE_BADGE[a.requested_role] || {};
+                            const roleBadge = ROLE_BADGE[a.requested_role] || {};
                             const statusBadge = STATUS_BADGE[a.status] || {};
-                            const isExpanded  = expanded === a.id;
+                            const isExpanded = expanded === a.id;
                             const displayName = a.full_name || a.current_name || '—';
                             return (
                                 <div key={a.id} style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '1.25rem 1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
@@ -655,7 +901,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                     </div>
                 </div>
 
-                {subUpgradesLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1,2].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '80px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
+                {subUpgradesLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1, 2].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '80px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>}
                 {subUpgradesError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.85rem 1rem', color: '#DC2626', fontSize: '0.875rem' }}>{subUpgradesError}</div>}
                 {!subUpgradesLoading && !subUpgradesError && subUpgrades.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
@@ -666,38 +912,38 @@ const PendingTab = ({ showToast, onApproved }) => {
                 {!subUpgradesLoading && subUpgrades.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                         {subUpgrades.map(u => {
-                            const statusBadge = { pending: { color:'#92400E', bg:'#FFFBEB' }, approved: { color:'#15803D', bg:'#F0FDF4' }, rejected: { color:'#991B1B', bg:'#FEF2F2' } }[u.sub_type_upgrade_status || 'pending'] || {};
+                            const statusBadge = { pending: { color: '#92400E', bg: '#FFFBEB' }, approved: { color: '#15803D', bg: '#F0FDF4' }, rejected: { color: '#991B1B', bg: '#FEF2F2' } }[u.sub_type_upgrade_status || 'pending'] || {};
                             return (
-                            <div key={u.id} style={{ background: 'white', borderRadius: '14px', border: '1.5px solid #FDE68A', padding: '1.1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '1 1 200px', minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                                        <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{u.name}</span>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#FFFBEB', color: '#92400E' }}>Final Year Undergrad</span>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#F0FDF4', color: '#15803D' }}>→ Working Professional</span>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{u.sub_type_upgrade_status || 'pending'}</span>
+                                <div key={u.id} style={{ background: 'white', borderRadius: '14px', border: '1.5px solid #FDE68A', padding: '1.1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '1 1 200px', minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{u.name}</span>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#FFFBEB', color: '#92400E' }}>Final Year Undergrad</span>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: '#F0FDF4', color: '#15803D' }}>→ Working Professional</span>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{u.sub_type_upgrade_status || 'pending'}</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                            <Mail size={11} /> {u.email}
+                                            {u.organization_name && <><span style={{ margin: '0 4px' }}>·</span><Building size={11} /> {u.organization_name}</>}
+                                            {u.linkedin_url && <><span style={{ margin: '0 4px' }}>·</span><a href={u.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }}><Globe size={11} /> LinkedIn</a></>}
+                                        </span>
+                                        <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Requested: {formatDate(u.created_at)}</span>
                                     </div>
-                                    <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                                        <Mail size={11} /> {u.email}
-                                        {u.organization_name && <><span style={{ margin: '0 4px' }}>·</span><Building size={11} /> {u.organization_name}</>}
-                                        {u.linkedin_url && <><span style={{ margin: '0 4px' }}>·</span><a href={u.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }}><Globe size={11} /> LinkedIn</a></>}
-                                    </span>
-                                    <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Requested: {formatDate(u.created_at)}</span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                                        {subFilter === 'pending' && (
+                                            <>
+                                                <button onClick={() => handleSubApprove(u.id, u.name, u.profile_badge)} disabled={!!subActioning[u.id]}
+                                                    style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    {subActioning[u.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
+                                                </button>
+                                                <button onClick={() => handleSubReject(u.id, u.name)} disabled={!!subActioning[u.id]}
+                                                    style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#dc2626', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <X size={13} /> Reject
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                                    {subFilter === 'pending' && (
-                                        <>
-                                            <button onClick={() => handleSubApprove(u.id, u.name, u.profile_badge)} disabled={!!subActioning[u.id]}
-                                                style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                {subActioning[u.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
-                                            </button>
-                                            <button onClick={() => handleSubReject(u.id, u.name)} disabled={!!subActioning[u.id]}
-                                                style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#dc2626', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: subActioning[u.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: subActioning[u.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <X size={13} /> Reject
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
                             );
                         })}
                         <Pagination page={subPage} totalPages={subTotalPages} onPageChange={setSubPage} />
@@ -773,7 +1019,7 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
 
     const TYPE_COLORS = { framework: '#003366', whitepaper: '#7C3AED', product: '#D97706' };
 
-    if (loading) return <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1,2,3].map((i) => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>;
+    if (loading) return <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>{[1, 2, 3].map((i) => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>;
     if (error) return <ErrorState message={error} onRetry={fetchPending} />;
     if (resources.length === 0) return (
         <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: 'white', borderRadius: '14px', border: '1px solid #F1F5F9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -806,7 +1052,7 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
                             {r.description && <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B', maxWidth: '480px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</p>}
                         </div>
                         <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                            <a href={`/resources/${r.id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', textDecoration: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background='#f0f4f8'} onMouseOut={e => e.currentTarget.style.background='white'}>
+                            <a href={`/resources/${r.id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', textDecoration: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#f0f4f8'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
                                 <Eye size={14} /> View
                             </a>
                             <button onClick={() => handleApprove(r.id)} disabled={!!actioning[r.id]} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#16A34A', color: 'white', border: 'none', padding: '9px 20px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', opacity: actioning[r.id] ? 0.6 : 1 }}>
@@ -941,7 +1187,7 @@ const EventsTab = ({ showToast }) => {
             )}
 
             {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>{[1,2,3].map((i) => <div key={i} style={{ height: '96px', background: 'white', borderRadius: '10px', border: '1px solid #E2E8F0', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>{[1, 2, 3].map((i) => <div key={i} style={{ height: '96px', background: 'white', borderRadius: '10px', border: '1px solid #E2E8F0', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}</div>
             ) : error ? <ErrorState message={error} onRetry={fetchEvents} /> : events.length === 0 ? <EmptyState icon={CalendarDays} message="No events yet. Create one above." /> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {events.map((ev) => (
@@ -1105,31 +1351,31 @@ const NewsTab = ({ showToast }) => {
                 </form>
             )}
 
-            {loading ? <TableWrapper headers={['Title', 'Category', 'Status', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={4} />)}</TableWrapper>
-            : error ? <ErrorState message={error} onRetry={fetchNews} /> : articles.length === 0 ? <EmptyState icon={FileText} message="No articles yet. Add one above." /> : (
-                <TableWrapper headers={['Title', 'Category', 'Status', '']}>
-                    {articles.map((a) => (
-                        <tr key={a.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
-                            <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '260px' }}>
-                                <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: '0.875rem' }}>{a.title}</div>
-                                {a.image_url && <img src={a.image_url} alt="" style={{ width: '52px', height: '34px', objectFit: 'cover', borderRadius: '5px', marginTop: '5px' }} />}
-                            </td>
-                            <td style={{ padding: '0.9rem 1rem' }}><span style={PILL('#7C3AED', '#FAF5FF')}>{(a.category || '').replace(/_/g, ' ')}</span></td>
-                            <td style={{ padding: '0.9rem 1rem' }}><span style={PILL(a.is_published ? '#15803D' : '#64748B', a.is_published ? '#F0FDF4' : '#F1F5F9')}>{a.is_published ? '● Live' : '○ Draft'}</span></td>
-                            <td style={{ padding: '0.9rem 1rem' }}>
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                    <button onClick={() => handleTogglePublish(a)} disabled={toggling[a.id]} style={{ ...IBTN(a.is_published ? '#B45309' : '#15803D', a.is_published ? '#FFFBEB' : '#F0FDF4'), opacity: toggling[a.id] ? 0.5 : 1 }}>
-                                        {toggling[a.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : null}{a.is_published ? 'Unpublish' : 'Publish'}
-                                    </button>
-                                    <button onClick={() => setConfirm({ id: a.id, name: a.title })} disabled={deleting[a.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[a.id] ? 0.5 : 1 }}>
-                                        {deleting[a.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </TableWrapper>
-            )}
+            {loading ? <TableWrapper headers={['Title', 'Category', 'Status', '']}>{[1, 2, 3].map((i) => <SkeletonRow key={i} cols={4} />)}</TableWrapper>
+                : error ? <ErrorState message={error} onRetry={fetchNews} /> : articles.length === 0 ? <EmptyState icon={FileText} message="No articles yet. Add one above." /> : (
+                    <TableWrapper headers={['Title', 'Category', 'Status', '']}>
+                        {articles.map((a) => (
+                            <tr key={a.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
+                                <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '260px' }}>
+                                    <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: '0.875rem' }}>{a.title}</div>
+                                    {a.image_url && <img src={a.image_url} alt="" style={{ width: '52px', height: '34px', objectFit: 'cover', borderRadius: '5px', marginTop: '5px' }} />}
+                                </td>
+                                <td style={{ padding: '0.9rem 1rem' }}><span style={PILL('#7C3AED', '#FAF5FF')}>{(a.category || '').replace(/_/g, ' ')}</span></td>
+                                <td style={{ padding: '0.9rem 1rem' }}><span style={PILL(a.is_published ? '#15803D' : '#64748B', a.is_published ? '#F0FDF4' : '#F1F5F9')}>{a.is_published ? '● Live' : '○ Draft'}</span></td>
+                                <td style={{ padding: '0.9rem 1rem' }}>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        <button onClick={() => handleTogglePublish(a)} disabled={toggling[a.id]} style={{ ...IBTN(a.is_published ? '#B45309' : '#15803D', a.is_published ? '#FFFBEB' : '#F0FDF4'), opacity: toggling[a.id] ? 0.5 : 1 }}>
+                                            {toggling[a.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : null}{a.is_published ? 'Unpublish' : 'Publish'}
+                                        </button>
+                                        <button onClick={() => setConfirm({ id: a.id, name: a.title })} disabled={deleting[a.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[a.id] ? 0.5 : 1 }}>
+                                            {deleting[a.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </TableWrapper>
+                )}
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             <ConfirmDialog isOpen={!!confirm} title="Delete Article" message={`Delete "${confirm?.name}"? This cannot be undone.`} confirmLabel="Delete" onConfirm={handleDelete} onClose={() => setConfirm(null)} />
         </div>
@@ -1249,67 +1495,67 @@ const TeamTab = ({ showToast }) => {
                 </form>
             )}
 
-            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>{[1,2,3].map((i) => <SkeletonRow key={i} cols={6} />)}</TableWrapper>
-            : error ? <ErrorState message={error} onRetry={fetchTeam} /> : members.length === 0 ? <EmptyState icon={Users} message="No team members yet." /> : (
-                <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>
-                    {members.map((m) => (
-                        <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
-                            <td style={{ padding: '0.85rem 1rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {m.photo_url ? <img src={m.photo_url} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #E2E8F0' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#001f3f', border: '1px solid #003060', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#60A5FA', fontSize: '0.75rem', fontWeight: '800' }}>{m.name?.charAt(0)?.toUpperCase()}</div>}
-                                    <span style={{ fontWeight: '600', color: '#1E293B', fontSize: '0.875rem' }}>{m.name}</span>
-                                </div>
-                            </td>
-                            <td style={{ padding: '0.85rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{m.role || m.title || '—'}</td>
-                            <td style={{ padding: '0.85rem 1rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                                    <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: m.member_category === 'permanent' ? '#0284C7' : '#7C3AED', background: m.member_category === 'permanent' ? '#EFF6FF' : '#FAF5FF' }}>
-                                        {m.member_category === 'permanent' ? 'Permanent Member' : 'Founding Member'}
-                                    </span>
-                                    {!!m.is_governing_body && <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: '#D97706', background: '#FFFBEB' }}>Governing Body</span>}
-                                </div>
-                            </td>
-                            <td style={{ padding: '0.85rem 1rem', maxWidth: '200px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                                    {m.linkedin_url && (
-                                        <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }} title="View LinkedIn Profile">
-                                            <Linkedin size={12} /> LinkedIn Profile
-                                        </a>
-                                    )}
-                                    <button onClick={() => setViewMemberDetails(m)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', border: '1px solid #E2E8F0', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#475569', cursor: 'pointer', fontWeight: '600', transition: 'all 0.15s' }} onMouseOver={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#CBD5E1'; }} onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E2E8F0'; }}>
-                                        <Eye size={12} /> View Full Details
-                                    </button>
-                                </div>
-                            </td>
-                            <td style={{ padding: '0.85rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(m.created_at)}</td>
-                            <td style={{ padding: '0.85rem 1rem' }}>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={() => {
-                                        setForm({ name: m.name, role: m.role || m.title || '', bio: m.bio || '', linkedin_url: m.linkedin_url || '', email: m.email || '', member_category: m.member_category || 'founding', is_governing_body: !!m.is_governing_body, image: null });
-                                        setEditingId(m.id);
-                                        setFormErrors({});
-                                        setShowForm(true);
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }} style={IBTN('#0284C7', '#F0F9FF')}>
-                                        <Edit2 size={11} /> Edit
-                                    </button>
-                                    <button onClick={() => setConfirm({ id: m.id, name: m.name })} disabled={deleting[m.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[m.id] ? 0.5 : 1 }}>
-                                        {deleting[m.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />} Remove
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </TableWrapper>
-            )}
+            {loading ? <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>{[1, 2, 3].map((i) => <SkeletonRow key={i} cols={6} />)}</TableWrapper>
+                : error ? <ErrorState message={error} onRetry={fetchTeam} /> : members.length === 0 ? <EmptyState icon={Users} message="No team members yet." /> : (
+                    <TableWrapper headers={['Member', 'Role / Title', 'Category', 'Details', 'Added', '']}>
+                        {members.map((m) => (
+                            <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
+                                <td style={{ padding: '0.85rem 1rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        {m.photo_url ? <img src={m.photo_url} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #E2E8F0' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#001f3f', border: '1px solid #003060', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#60A5FA', fontSize: '0.75rem', fontWeight: '800' }}>{m.name?.charAt(0)?.toUpperCase()}</div>}
+                                        <span style={{ fontWeight: '600', color: '#1E293B', fontSize: '0.875rem' }}>{m.name}</span>
+                                    </div>
+                                </td>
+                                <td style={{ padding: '0.85rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{m.role || m.title || '—'}</td>
+                                <td style={{ padding: '0.85rem 1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                        <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: m.member_category === 'permanent' ? '#0284C7' : '#7C3AED', background: m.member_category === 'permanent' ? '#EFF6FF' : '#FAF5FF' }}>
+                                            {m.member_category === 'permanent' ? 'Permanent Member' : 'Founding Member'}
+                                        </span>
+                                        {!!m.is_governing_body && <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', padding: '2px 8px', borderRadius: '100px', color: '#D97706', background: '#FFFBEB' }}>Governing Body</span>}
+                                    </div>
+                                </td>
+                                <td style={{ padding: '0.85rem 1rem', maxWidth: '200px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                                        {m.linkedin_url && (
+                                            <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#0A66C2', textDecoration: 'none', fontWeight: '600' }} title="View LinkedIn Profile">
+                                                <Linkedin size={12} /> LinkedIn Profile
+                                            </a>
+                                        )}
+                                        <button onClick={() => setViewMemberDetails(m)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', border: '1px solid #E2E8F0', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#475569', cursor: 'pointer', fontWeight: '600', transition: 'all 0.15s' }} onMouseOver={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#CBD5E1'; }} onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E2E8F0'; }}>
+                                            <Eye size={12} /> View Full Details
+                                        </button>
+                                    </div>
+                                </td>
+                                <td style={{ padding: '0.85rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(m.created_at)}</td>
+                                <td style={{ padding: '0.85rem 1rem' }}>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button onClick={() => {
+                                            setForm({ name: m.name, role: m.role || m.title || '', bio: m.bio || '', linkedin_url: m.linkedin_url || '', email: m.email || '', member_category: m.member_category || 'founding', is_governing_body: !!m.is_governing_body, image: null });
+                                            setEditingId(m.id);
+                                            setFormErrors({});
+                                            setShowForm(true);
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }} style={IBTN('#0284C7', '#F0F9FF')}>
+                                            <Edit2 size={11} /> Edit
+                                        </button>
+                                        <button onClick={() => setConfirm({ id: m.id, name: m.name })} disabled={deleting[m.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[m.id] ? 0.5 : 1 }}>
+                                            {deleting[m.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />} Remove
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </TableWrapper>
+                )}
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             <ConfirmDialog isOpen={!!confirm} title="Remove Team Member" message={`Remove "${confirm?.name}" from the team?`} confirmLabel="Remove" onConfirm={handleDelete} onClose={() => setConfirm(null)} />
-            
+
             {viewMemberDetails && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setViewMemberDetails(null)}>
                     <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', padding: '1.5rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => setViewMemberDetails(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
-                        
+
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '1rem' }}>
                             {viewMemberDetails.photo_url ? <img src={viewMemberDetails.photo_url} alt={viewMemberDetails.name} style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #E2E8F0' }} /> : <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#001f3f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60A5FA', fontSize: '1.5rem', fontWeight: '800' }}>{viewMemberDetails.name?.charAt(0)?.toUpperCase()}</div>}
                             <div>
@@ -1334,7 +1580,7 @@ const TeamTab = ({ showToast }) => {
                                 </a>
                             </div>
                         )}
-                        
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid #E2E8F0', marginTop: '0.5rem' }}>
                             <button onClick={() => setViewMemberDetails(null)} style={{ padding: '0.5rem 1.25rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem' }}>Close</button>
                         </div>
@@ -1393,24 +1639,24 @@ const ResourcesTab = ({ showToast }) => {
                     </div>
                 } />
 
-            {loading ? <TableWrapper headers={['Title', 'Type', 'Uploader', 'Date', '']}>{[1,2,3,4].map((i) => <SkeletonRow key={i} cols={5} />)}</TableWrapper>
-            : error ? <ErrorState message={error} onRetry={fetchResources} /> : resources.length === 0 ? <EmptyState icon={FileText} message="No resources found." /> : (
-                <TableWrapper headers={['Title', 'Type', 'Uploader', 'Date', '']}>
-                    {resources.map((r) => (
-                        <tr key={r.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
-                            <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</td>
-                            <td style={{ padding: '0.9rem 1rem' }}><span style={PILL(TYPE_COLORS[r.type] || '#64748B', `${TYPE_COLORS[r.type] || '#64748B'}18`)}>{r.type}</span></td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{r.uploader_name || '—'}</td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(r.created_at)}</td>
-                            <td style={{ padding: '0.9rem 1rem' }}>
-                                <button onClick={() => setConfirm({ id: r.id, name: r.title })} disabled={deleting[r.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[r.id] ? 0.5 : 1 }}>
-                                    {deleting[r.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </TableWrapper>
-            )}
+            {loading ? <TableWrapper headers={['Title', 'Type', 'Uploader', 'Date', '']}>{[1, 2, 3, 4].map((i) => <SkeletonRow key={i} cols={5} />)}</TableWrapper>
+                : error ? <ErrorState message={error} onRetry={fetchResources} /> : resources.length === 0 ? <EmptyState icon={FileText} message="No resources found." /> : (
+                    <TableWrapper headers={['Title', 'Type', 'Uploader', 'Date', '']}>
+                        {resources.map((r) => (
+                            <tr key={r.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={(e) => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={(e) => (e.currentTarget.style.background = 'white')}>
+                                <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</td>
+                                <td style={{ padding: '0.9rem 1rem' }}><span style={PILL(TYPE_COLORS[r.type] || '#64748B', `${TYPE_COLORS[r.type] || '#64748B'}18`)}>{r.type}</span></td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{r.uploader_name || '—'}</td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(r.created_at)}</td>
+                                <td style={{ padding: '0.9rem 1rem' }}>
+                                    <button onClick={() => setConfirm({ id: r.id, name: r.title })} disabled={deleting[r.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), opacity: deleting[r.id] ? 0.5 : 1 }}>
+                                        {deleting[r.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </TableWrapper>
+                )}
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             <ConfirmDialog isOpen={!!confirm} title="Delete Resource" message={`Permanently delete "${confirm?.name}"?`} confirmLabel="Delete" onConfirm={handleDelete} onClose={() => setConfirm(null)} />
         </div>
@@ -1438,7 +1684,7 @@ const ProductReviewsTab = ({ showToast }) => {
     const MAX_EVIDENCE_PER_TEST = 5;
 
     useEffect(() => {
-        getProductCategories().then(res => setCategories(res.data?.data || [])).catch(() => {});
+        getProductCategories().then(res => setCategories(res.data?.data || [])).catch(() => { });
     }, []);
 
     // New categories are inserted right before "Others" — matches the backend's display_order convention.
@@ -1709,36 +1955,36 @@ const ProductReviewsTab = ({ showToast }) => {
             )}
 
             {/* Products table */}
-            {loading ? <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Test Score','Reviews','Added','']}>{[1,2,3,4].map(i => <SkeletonRow key={i} cols={8} />)}</TableWrapper>
-            : error ? <ErrorState message={error} onRetry={fetchProducts} /> : products.length === 0 ? <EmptyState icon={ShieldCheck} message="No products yet. Add one above." /> : (
-                <TableWrapper headers={['Product','Vendor','Category','Avg Rating','Test Score','Reviews','Added','']}>
-                    {products.map((p) => (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={e => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={e => (e.currentTarget.style.background = 'white')}>
-                            <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '200px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {p.product_logo_url ? <img src={p.product_logo_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #E2E8F0', flexShrink: 0 }} /> : null}
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                                </div>
-                            </td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#475569', fontSize: '0.875rem' }}>{p.vendor || '—'}</td>
-                            <td style={{ padding: '0.9rem 1rem' }}>{p.category ? <span style={PILL('#003366', '#EBF0F7')}>{p.category}</span> : '—'}</td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#D97706', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_rating ? `★ ${parseFloat(p.avg_rating).toFixed(1)}` : '—'}</td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#0284C7', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_test_score ? `${parseFloat(p.avg_test_score).toFixed(1)}/10` : '—'}</td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{p.review_count ?? 0}</td>
-                            <td style={{ padding: '0.9rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(p.created_at)}</td>
-                            <td style={{ padding: '0.9rem 1rem' }}>
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    <button onClick={() => openManage(p)} style={{ ...IBTN('#0284C7', '#EFF6FF'), padding: '5px 10px' }}><Eye size={11} /> Manage</button>
-                                    <button onClick={() => startEdit(p)} style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '5px 10px' }}><Edit2 size={11} /></button>
-                                    <button onClick={() => setConfirm({ id: p.id, name: p.name })} disabled={deleting[p.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '5px 10px', opacity: deleting[p.id] ? 0.5 : 1 }}>
-                                        {deleting[p.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </TableWrapper>
-            )}
+            {loading ? <TableWrapper headers={['Product', 'Vendor', 'Category', 'Avg Rating', 'Test Score', 'Reviews', 'Added', '']}>{[1, 2, 3, 4].map(i => <SkeletonRow key={i} cols={8} />)}</TableWrapper>
+                : error ? <ErrorState message={error} onRetry={fetchProducts} /> : products.length === 0 ? <EmptyState icon={ShieldCheck} message="No products yet. Add one above." /> : (
+                    <TableWrapper headers={['Product', 'Vendor', 'Category', 'Avg Rating', 'Test Score', 'Reviews', 'Added', '']}>
+                        {products.map((p) => (
+                            <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }} onMouseOver={e => (e.currentTarget.style.background = '#FAFBFC')} onMouseOut={e => (e.currentTarget.style.background = 'white')}>
+                                <td style={{ padding: '0.9rem 1rem', fontWeight: '600', color: '#1E293B', maxWidth: '200px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {p.product_logo_url ? <img src={p.product_logo_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #E2E8F0', flexShrink: 0 }} /> : null}
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                                    </div>
+                                </td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#475569', fontSize: '0.875rem' }}>{p.vendor || '—'}</td>
+                                <td style={{ padding: '0.9rem 1rem' }}>{p.category ? <span style={PILL('#003366', '#EBF0F7')}>{p.category}</span> : '—'}</td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#D97706', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_rating ? `★ ${parseFloat(p.avg_rating).toFixed(1)}` : '—'}</td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#0284C7', fontSize: '0.875rem', fontWeight: '700' }}>{p.avg_test_score ? `${parseFloat(p.avg_test_score).toFixed(1)}/10` : '—'}</td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#64748B', fontSize: '0.875rem' }}>{p.review_count ?? 0}</td>
+                                <td style={{ padding: '0.9rem 1rem', color: '#94A3B8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(p.created_at)}</td>
+                                <td style={{ padding: '0.9rem 1rem' }}>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        <button onClick={() => openManage(p)} style={{ ...IBTN('#0284C7', '#EFF6FF'), padding: '5px 10px' }}><Eye size={11} /> Manage</button>
+                                        <button onClick={() => startEdit(p)} style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '5px 10px' }}><Edit2 size={11} /></button>
+                                        <button onClick={() => setConfirm({ id: p.id, name: p.name })} disabled={deleting[p.id]} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '5px 10px', opacity: deleting[p.id] ? 0.5 : 1 }}>
+                                            {deleting[p.id] ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={11} />}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </TableWrapper>
+                )}
 
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
@@ -1827,44 +2073,44 @@ const ProductReviewsTab = ({ showToast }) => {
                                         </div>
                                     );
                                     return (
-                                    <>
-                                    {managingProduct.featureTests?.length > 0 && (
-                                        <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '620px' }}>
-                                                <thead><tr style={{ background: '#F8FAFC' }}>{['Feature','Method','Result','Score','Comments','Evidence',''].map(h => <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: '700', color: '#64748B', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
-                                                <tbody>
-                                                    {managingProduct.featureTests.map(ft => (
-                                                        <tr key={ft.id} style={{ borderTop: '1px solid #F1F5F9' }}>
-                                                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: '600', color: '#1E293B' }}>{ft.feature_name}</td>
-                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#64748B' }}>{ft.test_method || '—'}</td>
-                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#475569' }}>{ft.result || '—'}</td>
-                                                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: '700', color: '#D97706' }}>{ft.score != null ? ft.score : '—'}</td>
-                                                            <td style={{ padding: '0.6rem 0.75rem', color: '#64748B', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ft.comments || '—'}</td>
-                                                            <td style={{ padding: '0.6rem 0.75rem', minWidth: '160px' }}>
-                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                                                    {(evidencesByTest[ft.id] || []).map(evidenceChip)}
-                                                                    {!(evidencesByTest[ft.id]?.length) && <span style={{ color: '#CBD5E1' }}>—</span>}
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ padding: '0.6rem 0.75rem' }}>
-                                                                <div style={{ display: 'flex', gap: '4px' }}>
-                                                                    <button onClick={() => { setFtForm({ feature_name: ft.feature_name||'', test_method: ft.test_method||'', result: ft.result||'', score: ft.score??'', comments: ft.comments||'', display_order: ft.display_order??'0' }); setFtEditId(ft.id); setShowFtForm(false); setFtFiles([]); }} style={{ ...IBTN('#D97706','#FFFBEB'), padding: '4px 8px' }}><Edit2 size={10} /></button>
-                                                                    <button onClick={() => handleDeleteFT(ft.id)} style={{ ...IBTN('#DC2626','#FEF2F2'), padding: '4px 8px' }}><Trash2 size={10} /></button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                    {unassignedEvidence.length > 0 && (
-                                        <div style={{ marginBottom: '1rem' }}>
-                                            <p style={{ margin: '0 0 0.35rem', fontSize: '0.75rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Unassigned Evidence</p>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>{unassignedEvidence.map(evidenceChip)}</div>
-                                        </div>
-                                    )}
-                                    </>
+                                        <>
+                                            {managingProduct.featureTests?.length > 0 && (
+                                                <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '620px' }}>
+                                                        <thead><tr style={{ background: '#F8FAFC' }}>{['Feature', 'Method', 'Result', 'Score', 'Comments', 'Evidence', ''].map(h => <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: '700', color: '#64748B', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+                                                        <tbody>
+                                                            {managingProduct.featureTests.map(ft => (
+                                                                <tr key={ft.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', fontWeight: '600', color: '#1E293B' }}>{ft.feature_name}</td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', color: '#64748B' }}>{ft.test_method || '—'}</td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', color: '#475569' }}>{ft.result || '—'}</td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', fontWeight: '700', color: '#D97706' }}>{ft.score != null ? ft.score : '—'}</td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', color: '#64748B', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ft.comments || '—'}</td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem', minWidth: '160px' }}>
+                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                            {(evidencesByTest[ft.id] || []).map(evidenceChip)}
+                                                                            {!(evidencesByTest[ft.id]?.length) && <span style={{ color: '#CBD5E1' }}>—</span>}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: '0.6rem 0.75rem' }}>
+                                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                                            <button onClick={() => { setFtForm({ feature_name: ft.feature_name || '', test_method: ft.test_method || '', result: ft.result || '', score: ft.score ?? '', comments: ft.comments || '', display_order: ft.display_order ?? '0' }); setFtEditId(ft.id); setShowFtForm(false); setFtFiles([]); }} style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '4px 8px' }}><Edit2 size={10} /></button>
+                                                                            <button onClick={() => handleDeleteFT(ft.id)} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '4px 8px' }}><Trash2 size={10} /></button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                            {unassignedEvidence.length > 0 && (
+                                                <div style={{ marginBottom: '1rem' }}>
+                                                    <p style={{ margin: '0 0 0.35rem', fontSize: '0.75rem', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Unassigned Evidence</p>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>{unassignedEvidence.map(evidenceChip)}</div>
+                                                </div>
+                                            )}
+                                        </>
                                     );
                                 })()}
 
@@ -1882,73 +2128,73 @@ const ProductReviewsTab = ({ showToast }) => {
                                     const existingEvidenceCount = ftEditId ? (managingProduct.evidences || []).filter(ev => ev.feature_test_id === ftEditId).length : 0;
                                     const remainingSlots = Math.max(0, MAX_EVIDENCE_PER_TEST - existingEvidenceCount);
                                     return (
-                                    <form onSubmit={async (e) => { await handleAddFT(e); if (!ftEditId) setShowFtForm(false); }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px,100%), 1fr))', gap: '0.75rem', background: '#F8FAFC', padding: 'clamp(0.75rem,2vw,1rem)', borderRadius: '8px', marginTop: '0.75rem' }}>
-                                        <div>
-                                            <label style={labelStyle}>Feature Name *</label>
-                                            <select required style={inputStyle} value={ftForm.feature_name} onChange={e => setFtForm(p => ({ ...p, feature_name: e.target.value }))}>
-                                                <option value="">— Select a feature —</option>
-                                                {(managingProduct.key_features || []).map(f => (
-                                                    <option key={f.name} value={f.name} disabled={testedNames.has(f.name)}>{f.name}{testedNames.has(f.name) ? ' (already tested)' : ''}</option>
-                                                ))}
-                                                {ftForm.feature_name && !(managingProduct.key_features || []).some(f => f.name === ftForm.feature_name) && <option value={ftForm.feature_name}>{ftForm.feature_name}</option>}
-                                            </select>
-                                            {selectedFeature?.description && (
-                                                <p style={{ margin: '4px 2px 0', fontSize: '0.76rem', color: '#64748B', lineHeight: '1.5' }}>{selectedFeature.description}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label style={labelStyle}>Test Method</label>
-                                            <select style={{ ...inputStyle, marginBottom: '6px' }} value={['Live Demo','Hands-on Evaluation','Prompt Testing','Red Teaming','Adversarial Testing','Bias & Fairness Testing','Explainability Review','API / Integration Testing','Data Privacy Audit','Model Output Review','Documentation Review','Third-Party Audit'].includes(ftForm.test_method) ? ftForm.test_method : (ftForm.test_method ? '__custom__' : '')} onChange={e => { if (e.target.value !== '__custom__') setFtForm(p => ({ ...p, test_method: e.target.value })); }}>
-                                                <option value="">— Pick a preset —</option>
-                                                {['Live Demo','Hands-on Evaluation','Prompt Testing','Red Teaming','Adversarial Testing','Bias & Fairness Testing','Explainability Review','API / Integration Testing','Data Privacy Audit','Model Output Review','Documentation Review','Third-Party Audit'].map(v => <option key={v} value={v}>{v}</option>)}
-                                                {ftForm.test_method && !['Live Demo','Hands-on Evaluation','Prompt Testing','Red Teaming','Adversarial Testing','Bias & Fairness Testing','Explainability Review','API / Integration Testing','Data Privacy Audit','Model Output Review','Documentation Review','Third-Party Audit'].includes(ftForm.test_method) && <option value="__custom__">✎ {ftForm.test_method}</option>}
-                                            </select>
-                                            <input style={{ ...inputStyle, fontSize: '0.8rem' }} placeholder="Or type a custom method…" value={ftForm.test_method} onChange={e => setFtForm(p => ({ ...p, test_method: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label style={labelStyle}>Result</label>
-                                            <select style={inputStyle} value={ftForm.result} onChange={e => setFtForm(p => ({ ...p, result: e.target.value }))}>
-                                                <option value="">— Select result —</option>
-                                                {['Pass','Conditional Pass','Partial Pass','Fail','Needs Improvement','Not Applicable'].map(v => <option key={v} value={v}>{v}</option>)}
-                                            </select>
-                                        </div>
-                                        <div><label style={labelStyle}>Score (0–10)</label><input type="number" min="0" max="10" step="0.1" style={inputStyle} value={ftForm.score} onChange={e => setFtForm(p => ({ ...p, score: e.target.value }))} placeholder="e.g. 8.5" /></div>
-                                        <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Comments</label><input style={inputStyle} value={ftForm.comments} onChange={e => setFtForm(p => ({ ...p, comments: e.target.value }))} placeholder="Optional notes..." /></div>
-                                        <div style={{ gridColumn: '1 / -1' }}>
-                                            <label style={labelStyle}>Evidence Files (optional)</label>
-                                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#0284C7','#EFF6FF'), padding: '8px 14px', cursor: remainingSlots > 0 ? 'pointer' : 'not-allowed', opacity: remainingSlots > 0 ? 1 : 0.5 }}>
-                                                <Upload size={12} /> Choose Evidence Files
-                                                <input type="file" multiple disabled={remainingSlots === 0} accept=".pdf,.xlsx,.xls,.docx,.doc,image/*,video/*" hidden onChange={e => {
-                                                    const files = Array.from(e.target.files);
-                                                    if (files.length > remainingSlots) {
-                                                        showToast(`Only ${remainingSlots} more evidence file${remainingSlots === 1 ? '' : 's'} can be added to this test (max ${MAX_EVIDENCE_PER_TEST} total).`, 'error');
-                                                        setFtFiles(files.slice(0, remainingSlots));
-                                                    } else {
-                                                        setFtFiles(files);
-                                                    }
-                                                }} />
-                                            </label>
-                                            <p style={{ margin: '4px 2px 0', fontSize: '0.72rem', color: '#94A3B8' }}>
-                                                Max {MAX_EVIDENCE_PER_TEST} evidence files per test{ftEditId ? ` — ${existingEvidenceCount} attached, ${remainingSlots} remaining` : ''}.
-                                            </p>
-                                            {ftFiles.length > 0 && (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
-                                                    {ftFiles.map((f, i) => (
-                                                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#EBF0F7', color: '#003366', fontSize: '0.74rem', fontWeight: '600', padding: '3px 8px', borderRadius: '6px' }}>
-                                                            {f.name}
-                                                            <button type="button" onClick={() => setFtFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003366', display: 'flex', padding: 0, lineHeight: 1, opacity: 0.55 }}><X size={10} /></button>
-                                                        </span>
+                                        <form onSubmit={async (e) => { await handleAddFT(e); if (!ftEditId) setShowFtForm(false); }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px,100%), 1fr))', gap: '0.75rem', background: '#F8FAFC', padding: 'clamp(0.75rem,2vw,1rem)', borderRadius: '8px', marginTop: '0.75rem' }}>
+                                            <div>
+                                                <label style={labelStyle}>Feature Name *</label>
+                                                <select required style={inputStyle} value={ftForm.feature_name} onChange={e => setFtForm(p => ({ ...p, feature_name: e.target.value }))}>
+                                                    <option value="">— Select a feature —</option>
+                                                    {(managingProduct.key_features || []).map(f => (
+                                                        <option key={f.name} value={f.name} disabled={testedNames.has(f.name)}>{f.name}{testedNames.has(f.name) ? ' (already tested)' : ''}</option>
                                                     ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                                            <button type="button" onClick={() => { setShowFtForm(false); setFtEditId(null); setFtForm(EMPTY_FT); setFtFiles([]); }} style={{ ...IBTN('#64748B','#F1F5F9'), padding: '0.55rem 1rem', fontSize: '0.85rem' }}>Cancel</button>
-                                            <button type="submit" disabled={ftSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: ftSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ftSaving ? 0.7 : 1 }}>
-                                                {ftSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={13} />}{ftEditId ? 'Update Test Result' : 'Submit Test Result'}
-                                            </button>
-                                        </div>
-                                    </form>
+                                                    {ftForm.feature_name && !(managingProduct.key_features || []).some(f => f.name === ftForm.feature_name) && <option value={ftForm.feature_name}>{ftForm.feature_name}</option>}
+                                                </select>
+                                                {selectedFeature?.description && (
+                                                    <p style={{ margin: '4px 2px 0', fontSize: '0.76rem', color: '#64748B', lineHeight: '1.5' }}>{selectedFeature.description}</p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Test Method</label>
+                                                <select style={{ ...inputStyle, marginBottom: '6px' }} value={['Live Demo', 'Hands-on Evaluation', 'Prompt Testing', 'Red Teaming', 'Adversarial Testing', 'Bias & Fairness Testing', 'Explainability Review', 'API / Integration Testing', 'Data Privacy Audit', 'Model Output Review', 'Documentation Review', 'Third-Party Audit'].includes(ftForm.test_method) ? ftForm.test_method : (ftForm.test_method ? '__custom__' : '')} onChange={e => { if (e.target.value !== '__custom__') setFtForm(p => ({ ...p, test_method: e.target.value })); }}>
+                                                    <option value="">— Pick a preset —</option>
+                                                    {['Live Demo', 'Hands-on Evaluation', 'Prompt Testing', 'Red Teaming', 'Adversarial Testing', 'Bias & Fairness Testing', 'Explainability Review', 'API / Integration Testing', 'Data Privacy Audit', 'Model Output Review', 'Documentation Review', 'Third-Party Audit'].map(v => <option key={v} value={v}>{v}</option>)}
+                                                    {ftForm.test_method && !['Live Demo', 'Hands-on Evaluation', 'Prompt Testing', 'Red Teaming', 'Adversarial Testing', 'Bias & Fairness Testing', 'Explainability Review', 'API / Integration Testing', 'Data Privacy Audit', 'Model Output Review', 'Documentation Review', 'Third-Party Audit'].includes(ftForm.test_method) && <option value="__custom__">✎ {ftForm.test_method}</option>}
+                                                </select>
+                                                <input style={{ ...inputStyle, fontSize: '0.8rem' }} placeholder="Or type a custom method…" value={ftForm.test_method} onChange={e => setFtForm(p => ({ ...p, test_method: e.target.value }))} />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>Result</label>
+                                                <select style={inputStyle} value={ftForm.result} onChange={e => setFtForm(p => ({ ...p, result: e.target.value }))}>
+                                                    <option value="">— Select result —</option>
+                                                    {['Pass', 'Conditional Pass', 'Partial Pass', 'Fail', 'Needs Improvement', 'Not Applicable'].map(v => <option key={v} value={v}>{v}</option>)}
+                                                </select>
+                                            </div>
+                                            <div><label style={labelStyle}>Score (0–10)</label><input type="number" min="0" max="10" step="0.1" style={inputStyle} value={ftForm.score} onChange={e => setFtForm(p => ({ ...p, score: e.target.value }))} placeholder="e.g. 8.5" /></div>
+                                            <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Comments</label><input style={inputStyle} value={ftForm.comments} onChange={e => setFtForm(p => ({ ...p, comments: e.target.value }))} placeholder="Optional notes..." /></div>
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <label style={labelStyle}>Evidence Files (optional)</label>
+                                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#0284C7', '#EFF6FF'), padding: '8px 14px', cursor: remainingSlots > 0 ? 'pointer' : 'not-allowed', opacity: remainingSlots > 0 ? 1 : 0.5 }}>
+                                                    <Upload size={12} /> Choose Evidence Files
+                                                    <input type="file" multiple disabled={remainingSlots === 0} accept=".pdf,.xlsx,.xls,.docx,.doc,image/*,video/*" hidden onChange={e => {
+                                                        const files = Array.from(e.target.files);
+                                                        if (files.length > remainingSlots) {
+                                                            showToast(`Only ${remainingSlots} more evidence file${remainingSlots === 1 ? '' : 's'} can be added to this test (max ${MAX_EVIDENCE_PER_TEST} total).`, 'error');
+                                                            setFtFiles(files.slice(0, remainingSlots));
+                                                        } else {
+                                                            setFtFiles(files);
+                                                        }
+                                                    }} />
+                                                </label>
+                                                <p style={{ margin: '4px 2px 0', fontSize: '0.72rem', color: '#94A3B8' }}>
+                                                    Max {MAX_EVIDENCE_PER_TEST} evidence files per test{ftEditId ? ` — ${existingEvidenceCount} attached, ${remainingSlots} remaining` : ''}.
+                                                </p>
+                                                {ftFiles.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                                                        {ftFiles.map((f, i) => (
+                                                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#EBF0F7', color: '#003366', fontSize: '0.74rem', fontWeight: '600', padding: '3px 8px', borderRadius: '6px' }}>
+                                                                {f.name}
+                                                                <button type="button" onClick={() => setFtFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003366', display: 'flex', padding: 0, lineHeight: 1, opacity: 0.55 }}><X size={10} /></button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                                                <button type="button" onClick={() => { setShowFtForm(false); setFtEditId(null); setFtForm(EMPTY_FT); setFtFiles([]); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '0.55rem 1rem', fontSize: '0.85rem' }}>Cancel</button>
+                                                <button type="submit" disabled={ftSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#003366', color: 'white', border: 'none', padding: '0.55rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: ftSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ftSaving ? 0.7 : 1 }}>
+                                                    {ftSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={13} />}{ftEditId ? 'Update Test Result' : 'Submit Test Result'}
+                                                </button>
+                                            </div>
+                                        </form>
                                     );
                                 })()}
                             </section>
@@ -1959,13 +2205,13 @@ const ProductReviewsTab = ({ showToast }) => {
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
                                     {managingProduct.media?.map(m => (
                                         <div key={m.id} style={{ position: 'relative', width: '120px' }}>
-                                            {m.type === 'image' ? <img src={m.url} alt={m.label||''} style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E2E8F0' }} /> : <div style={{ width: '120px', height: '80px', background: '#1E293B', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Video size={28} color="white" /></div>}
+                                            {m.type === 'image' ? <img src={m.url} alt={m.label || ''} style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E2E8F0' }} /> : <div style={{ width: '120px', height: '80px', background: '#1E293B', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Video size={28} color="white" /></div>}
                                             <button onClick={() => handleDeleteMedia(m.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#DC2626', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}><X size={10} color="white" /></button>
                                         </div>
                                     ))}
                                     {(!managingProduct.media || managingProduct.media.length === 0) && <p style={{ color: '#94A3B8', fontSize: '0.85rem' }}>No media uploaded yet.</p>}
                                 </div>
-                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#003366','#EBF0F7'), padding: '8px 14px', cursor: 'pointer' }}>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', ...IBTN('#003366', '#EBF0F7'), padding: '8px 14px', cursor: 'pointer' }}>
                                     <Upload size={12} /> Upload Images/Videos
                                     <input type="file" accept="image/*,video/*" multiple hidden onChange={handleUploadMedia} />
                                 </label>
@@ -1979,15 +2225,15 @@ const ProductReviewsTab = ({ showToast }) => {
                                     {adminOwnReviewId && !adminReviewEditing && (
                                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#D97706', background: '#FEF3C7', padding: '2px 8px', borderRadius: '99px' }}>Submitted ✓</span>
-                                            <button type="button" onClick={() => setAdminReviewEditing(true)} style={{ ...IBTN('#D97706','#FFFBEB'), padding: '3px 10px', fontSize: '0.75rem' }}><Edit2 size={11} /> Edit</button>
-                                            <button type="button" onClick={handleDeleteAdminReview} style={{ ...IBTN('#DC2626','#FEF2F2'), padding: '3px 10px', fontSize: '0.75rem' }}><Trash2 size={11} /> Remove</button>
+                                            <button type="button" onClick={() => setAdminReviewEditing(true)} style={{ ...IBTN('#D97706', '#FFFBEB'), padding: '3px 10px', fontSize: '0.75rem' }}><Edit2 size={11} /> Edit</button>
+                                            <button type="button" onClick={handleDeleteAdminReview} style={{ ...IBTN('#DC2626', '#FEF2F2'), padding: '3px 10px', fontSize: '0.75rem' }}><Trash2 size={11} /> Remove</button>
                                         </div>
                                     )}
                                 </div>
                                 {adminOwnReviewId && !adminReviewEditing ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         <div style={{ display: 'inline-flex', gap: '4px' }}>
-                                            {[1,2,3,4,5].map(i => <Star key={i} size={24} fill={adminRating >= i ? '#F59E0B' : 'none'} color={adminRating >= i ? '#F59E0B' : '#D1D5DB'} strokeWidth={1.5} />)}
+                                            {[1, 2, 3, 4, 5].map(i => <Star key={i} size={24} fill={adminRating >= i ? '#F59E0B' : 'none'} color={adminRating >= i ? '#F59E0B' : '#D1D5DB'} strokeWidth={1.5} />)}
                                             <span style={{ marginLeft: '6px', fontSize: '0.85rem', fontWeight: '700', color: '#92400E', alignSelf: 'center' }}>{adminRating}/5</span>
                                         </div>
                                         {adminComment && <p style={{ margin: 0, fontSize: '0.9rem', color: '#78350F', lineHeight: '1.65', background: 'white', border: '1px solid #FDE68A', borderRadius: '8px', padding: '0.65rem 0.85rem', fontStyle: 'italic' }}>"{adminComment}"</p>}
@@ -1997,7 +2243,7 @@ const ProductReviewsTab = ({ showToast }) => {
                                         <div>
                                             <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#78350F', display: 'block', marginBottom: '6px' }}>Rating *</label>
                                             <span style={{ display: 'inline-flex', gap: '6px' }}>
-                                                {[1,2,3,4,5].map(i => <Star key={i} size={28} fill={(adminHover||adminRating) >= i ? '#F59E0B' : 'none'} color={(adminHover||adminRating) >= i ? '#F59E0B' : '#CBD5E1'} strokeWidth={1.5} style={{ cursor: 'pointer', transition: 'transform 0.1s' }} onMouseEnter={() => setAdminHover(i)} onMouseLeave={() => setAdminHover(0)} onClick={(e) => { e.preventDefault(); setAdminRating(i); }} />)}
+                                                {[1, 2, 3, 4, 5].map(i => <Star key={i} size={28} fill={(adminHover || adminRating) >= i ? '#F59E0B' : 'none'} color={(adminHover || adminRating) >= i ? '#F59E0B' : '#CBD5E1'} strokeWidth={1.5} style={{ cursor: 'pointer', transition: 'transform 0.1s' }} onMouseEnter={() => setAdminHover(i)} onMouseLeave={() => setAdminHover(0)} onClick={(e) => { e.preventDefault(); setAdminRating(i); }} />)}
                                             </span>
                                         </div>
                                         <div>
@@ -2005,10 +2251,10 @@ const ProductReviewsTab = ({ showToast }) => {
                                             <textarea value={adminComment} onChange={e => setAdminComment(e.target.value)} placeholder="Share your assessment of this product..." style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #FCD34D', borderRadius: '6px', fontSize: '0.875rem', fontFamily: 'inherit', minHeight: '80px', resize: 'vertical', boxSizing: 'border-box', background: 'white' }} />
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <button type="submit" disabled={adminReviewSaving || !adminRating} style={{ ...IBTN('white','#D97706'), padding: '8px 20px', opacity: (adminReviewSaving || !adminRating) ? 0.6 : 1, fontWeight: '700' }}>
+                                            <button type="submit" disabled={adminReviewSaving || !adminRating} style={{ ...IBTN('white', '#D97706'), padding: '8px 20px', opacity: (adminReviewSaving || !adminRating) ? 0.6 : 1, fontWeight: '700' }}>
                                                 {adminReviewSaving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={12} />} Save Review
                                             </button>
-                                            {adminReviewEditing && <button type="button" onClick={() => { setAdminReviewEditing(false); }} style={{ ...IBTN('#64748B','#F1F5F9'), padding: '8px 14px' }}>Cancel</button>}
+                                            {adminReviewEditing && <button type="button" onClick={() => { setAdminReviewEditing(false); }} style={{ ...IBTN('#64748B', '#F1F5F9'), padding: '8px 14px' }}>Cancel</button>}
                                         </div>
                                     </form>
                                 )}
@@ -2038,19 +2284,19 @@ const ProductReviewsTab = ({ showToast }) => {
 const BLANK_WS = { title: '', date: '', location: '', description: '', speaker: '', agenda: '', recording_url: '', is_upcoming: true, is_published: true };
 
 const WorkshopsTab = ({ showToast }) => {
-    const [workshops, setWorkshops]     = useState([]);
-    const [loading, setLoading]         = useState(true);
-    const [error, setError]             = useState('');
-    const [page, setPage]               = useState(1);
-    const [totalPages, setTotalPages]   = useState(1);
-    const [showForm, setShowForm]       = useState(false);
-    const [editing, setEditing]         = useState(null); // null = create mode, obj = edit mode
-    const [form, setForm]               = useState(BLANK_WS);
-    const [saving, setSaving]           = useState(false);
-    const [formErrors, setFormErrors]   = useState({});
-    const [confirm, setConfirm]         = useState(null);
-    const [deleting, setDeleting]       = useState({});
-    const [toggling, setToggling]       = useState({});
+    const [workshops, setWorkshops] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [showForm, setShowForm] = useState(false);
+    const [editing, setEditing] = useState(null); // null = create mode, obj = edit mode
+    const [form, setForm] = useState(BLANK_WS);
+    const [saving, setSaving] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+    const [confirm, setConfirm] = useState(null);
+    const [deleting, setDeleting] = useState({});
+    const [toggling, setToggling] = useState({});
 
     const LIMIT = 20;
 
@@ -2068,18 +2314,18 @@ const WorkshopsTab = ({ showToast }) => {
     useEffect(() => { load(); }, [load]);
 
     const openCreate = () => { setEditing(null); setForm(BLANK_WS); setFormErrors({}); setShowForm(true); };
-    const openEdit   = (ws) => {
+    const openEdit = (ws) => {
         setEditing(ws);
         setForm({
-            title:         ws.title         || '',
-            date:          ws.date          ? ws.date.slice(0, 16) : '',
-            location:      ws.location      || '',
-            description:   ws.description   || '',
-            speaker:       ws.speaker       || '',
-            agenda:        ws.agenda        || '',
+            title: ws.title || '',
+            date: ws.date ? ws.date.slice(0, 16) : '',
+            location: ws.location || '',
+            description: ws.description || '',
+            speaker: ws.speaker || '',
+            agenda: ws.agenda || '',
             recording_url: ws.recording_url || '',
-            is_upcoming:   !!ws.is_upcoming,
-            is_published:  !!ws.is_published,
+            is_upcoming: !!ws.is_upcoming,
+            is_published: !!ws.is_published,
         });
         setFormErrors({});
         setShowForm(true);
@@ -2088,8 +2334,8 @@ const WorkshopsTab = ({ showToast }) => {
 
     const validate = () => {
         const errs = {};
-        if (!form.title.trim())  errs.title = 'Title is required.';
-        if (!form.date)          errs.date  = 'Date is required.';
+        if (!form.title.trim()) errs.title = 'Title is required.';
+        if (!form.date) errs.date = 'Date is required.';
         if (form.recording_url && !/^https?:\/\//.test(form.recording_url)) errs.recording_url = 'Must be a valid URL.';
         setFormErrors(errs);
         return Object.keys(errs).length === 0;
@@ -2101,7 +2347,7 @@ const WorkshopsTab = ({ showToast }) => {
         try {
             const payload = { ...form };
             if (editing) { await updateWorkshop(editing.id, payload); showToast('Workshop updated!', 'success'); }
-            else         { await createWorkshop(payload);             showToast('Workshop created!', 'success'); }
+            else { await createWorkshop(payload); showToast('Workshop created!', 'success'); }
             closeForm();
             load();
         } catch (err) { showToast(getErrorMessage(err) || 'Save failed.', 'error'); }
@@ -2177,7 +2423,7 @@ const WorkshopsTab = ({ showToast }) => {
                     </FormField>
                     <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                            <input type="checkbox" checked={form.is_upcoming}  onChange={e => setForm(p => ({ ...p, is_upcoming:  e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
+                            <input type="checkbox" checked={form.is_upcoming} onChange={e => setForm(p => ({ ...p, is_upcoming: e.target.checked }))} style={{ accentColor: '#003366', width: '15px', height: '15px' }} />
                             Mark as Upcoming
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
@@ -2201,7 +2447,7 @@ const WorkshopsTab = ({ showToast }) => {
             {/* ── List ── */}
             {loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {[1,2,3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
+                    {[1, 2, 3].map(i => <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', height: '88px', animation: 'adm-pulse 1.4s ease-in-out infinite' }} />)}
                 </div>
             ) : !error && workshops.length === 0 ? (
                 <EmptyState icon={BookOpen} message="No workshops yet. Click 'Add Workshop' to create one." />
@@ -2280,7 +2526,7 @@ const AdminDashboard = () => {
         try {
             const [usersRes, appsRes] = await Promise.allSettled([getPendingUsers(), getMembershipApplications({ status: 'pending' })]);
             const users = usersRes.status === 'fulfilled' ? (usersRes.value.data?.data ?? []) : [];
-            const apps  = appsRes.status  === 'fulfilled' ? (appsRes.value.data?.data  ?? []) : [];
+            const apps = appsRes.status === 'fulfilled' ? (appsRes.value.data?.data ?? []) : [];
             setPendingCount((Array.isArray(users) ? users.length : 0) + (Array.isArray(apps) ? apps.length : 0));
         } catch { setPendingCount(0); }
     }, []);
@@ -2412,17 +2658,18 @@ const AdminDashboard = () => {
 
             {/* ── Content ── */}
             <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'clamp(1rem,3vw,1.75rem) clamp(1rem,3vw,1.5rem) 5rem' }}>
-                {tab === 'pending'           && <PendingTab showToast={showToast} onApproved={refreshPending} />}
+                {tab === 'pending' && <PendingTab showToast={showToast} onApproved={refreshPending} />}
                 {tab === 'pending_resources' && <PendingResourcesTab showToast={showToast} onCountChange={setPendingResourcesCount} />}
-                {tab === 'news'              && <NewsTab showToast={showToast} />}
-                {tab === 'auto_news'         && <AutomatedNewsManagement />}
-                {tab === 'events'            && <EventsTab showToast={showToast} />}
-                {tab === 'team'              && <TeamTab showToast={showToast} />}
-                {tab === 'resources'         && <ResourcesTab showToast={showToast} />}
-                {tab === 'product_reviews'   && <ProductReviewsTab showToast={showToast} />}
-                {tab === 'workshops'         && <WorkshopsTab showToast={showToast} />}
-                {tab === 'nominations'       && <AdminNominees embedded />}
-                {tab === 'framework'         && <FrameworkManagement />}
+                {tab === 'news' && <NewsTab showToast={showToast} />}
+                {tab === 'auto_news' && <AutomatedNewsManagement />}
+                {tab === 'events' && <EventsTab showToast={showToast} />}
+                {tab === 'team' && <TeamTab showToast={showToast} />}
+                {tab === 'resources' && <ResourcesTab showToast={showToast} />}
+                {tab === 'product_reviews' && <ProductReviewsTab showToast={showToast} />}
+                {tab === 'workshops' && <WorkshopsTab showToast={showToast} />}
+                {tab === 'nominations' && <AdminNominees embedded />}
+                {tab === 'framework' && <FrameworkManagement />}
+                {tab === 'deletion_requests' && <DeletionRequestsTab showToast={showToast} />}
             </div>
 
             <style>{`

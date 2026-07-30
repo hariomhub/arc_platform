@@ -20,7 +20,7 @@ export const register = async (req, res, next) => {
         const assignedRole = allowedSelfRoles.includes(role) ? role : 'professional';
 
         const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
-        
+
         if (!organization_name || !organization_name.trim()) {
             return res.status(400).json({ success: false, message: 'Organisation / University name is required.' });
         }
@@ -33,7 +33,7 @@ export const register = async (req, res, next) => {
                 return res.status(400).json({ success: false, message: 'LinkedIn profile URL is required.' });
             }
         }
-        
+
         const subType = assignedRole === 'professional' ? professional_sub_type : null;
 
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
@@ -173,6 +173,16 @@ export const login = async (req, res, next) => {
         if (user.status === 'rejected') {
             return res.status(403).json({ success: false, message: 'Your account application has been rejected.' });
         }
+
+
+        if (user.status === 'pending_deletion') {
+            return res.status(403).json({ success: false, message: 'Your account has a pending deletion request. Please contact support if this was submitted in error.' });
+        }
+
+        if (user.status === 'deleted') {
+            return res.status(403).json({ success: false, message: 'This account has been permanently deleted.' });
+        }
+
 
         // Check membership expiry (founding_member has NULL = lifetime)
         if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
@@ -317,6 +327,14 @@ export const linkedinCallback = async (req, res, next) => {
         if (user.status === 'pending') {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending`);
         }
+
+        if (user.status === 'pending_deletion') {
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending_deletion`);
+        }
+        if (user.status === 'deleted') {
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=deleted`);
+        }
+
         if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=expired`);
         }
