@@ -6,7 +6,7 @@ import {
     Search, Loader2, UserX, UserCheck, ChevronDown,
     Plus, Trash2, FileText, Edit2, Save, ShieldCheck,
     Image, Video, Eye, Upload, Star, Trophy, Newspaper,
-    BookOpen, Mic2, MapPin, Linkedin, Globe,
+    BookOpen, Mic2, MapPin, Linkedin, Globe, AlertTriangle,
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';

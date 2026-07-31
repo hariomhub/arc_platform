@@ -174,6 +174,8 @@ export const login = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Your account application has been rejected.' });
         }
 
+
+
         // Check membership expiry (founding_member has NULL = lifetime)
         if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
             return res.status(403).json({ success: false, message: 'Your membership has expired. Please renew to continue.' });
@@ -317,6 +319,7 @@ export const linkedinCallback = async (req, res, next) => {
         if (user.status === 'pending') {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending`);
         }
+
         if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=expired`);
         }

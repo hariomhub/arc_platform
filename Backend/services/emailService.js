@@ -1121,3 +1121,193 @@ export const sendSelfNominationDecisionEmail = ({ name, email, awardName, catego
     html,
   });
 };
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ACCOUNT DELETION EMAILS
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * sendDeletionRequestConfirmationEmail
+ * Sent immediately when a user submits an account deletion request.
+ *
+ * @param {{ name: string, email: string }} opts
+ */
+export const sendDeletionRequestConfirmationEmail = ({ name, email }) => {
+  const firstName = (name || '').split(' ')[0] || 'Member';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Account Deletion Request Received</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${firstName}, we have received your request to permanently delete your Risk AI Council account.
+    </p>
+
+    <!-- Status banner -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">⏳ Awaiting Administrator Review</p>
+       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
+        Your account has been temporarily deactivated. You will not be able to log in while your
+        request is under review. You will receive another email once a decision has been made.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <!-- What happens next -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:20px 22px;">
+       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">What happens next?</p>
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${checkListItem('• &nbsp;An administrator will review your request')}
+        ${checkListItem('• &nbsp;You will receive an approval or rejection email')}
+        ${checkListItem('• &nbsp;If approved, your account and all associated data will be permanently removed')}
+        ${checkListItem('• &nbsp;If rejected, your account will be fully reactivated')}
+       </table>
+      </td>
+     </tr>
+    </table>
+
+    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      If you did not submit this request, please contact us immediately at
+      <a href="mailto:support@riskaicouncil.com" style="color:#003366;">support@riskaicouncil.com</a>.
+    </p>
+  `,
+  'Your account deletion request has been received and is pending review.');
+
+  send({
+    from:    FROM(),
+    to:      email,
+    subject: 'Account Deletion Request Received — Risk AI Council',
+    html,
+  });
+};
+
+
+/**
+ * sendDeletionApprovedEmail
+ * Sent when an administrator approves the deletion request.
+ * At this point, the user's account and data have been permanently removed.
+ *
+ * @param {{ name: string, email: string }} opts
+ */
+export const sendDeletionApprovedEmail = ({ name, email }) => {
+  const firstName = (name || '').split(' ')[0] || 'Member';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Your Account Has Been Deleted</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${firstName}, your account deletion request has been approved.
+    </p>
+
+    <!-- Confirmation banner -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#166534;">✓ Account Permanently Deleted</p>
+       <p style="margin:0;font-size:13px;color:#15803d;line-height:1.6;">
+        Your Risk AI Council account and all associated personal data have been permanently and
+        irreversibly removed from our systems.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <!-- What was removed -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:20px 22px;">
+       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Data removed</p>
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${checkListItem('• &nbsp;Account credentials and login access')}
+        ${checkListItem('• &nbsp;Profile information, photo, and bio')}
+        ${checkListItem('• &nbsp;Membership and subscription history')}
+        ${checkListItem('• &nbsp;Event and workshop registrations')}
+        ${checkListItem('• &nbsp;Saved posts, bookmarks, and notification history')}
+        ${checkListItem('• &nbsp;All personal uploaded files')}
+       </table>
+      </td>
+     </tr>
+    </table>
+
+    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Thank you for being part of the Risk AI Council community. If you wish to rejoin in the future,
+      you are welcome to register again at
+      <a href="${APP_URL()}/register" style="color:#003366;">riskaicouncil.org/register</a>.
+    </p>
+  `,
+  'Your Risk AI Council account has been permanently deleted.');
+
+  send({
+    from:    FROM(),
+    to:      email,
+    subject: 'Your Account Has Been Permanently Deleted — Risk AI Council',
+    html,
+  });
+};
+
+
+/**
+ * sendDeletionRejectedEmail
+ * Sent when an administrator rejects the deletion request.
+ * The user's account is reactivated.
+ *
+ * @param {{ name: string, email: string, reason: string }} opts
+ */
+export const sendDeletionRejectedEmail = ({ name, email, reason }) => {
+  const firstName = (name || '').split(' ')[0] || 'Member';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Account Deletion Request — Update</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${firstName}, we have reviewed your account deletion request.
+    </p>
+
+    <!-- Status banner -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#991b1b;">Request Not Approved</p>
+       <p style="margin:0;font-size:13px;color:#b91c1c;line-height:1.6;">
+        Your account deletion request has not been approved at this time. Your account has been
+        fully reactivated and you can log in as normal.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <!-- Reason -->
+    ${reason ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:20px 22px;">
+       <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Reason provided by administrator</p>
+       <p style="margin:0;font-size:14px;color:#334155;line-height:1.65;">${reason}</p>
+      </td>
+     </tr>
+    </table>` : ''}
+
+    ${ctaButton('Log In to Your Account', `${APP_URL()}/login`)}
+
+    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      If you have questions, please contact us at
+      <a href="mailto:support@riskaicouncil.com" style="color:#003366;">support@riskaicouncil.com</a>.
+    </p>
+  `,
+  'Your account deletion request has not been approved — your account is now active.');
+
+  send({
+    from:    FROM(),
+    to:      email,
+    subject: 'Account Deletion Request Update — Risk AI Council',
+    html,
+  });
+};
