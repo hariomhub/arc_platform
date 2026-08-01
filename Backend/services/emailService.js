@@ -1123,7 +1123,6 @@ export const sendSelfNominationDecisionEmail = ({ name, email, awardName, catego
 };
 
 
-
 // ════════════════════════════════════════════════════════════════════════════════
 // ACCOUNT DELETION EMAILS
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1312,4 +1311,3 @@ export const sendDeletionRejectedEmail = ({ name, email, reason }) => {
     html,
   });
 };
-

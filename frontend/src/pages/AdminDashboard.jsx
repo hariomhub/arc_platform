@@ -15,7 +15,6 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
-import { getAdminDeletionRequests, approveAdminDeletionRequest, rejectAdminDeletionRequest } from '../api/accountDeletion.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
 import { getTeam, createTeamMember, updateTeamMember, deleteTeamMember } from '../api/team.js';
@@ -33,7 +32,6 @@ import CategoryCombobox from '../components/common/CategoryCombobox.jsx';
 const TABS = [
     { key: 'pending', label: 'Member Approvals', icon: Clock },
     { key: 'pending_resources', label: 'Pending Resources', icon: FileText },
-    { key: 'deletion_requests', label: 'Account Deletion', icon: Trash2 },
     { key: 'news', label: 'Manage News', icon: FileText },
     { key: 'auto_news', label: 'Automated News', icon: Newspaper },
     { key: 'events', label: 'Manage Events', icon: CalendarDays },
@@ -145,250 +143,6 @@ const FormField = ({ label, required, error, children }) => (
         {error && <p style={{ color: '#EF4444', fontSize: '0.72rem', margin: 0 }}>{error}</p>}
     </div>
 );
-
-// ─── Account Deletion Requests Tab ───────────────────────────────────────────
-const STATUS_PILL = {
-    Pending: { bg: '#FEF3C7', color: '#92400E' },
-    Approved: { bg: '#D1FAE5', color: '#065F46' },
-    Rejected: { bg: '#FEE2E2', color: '#991B1B' },
-    Completed: { bg: '#D1FAE5', color: '#065F46' },
-};
-const DeletionRequestsTab = ({ showToast }) => {
-    const [requests, setRequests] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [statusFilter, setStatusFilter] = useState('Pending');
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [total, setTotal] = useState(0);
-
-    // Modals
-    const [viewModal, setViewModal] = useState(null);
-    const [approveModal, setApproveModal] = useState(null);
-    const [rejectModal, setRejectModal] = useState(null);
-    const [rejectNotes, setRejectNotes] = useState('');
-    const [actioning, setActioning] = useState(false);
-
-    const load = useCallback(async () => {
-        setLoading(true); setError('');
-        try {
-            const res = await getAdminDeletionRequests({ status: statusFilter || undefined, search: search || undefined, page, limit: 20 });
-            setRequests(Array.isArray(res.data?.data) ? res.data.data : []);
-            setTotalPages(res.data?.totalPages || 1);
-            setTotal(res.data?.total || 0);
-        } catch (err) {
-            setError(getErrorMessage(err) || 'Failed to load deletion requests.');
-        } finally {
-            setLoading(false);
-        }
-    }, [statusFilter, search, page]);
-
-    useEffect(() => { load(); }, [load]);
-
-    const handleApprove = async () => {
-        if (!approveModal) return;
-        setActioning(true);
-        try {
-            await approveAdminDeletionRequest(approveModal.id);
-            showToast('Account permanently deleted and data removed.', 'success');
-            setApproveModal(null);
-            load();
-        } catch (err) {
-            showToast(getErrorMessage(err) || 'Failed to approve request.', 'error');
-        } finally {
-            setActioning(false);
-        }
-    };
-
-    const handleReject = async () => {
-        if (!rejectModal || !rejectNotes.trim()) return;
-        setActioning(true);
-        try {
-            await rejectAdminDeletionRequest(rejectModal.id, rejectNotes.trim());
-            showToast('Request rejected. User account has been reactivated.', 'success');
-            setRejectModal(null); setRejectNotes('');
-            load();
-        } catch (err) {
-            showToast(getErrorMessage(err) || 'Failed to reject request.', 'error');
-        } finally {
-            setActioning(false);
-        }
-    };
-
-    const ROLE_LABEL = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
-
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <SectionHeader
-                icon={Trash2}
-                title="Account Deletion Requests"
-                subtitle={`${total} total request${total !== 1 ? 's' : ''}`}
-            />
-
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
-                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-                    <input
-                        className="adm-input"
-                        style={{ paddingLeft: '32px' }}
-                        placeholder="Search by name or email…"
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(1); }}
-                    />
-                </div>
-                <select
-                    className="adm-input"
-                    style={{ width: 'auto', minWidth: '140px' }}
-                    value={statusFilter}
-                    onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-                >
-                    <option value="">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Completed">Completed</option>
-                </select>
-                <button style={BTN_CANCEL} onClick={load}><RefreshCw size={13} /> Refresh</button>
-            </div>
-
-            {/* Table */}
-            {loading ? (
-                <TableWrapper headers={['User', 'Email', 'Membership', 'Request Date', 'Status', 'Reason', 'Actions']}>
-                    {[...Array(5)].map((_, i) => <SkeletonRow key={i} cols={7} />)}
-                </TableWrapper>
-            ) : error ? (
-                <ErrorState message={error} onRetry={load} />
-            ) : requests.length === 0 ? (
-                <EmptyState icon={Trash2} message="No deletion requests found." />
-            ) : (
-                <TableWrapper headers={['User', 'Email', 'Membership', 'Request Date', 'Status', 'Reason', 'Actions']}>
-                    {requests.map(r => {
-                        const pill = STATUS_PILL[r.status] || STATUS_PILL.Pending;
-                        return (
-                            <tr key={r.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: '#0F172A', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{r.full_name}</td>
-                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem' }}>{r.email}</td>
-                                <td style={{ padding: '0.75rem 1rem' }}>
-                                    <span style={{ ...PILL('#fff', ROLE_COLORS[r.role] || '#64748B'), fontSize: '0.7rem' }}>{ROLE_LABEL[r.role] || r.role || '—'}</span>
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{fmtDate(r.requested_at)}</td>
-                                <td style={{ padding: '0.75rem 1rem' }}>
-                                    <span style={{ background: pill.bg, color: pill.color, fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '100px', whiteSpace: 'nowrap' }}>{r.status}</span>
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.82rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {r.reason || <span style={{ color: '#CBD5E1', fontStyle: 'italic' }}>Not provided</span>}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem' }}>
-                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                        <button style={IBTN('#0284C7', '#EFF6FF')} onClick={() => setViewModal(r)}><Eye size={12} /> View</button>
-                                        {r.status === 'Pending' && (
-                                            <>
-                                                <button style={IBTN('#16A34A', '#F0FDF4')} onClick={() => setApproveModal(r)}><Check size={12} /> Approve</button>
-                                                <button style={IBTN('#DC2626', '#FEF2F2')} onClick={() => { setRejectModal(r); setRejectNotes(''); }}><X size={12} /> Reject</button>
-                                            </>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </TableWrapper>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <button style={BTN_CANCEL} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-                    <span style={{ lineHeight: '34px', fontSize: '0.82rem', color: '#475569' }}>Page {page} of {totalPages}</span>
-                    <button style={BTN_CANCEL} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
-                </div>
-            )}
-
-            {/* View Details Modal */}
-            {viewModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
-                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '520px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Deletion Request Details</h3>
-                            <button onClick={() => setViewModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {[['User', viewModal.full_name], ['Email', viewModal.email], ['Membership', ROLE_LABEL[viewModal.role] || viewModal.role || '—'], ['Status', viewModal.status], ['Request Date', fmtDate(viewModal.requested_at)], ['Approved/Rejected At', fmtDate(viewModal.approved_at || viewModal.rejected_at)], ['Reason', viewModal.reason || 'Not provided'], ['Admin Notes', viewModal.admin_notes || '—']].map(([label, val]) => (
-                                <div key={label} style={{ display: 'flex', gap: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '130px', paddingTop: '2px' }}>{label}</span>
-                                    <span style={{ fontSize: '0.875rem', color: '#334155', flex: 1 }}>{val}</span>
-                                </div>
-                            ))}
-                        </div>
-                        {viewModal.status === 'Pending' && (
-                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #F1F5F9' }}>
-                                <button style={{ ...BTN_SUCCESS, flex: 1, justifyContent: 'center' }} onClick={() => { setViewModal(null); setApproveModal(viewModal); }}><Check size={13} /> Approve</button>
-                                <button style={{ ...BTN_DANGER, flex: 1, justifyContent: 'center' }} onClick={() => { setViewModal(null); setRejectModal(viewModal); setRejectNotes(''); }}><X size={13} /> Reject</button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Approve Confirm Modal */}
-            {approveModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
-                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '460px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                            <AlertTriangle size={22} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
-                            <div>
-                                <h3 style={{ margin: '0 0 0.35rem', fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Approve Account Deletion?</h3>
-                                <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748B', lineHeight: 1.5 }}>
-                                    This will <strong>permanently and irreversibly</strong> delete all data for <strong>{approveModal.full_name}</strong> ({approveModal.email}). This action cannot be undone.
-                                </p>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                            <button style={BTN_CANCEL} disabled={actioning} onClick={() => setApproveModal(null)}>Cancel</button>
-                            <button style={{ ...BTN_DANGER, opacity: actioning ? 0.7 : 1 }} disabled={actioning} onClick={handleApprove}>
-                                {actioning ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={13} />}
-                                {actioning ? 'Deleting…' : 'Confirm & Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Reject Modal */}
-            {rejectModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
-                    <div style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '460px', padding: '1.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-                        <h3 style={{ margin: '0 0 0.35rem', fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>Reject Deletion Request</h3>
-                        <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#64748B' }}>Provide a reason for rejecting <strong>{rejectModal.full_name}</strong>'s request. The user's account will be reactivated and they will be notified by email.</p>
-                        <textarea
-                            className="adm-input"
-                            rows={4}
-                            placeholder="Reason for rejection (required)…"
-                            value={rejectNotes}
-                            onChange={e => setRejectNotes(e.target.value)}
-                            style={{ resize: 'vertical' }}
-                        />
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                            <button style={BTN_CANCEL} disabled={actioning} onClick={() => { setRejectModal(null); setRejectNotes(''); }}>Cancel</button>
-                            <button
-                                style={{ ...BTN_WARN, opacity: (!rejectNotes.trim() || actioning) ? 0.5 : 1 }}
-                                disabled={!rejectNotes.trim() || actioning}
-                                onClick={handleReject}
-                            >
-                                {actioning ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={13} />}
-                                {actioning ? 'Rejecting…' : 'Reject & Reactivate'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 // ─── 1. Member Approvals Tab ──────────────────────────────────────────────────
 const PendingTab = ({ showToast, onApproved }) => {
@@ -2669,7 +2423,6 @@ const AdminDashboard = () => {
                 {tab === 'workshops' && <WorkshopsTab showToast={showToast} />}
                 {tab === 'nominations' && <AdminNominees embedded />}
                 {tab === 'framework' && <FrameworkManagement />}
-                {tab === 'deletion_requests' && <DeletionRequestsTab showToast={showToast} />}
             </div>
 
             <style>{`

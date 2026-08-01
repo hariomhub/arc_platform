@@ -6,6 +6,10 @@ dist/
 # Local uploads (files go to Azure Blob Storage in production)
 uploads/
 
+# Local MySQL data directory (app uses Azure MySQL in production — this
+# should never be committed, it's machine-specific runtime state)
+local_mysql_data/
+
 # SQLite local databases (app uses Azure MySQL in production)
 *.sqlite
 *.sqlite3

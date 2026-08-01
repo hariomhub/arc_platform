@@ -2,6 +2,14 @@
 -- Migration: Account Deletion Requests
 -- Description: Adds account_deletion_requests table and extends users.status
 --              to support pending_deletion and deleted states.
+--
+--   NOTE: this file's account_deletion_requests definition was reconciled to
+--   match what is actually live on the database (which was set up by hand,
+--   outside this migration runner, ahead of this file ever being tracked in
+--   schema_migrations). A duplicate, untracked copy of this migration
+--   (migrations/account_deletion_requests.sql) briefly existed with a
+--   slightly different definition — it has been folded into this file and
+--   removed so there is a single, numbered, accurate source of truth.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Step 1: Extend users.status ENUM to include new deletion states
@@ -26,8 +34,9 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
                   'Pending',
                   'Approved',
                   'Rejected',
-                  'Completed'
-                )               NOT NULL DEFAULT 'Pending',
+                  'Completed',
+                  'Deleted'
+                )               NOT NULL DEFAULT 'Deleted',
   requested_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   approved_at   DATETIME        NULL,
   rejected_at   DATETIME        NULL,
@@ -41,8 +50,11 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
   KEY     idx_requested_at     (requested_at),
   KEY     idx_email            (email),
 
-  CONSTRAINT fk_adr_user
-    FOREIGN KEY (user_id)    REFERENCES users (id) ON DELETE CASCADE,
+  -- No FK on user_id: deletion is now a soft-delete tombstone (see
+  -- 0015_soft_delete_tombstone.sql / accountDeletionService.js), so the
+  -- referenced user row always continues to exist. Historically this FK
+  -- was omitted because the old hard-delete flow would otherwise cascade
+  -- away the very audit row meant to document the deletion.
   CONSTRAINT fk_adr_admin
     FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB

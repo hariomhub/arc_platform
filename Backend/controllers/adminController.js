@@ -2,6 +2,7 @@ import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
 import { sendAccountApprovedEmail, sendMembershipApplicationStatusEmail } from '../services/emailService.js';
 import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
+import { softDeleteUser, purgeProfilePhoto } from '../services/accountDeletionService.js';
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -29,6 +30,11 @@ export const getUsers = async (req, res, next) => {
             const clause = ' AND status = ?';
             countSql += clause; dataSql += clause;
             params.push(status);
+        } else {
+            // Deleted accounts are tombstoned, not removed — keep them out of
+            // the default view; admins can still look them up via ?status=deleted
+            const clause = " AND status != 'deleted'";
+            countSql += clause; dataSql += clause;
         }
         if (search) {
             const clause = ' AND (name LIKE ? OR email LIKE ?)';
@@ -203,20 +209,49 @@ export const updateUserRole = async (req, res, next) => {
 
 // DELETE /api/admin/users/:id
 export const deleteUser = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
-        if (parseInt(req.params.id, 10) === req.user.id) {
+        const targetId = parseInt(req.params.id, 10);
+        if (targetId === req.user.id) {
             return res.status(403).json({ success: false, message: 'You cannot delete your own account.' });
         }
 
-        const [check] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        const [rows] = await conn.query(
+            'SELECT id, name, email, status, role, photo_url FROM users WHERE id = ?',
+            [targetId]
+        );
+        if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
+        const user = rows[0];
+        if (user.status === 'deleted') {
+            return res.status(409).json({ success: false, message: 'This account has already been deleted.' });
+        }
 
-        await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+        await conn.beginTransaction();
+
+        await conn.query(
+            `INSERT INTO account_deletion_requests (user_id, full_name, email, reason, status, requested_at, approved_at, completed_at, approved_by, admin_notes)
+             VALUES (?, ?, ?, NULL, 'Deleted', NOW(), NOW(), NOW(), ?, 'Account deleted by admin via User Management panel.')`,
+            [user.id, user.name, user.email, req.user.id]
+        );
+
+        // Scrub identifying data in place and remove purely-private records.
+        // Posts, resources, reviews, and votes are left untouched — they keep
+        // pointing at this same (now-anonymized) user row.
+        await softDeleteUser(conn, user);
+
+        await conn.commit();
+
+        // Purge profile photo from Azure Blob Storage (fire-and-forget)
+        await purgeProfilePhoto(user);
+
         return res.json({ success: true, data: { message: 'User deleted successfully.' } });
     } catch (err) {
+        await conn.rollback().catch(() => {});
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
@@ -289,7 +324,7 @@ export const createUser = async (req, res, next) => {
 // GET /api/admin/stats
 export const getStats = async (req, res, next) => {
     try {
-        const [[{ total_users }]]          = await pool.query('SELECT COUNT(*) AS total_users FROM users');
+        const [[{ total_users }]]          = await pool.query("SELECT COUNT(*) AS total_users FROM users WHERE status != 'deleted'");
         const [[{ pending_users }]]        = await pool.query('SELECT COUNT(*) AS pending_users FROM users WHERE status = "pending"');
         const [[{ total_resources }]]      = await pool.query('SELECT COUNT(*) AS total_resources FROM resources');
         const [[{ total_events }]]         = await pool.query('SELECT COUNT(*) AS total_events FROM events');

@@ -13,7 +13,7 @@ import {
     FileText, Trash2, AlertCircle, Loader2, RefreshCw,
     Upload, ShieldCheck, ArrowLeft, CheckCircle2,
     Bookmark, BookmarkX, ExternalLink, Linkedin,
-    BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp, Settings
+    BarChart2, MessageSquare, Heart, Download, ArrowUpRight, TrendingUp, Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -521,16 +521,19 @@ const SavedPostsSection = ({ showToast }) => {
 const SettingsSection = ({ navigate }) => {
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [weeklyDigest, setWeeklyDigest] = useState(true);
+    const { user, isAdmin } = useAuth();
+
+    const showDelete = user && !isAdmin();
 
     return (
         <Card>
             <SectionHeader icon={Settings} title="Account Settings" subtitle="Manage notifications, preferences, and account deletion" accent="#003366" />
-
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* Notification Preferences */}
                 <div>
                     <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Notification Preferences</h3>
-
+                    
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', color: '#475569' }}>
                             <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#003366' }} />
@@ -543,21 +546,23 @@ const SettingsSection = ({ navigate }) => {
                     </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem' }}>
-                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Danger Zone</h3>
-                    <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                        <div style={{ flex: '1', minWidth: '240px' }}>
-                            <p style={{ margin: '0 0 4px', fontWeight: '700', fontSize: '0.875rem', color: '#991B1B' }}>Delete Account</p>
-                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#B91C1C', lineHeight: 1.5 }}>
-                                Permanently delete your Risk AI Council account and all associated data. This action is irreversible.
-                            </p>
+                {showDelete && (
+                    <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.25rem' }}>
+                        <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Danger Zone</h3>
+                        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                            <div style={{ flex: '1', minWidth: '240px' }}>
+                                <p style={{ margin: '0 0 4px', fontWeight: '700', fontSize: '0.875rem', color: '#991B1B' }}>Delete Account</p>
+                                <p style={{ margin: 0, fontSize: '0.78rem', color: '#B91C1C', lineHeight: 1.5 }}>
+                                    Permanently delete your Risk AI Council account and all associated data. This action is irreversible.
+                                </p>
+                            </div>
+                            <button onClick={() => navigate('/delete-account')}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#DC2626', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'background 0.15s' }}>
+                                <Trash2 size={13} /> Delete Account
+                            </button>
                         </div>
-                        <button onClick={() => navigate('/delete-account')}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#DC2626', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'background 0.15s' }}>
-                            <Trash2 size={13} /> Delete Account
-                        </button>
                     </div>
-                </div>
+                )}
             </div>
         </Card>
     );
@@ -605,11 +610,11 @@ const Profile = () => {
     const canPost = ['founding_member', 'council_member'].includes(user.role);
 
     const TABS = [
-        { key: 'info', label: 'Profile Info', icon: User, show: true },
-        { key: 'password', label: 'Password', icon: ShieldCheck, show: true },
-        { key: 'uploads', label: 'My Uploads', icon: FileText, show: canPost },
-        { key: 'saved', label: 'Saved Posts', icon: Bookmark, show: true },
-        { key: 'settings', label: 'Settings', icon: Settings, show: true },
+        { key: 'info',     label: 'Profile Info', icon: User,         show: true   },
+        { key: 'password', label: 'Password',     icon: ShieldCheck,  show: true   },
+        { key: 'uploads',  label: 'My Uploads',   icon: FileText,     show: canPost },
+        { key: 'saved',    label: 'Saved Posts',  icon: Bookmark,     show: true   },
+        { key: 'settings', label: 'Settings',     icon: Settings,     show: true   },
     ].filter(t => t.show);
 
     return (
@@ -719,9 +724,9 @@ const Profile = () => {
 
                     {activeTab === 'info' && <ProfileInfoSection user={profile || user} showToast={showToast} />}
                     {activeTab === 'password' && <ChangePasswordSection showToast={showToast} />}
-                    {activeTab === 'uploads' && <MyUploadsSection showToast={showToast} navigate={navigate} />}
-                    {activeTab === 'saved' && <SavedPostsSection showToast={showToast} />}
-                    {activeTab === 'settings' && <SettingsSection navigate={navigate} />}
+                    {activeTab === 'uploads'  && <MyUploadsSection      showToast={showToast} navigate={navigate} />}
+                    {activeTab === 'saved'    && <SavedPostsSection     showToast={showToast} />}
+                    {activeTab === 'settings' && <SettingsSection      navigate={navigate} />}
                 </div>
             </div>
         </>
