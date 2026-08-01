@@ -161,6 +161,14 @@ export const login = async (req, res, next) => {
 
         const user = rows[0];
 
+        // Deleted accounts have their password_hash scrubbed — check status
+        // before calling bcrypt so a null hash never reaches it, and so a
+        // deleted account resolves to the same generic message as a wrong
+        // password (it shouldn't confirm the account ever existed).
+        if (user.status === 'deleted' || !user.password_hash) {
+            return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+        }
+
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
             return res.status(401).json({ success: false, message: 'Invalid email or password.' });
@@ -174,14 +182,6 @@ export const login = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Your account application has been rejected.' });
         }
 
-
-        if (user.status === 'pending_deletion') {
-            return res.status(403).json({ success: false, message: 'Your account has a pending deletion request. Please contact support if this was submitted in error.' });
-        }
-
-        if (user.status === 'deleted') {
-            return res.status(403).json({ success: false, message: 'This account has been permanently deleted.' });
-        }
 
 
         // Check membership expiry (founding_member has NULL = lifetime)
@@ -326,13 +326,6 @@ export const linkedinCallback = async (req, res, next) => {
         }
         if (user.status === 'pending') {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending`);
-        }
-
-        if (user.status === 'pending_deletion') {
-            return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending_deletion`);
-        }
-        if (user.status === 'deleted') {
-            return res.redirect(`${process.env.FRONTEND_URL}/login?error=deleted`);
         }
 
         if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {

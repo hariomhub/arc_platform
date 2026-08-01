@@ -431,7 +431,7 @@ const UserManagement = () => {
             {confirmDelete && (
                 <Modal title="Delete User" onClose={() => setConfirmDelete(null)}>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-                        Are you sure you want to permanently delete <strong style={{ color: 'var(--text-main)' }}>{confirmDelete.name}</strong>? This action cannot be undone.
+                        Are you sure you want to permanently delete <strong style={{ color: 'var(--text-main)' }}>{confirmDelete.name}</strong>? This action cannot be undone. Their login and personal info are erased; any posts, resources, reviews, or votes they left behind remain, anonymized as "Former Member".
                     </p>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                         <button onClick={() => setConfirmDelete(null)} style={{

@@ -10,27 +10,27 @@ import { submitDeletionRequest, getMyDeletionRequest } from '../api/accountDelet
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 const FAQS = [
-  { q: 'Can I recover my account after deletion?', a: 'No. Once permanently deleted (after administrator approval), all associated data is removed and cannot be recovered. Contact our support team before submitting if you have concerns.' },
-  { q: 'What happens to my community posts?', a: 'Professional member posts are deleted with your account. Chapter Lead and Founding Member posts are retained but anonymized — displayed as "Former Chapter Lead" — to preserve community knowledge continuity.' },
-  { q: 'How long does the deletion process take?', a: 'Your account is deactivated immediately upon submission. Permanent deletion occurs after an administrator approves your request, typically within 2–5 business days.' },
-  { q: 'Will I receive a confirmation?', a: 'Yes. You will receive a confirmation email when your request is received and again when permanent deletion is complete or if it is rejected.' },
+  { q: 'Can I recover my account after deletion?', a: 'No. Once you confirm, your login credentials and personal information are permanently and irreversibly erased and cannot be recovered. Contact our support team before submitting if you have concerns.' },
+  { q: 'What happens to my community posts?', a: 'Posts, comments, resource uploads, reviews, and award votes are retained but anonymized — displayed as "Former Member" (or "Former Chapter Lead" for former Chapter Leads and Founding Members) — to preserve community knowledge continuity for everyone.' },
+  { q: 'How long does the deletion process take?', a: 'Deletion happens immediately upon submission — there is no waiting period or administrator review.' },
+  { q: 'Will I receive a confirmation?', a: 'Yes. You will receive a confirmation email once your account has been permanently deleted.' },
   { q: 'What if I signed in with LinkedIn?', a: 'Deleting your Risk AI Council account does not affect your LinkedIn account. Your OAuth connection will be removed. You can also revoke app access from LinkedIn\'s security settings.' },
-  { q: 'Can I re-register after deletion?', a: 'Yes, with the same email after full deletion. However, all previous data, membership status, and contributions will not be restored.' },
+  { q: 'Can I re-register after deletion?', a: 'Yes — once deleted, your email address becomes available again for a new registration. However, your previous data, membership status, and contributions will not be linked to the new account.' },
 ];
 
 const DELETED_ITEMS = [
   'Account & login credentials',
-  'Profile photo & bio',
+  'Profile photo, bio & social links',
   'Membership & subscription history',
   'Event & workshop registrations',
   'Saved posts & bookmarks',
   'Notification history',
-  'Posts created as Professional member',
   'Session tokens & device tokens',
 ];
 
 const RETAINED_ITEMS = [
-  'Posts by Chapter Lead / Founding Members (anonymized as "Former Chapter Lead")',
+  'Posts, comments & resource uploads (anonymized as "Former Member")',
+  'Reviews & award votes you submitted (anonymized, counts unaffected)',
   'Payment records (legal requirement)',
   'Server logs (security – 30 days)',
 ];
@@ -107,12 +107,11 @@ const SuccessState = () => (
   <Card style={{ borderTop: '4px solid #10B981', textAlign: 'center' }}>
     <CheckCircle size={44} color="#10B981" style={{ margin: '0 auto 1rem', display: 'block' }} />
     <strong style={{ color: '#065F46', fontSize: '1.1rem', display: 'block', marginBottom: '0.5rem' }}>
-      Request Submitted Successfully
+      Account Deleted Successfully
     </strong>
     <p style={{ color: '#047857', fontSize: '0.9rem', lineHeight: 1.65, margin: 0 }}>
-      Your account deletion request has been submitted. Your account has been temporarily deactivated
-      and is awaiting administrator approval. You have been logged out automatically.
-      You will receive an email once your request has been approved or rejected.
+      Your account and all associated personal data have been permanently deleted.
+      You will receive a confirmation email shortly. You have been logged out automatically.
     </p>
   </Card>
 );
@@ -126,18 +125,24 @@ const DeletionForm = ({ user, onSuccess }) => {
     confirmed: false,
   });
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError]     = useState('');
 
   const handleChange = (field) => (e) =>
     setForm(f => ({ ...f, [field]: field === 'confirmed' ? e.target.checked : e.target.value }));
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
     if (!form.confirmed) {
       setError('You must check the confirmation checkbox to proceed.');
       return;
     }
+    setShowConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setShowConfirm(false);
     setLoading(true);
     try {
       await submitDeletionRequest({
@@ -156,16 +161,45 @@ const DeletionForm = ({ user, onSuccess }) => {
 
   return (
     <Card style={{ borderTop: '4px solid var(--primary)' }}>
-      <CardTitle>Submit a Deletion Request</CardTitle>
+      <CardTitle>Delete Account</CardTitle>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '-0.5rem', marginBottom: '1.25rem' }}>
-        Deleting your account is permanent. Your request will be reviewed by an administrator
-        before your account is permanently deleted.
+        Deleting your account is permanent and cannot be undone. Once you confirm, your account and all associated personal data will be permanently deleted immediately.
       </p>
 
       {error && (
         <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
           <AlertTriangle size={16} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
           <span style={{ color: '#DC2626', fontSize: '0.87rem' }}>{error}</span>
+        </div>
+      )}
+
+      {showConfirm && (
+        <div className="da-modal-overlay">
+          <div className="da-modal">
+            <h3 style={{ margin: '0 0 0.75rem', color: '#c62828', fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertTriangle size={22} />
+              Confirm Account Deletion
+            </h3>
+            <p style={{ margin: '0 0 1.75rem', color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              Are you absolutely sure you want to delete your account? This action is <strong>permanent</strong> and cannot be undone. All your personal data, membership status, and records will be deleted immediately.
+            </p>
+            <div className="da-modal-buttons">
+              <button
+                type="button"
+                className="da-btn-cancel"
+                onClick={() => setShowConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="da-btn-confirm"
+                onClick={handleConfirmDelete}
+              >
+                Permanently Delete Account
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -227,10 +261,7 @@ const DeletionForm = ({ user, onSuccess }) => {
             onChange={handleChange('confirmed')}
           />
           <label htmlFor="da-confirm" style={{ fontSize: '0.87rem', color: 'var(--text-main)', cursor: 'pointer', lineHeight: 1.6 }}>
-            I understand that deleting my account is <strong>permanent</strong>. Once my deletion request
-            is approved by an administrator, my account and personal information will be permanently
-            removed. If I am a Chapter Lead or Founding Member, my community posts will be anonymized
-            instead of deleted.
+            I understand that deleting my account is <strong>permanent</strong> and cannot be undone. My login credentials and personal information will be permanently removed immediately. My community posts, resources, reviews, and votes will be anonymized as "Former Member" rather than deleted.
           </label>
         </div>
 
@@ -243,7 +274,7 @@ const DeletionForm = ({ user, onSuccess }) => {
           onMouseOut={e => { if (!loading) e.currentTarget.style.background = '#c62828'; }}
         >
           {loading ? <RefreshCw size={15} style={{ animation: 'da-spin 1s linear infinite' }} /> : <Trash2 size={15} />}
-          {loading ? 'Submitting…' : 'Submit Deletion Request'}
+          {loading ? 'Deleting…' : 'Delete Account'}
         </button>
       </form>
     </Card>
@@ -271,7 +302,7 @@ const LoginPrompt = () => (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DeleteAccount() {
-  const { user, logout, isAuthLoading } = useAuth();
+  const { user, logout, isAuthLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const [submitted, setSubmitted]           = useState(false);
@@ -280,9 +311,17 @@ export default function DeleteAccount() {
 
   useEffect(() => { document.title = 'Delete Account — Risk AI Council'; }, []);
 
+  // Redirect admin users away
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (user && isAdmin && isAdmin()) {
+      navigate('/profile');
+    }
+  }, [user, isAuthLoading, isAdmin, navigate]);
+
   // When logged in, check for an existing pending request
   useEffect(() => {
-    if (!user || isAuthLoading) return;
+    if (!user || isAuthLoading || (isAdmin && isAdmin())) return;
     setCheckingRequest(true);
     getMyDeletionRequest()
       .then(res => {
@@ -290,14 +329,14 @@ export default function DeleteAccount() {
       })
       .catch(() => {})
       .finally(() => setCheckingRequest(false));
-  }, [user, isAuthLoading]);
+  }, [user, isAuthLoading, isAdmin]);
 
   // After successful submission: log user out, then show success state
   const handleSuccess = useCallback(async () => {
     setSubmitted(true);
     try { await logout(); } catch (_) {}
-    // Redirect to login after 4 seconds
-    setTimeout(() => navigate('/login'), 4000);
+    // Redirect to login after 2 seconds
+    setTimeout(() => navigate('/login'), 2000);
   }, [logout, navigate]);
 
   // Decide which right-column content to show
@@ -324,6 +363,15 @@ export default function DeleteAccount() {
         .da-input { width: 100%; padding: 0.65rem 0.9rem; border: 1.5px solid var(--border-medium); border-radius: 6px; font-family: var(--font-sans); font-size: 0.9rem; color: var(--text-main); outline: none; transition: border-color 0.2s; box-sizing: border-box; background: #fff; }
         .da-input:focus { border-color: var(--primary); }
         .da-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.4rem; }
+        .da-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; animation: da-fadeIn 0.2s ease-out; }
+        .da-modal { background: #fff; border-radius: 12px; max-width: 480px; width: 100%; padding: 2rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid var(--border-light); animation: da-slideUp 0.2s ease-out; }
+        .da-modal-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.75rem; }
+        .da-btn-cancel { background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border-medium); border-radius: 6px; padding: 0.6rem 1.25rem; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.2s; }
+        .da-btn-cancel:hover { background: #e2e8f0; }
+        .da-btn-confirm { background: #c62828; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.25rem; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background 0.2s; }
+        .da-btn-confirm:hover { background: #b71c1c; }
+        @keyframes da-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes da-slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes da-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
@@ -337,8 +385,7 @@ export default function DeleteAccount() {
           </div>
           <h1 style={{ color: '#fff', fontSize: 'clamp(1.75rem,4vw,2.75rem)', fontWeight: 800, margin: '0 0 1rem', lineHeight: 1.15 }}>Delete Account</h1>
           <p style={{ color: '#CBD5E0', fontSize: '0.93rem', lineHeight: 1.65, margin: 0 }}>
-            Deleting your account is permanent. Your request will be reviewed by an administrator
-            before your account is permanently deleted.
+            Deleting your account is permanent and cannot be undone. Once you confirm, your account and all associated personal data will be permanently deleted immediately.
           </p>
         </div>
       </div>
@@ -353,8 +400,7 @@ export default function DeleteAccount() {
             <div>
               <strong style={{ color: '#92400E', display: 'block', marginBottom: '0.25rem', fontSize: '0.92rem' }}>This action is permanent</strong>
               <p style={{ margin: 0, color: '#78350F', fontSize: '0.87rem', lineHeight: 1.6 }}>
-                Account deletion is irreversible. Once an administrator approves your request, all your
-                personal data is permanently erased. Save any content you wish to keep before proceeding.
+                Account deletion is irreversible. Once you confirm, all your personal data is permanently erased immediately. Save any content you wish to keep before proceeding.
               </p>
             </div>
           </div>
@@ -384,34 +430,22 @@ export default function DeleteAccount() {
             </div>
           </Card>
 
-          {/* Chapter Lead / Founding Member notice */}
+          {/* Content retention notice */}
           <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderLeft: '4px solid var(--primary)', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}>
             <ShieldAlert size={20} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '0.3rem', fontSize: '0.92rem' }}>Chapter Lead & Founding Member — Post Retention Policy</strong>
+              <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '0.3rem', fontSize: '0.92rem' }}>Community Content Retention Policy</strong>
               <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.87rem', lineHeight: 1.65 }}>
-                If you are (or were) a <strong>Chapter Lead</strong> or <strong>Founding Member</strong>,
-                your community posts form part of the permanent knowledge base of the Risk AI Council.
-                Upon deletion, posts are <strong>not</strong> removed — your name is anonymized to{' '}
-                <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Chapter Lead"</em> to
-                preserve community integrity.
+                Your posts, comments, resource uploads, reviews, and award votes form part of the
+                permanent knowledge base of the Risk AI Council. Upon deletion, this content is{' '}
+                <strong>not</strong> removed — your name is anonymized to{' '}
+                <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Member"</em>{' '}
+                (or <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Chapter Lead"</em>{' '}
+                if you were a Chapter Lead or Founding Member) to preserve community integrity and
+                keep review ratings and vote tallies accurate for everyone else.
               </p>
             </div>
           </div>
-
-          {/* Logout info for pending_deletion users */}
-          {user && user.status === 'pending_deletion' && (
-            <div style={{ background: '#FFF8F0', border: '1px solid #FED7AA', borderLeft: '4px solid #F59E0B', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}>
-              <LogOut size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ color: '#92400E', display: 'block', marginBottom: '0.25rem', fontSize: '0.92rem' }}>Your account is pending deletion</strong>
-                <p style={{ margin: 0, color: '#78350F', fontSize: '0.87rem', lineHeight: 1.6 }}>
-                  You have already submitted a deletion request. Your account is temporarily deactivated
-                  and awaiting administrator review.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Form / Status area */}
           {renderFormArea()}
