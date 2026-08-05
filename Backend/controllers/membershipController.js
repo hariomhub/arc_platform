@@ -46,7 +46,7 @@ export const applyCouncil = async (req, res, next) => {
         if (['council_member', 'founding_member'].includes(user.role)) {
             return res.status(409).json({
                 success: false,
-                message: `You already have a ${user.role === 'council_member' ? 'Council Member' : 'Founding Member'} membership.`,
+                message: `You already have a ${user.role === 'council_member' ? 'Chapter Lead' : 'Founding Member'} membership.`,
             });
         }
 
@@ -59,7 +59,7 @@ export const applyCouncil = async (req, res, next) => {
         if (existing.length > 0) {
             return res.status(409).json({
                 success: false,
-                message: 'You already have a pending Council Member application.',
+                message: 'You already have a pending Chapter Lead application.',
             });
         }
 
@@ -111,7 +111,7 @@ export const applyCouncil = async (req, res, next) => {
         return res.status(201).json({
             success: true,
             data: {
-                message: 'Your Council Member application has been submitted. You will be notified once reviewed by our admin team.',
+                message: 'Your Chapter Lead application has been submitted. You will be notified once reviewed by our admin team.',
                 applicationId: result.insertId,
             },
         });

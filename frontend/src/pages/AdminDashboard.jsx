@@ -41,6 +41,7 @@ const TABS = [
     { key: 'product_reviews', label: 'Product Reviews', icon: ShieldCheck },
     { key: 'nominations', label: 'Nominations', icon: Trophy },
     { key: 'framework', label: 'Framework Content', icon: Shield },
+    { key: 'users', label: 'Manage Users', icon: Users },
 ];
 
 const ROLE_OPTIONS = ['founding_member', 'council_member', 'professional'];
@@ -2396,7 +2397,7 @@ const AdminDashboard = () => {
                             {visibleTabs.map(({ key, label, icon: Icon }) => {
                                 const active = tab === key;
                                 return (
-                                    <button key={key} onClick={() => setTab(key)} className="adm-tab-btn"
+                                    <button key={key} onClick={() => key === 'users' ? navigate('/admin-dashboard/users') : setTab(key)} className="adm-tab-btn"
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.8rem 1.1rem', background: active ? '#F8FAFC' : 'none', border: 'none', borderBottom: active ? '2px solid #003366' : '2px solid transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: active ? '700' : '500', color: active ? '#003366' : '#64748B', whiteSpace: 'nowrap', transition: 'all 0.15s', outline: 'none', marginBottom: '-1px' }}>
                                         <Icon size={13} style={{ opacity: active ? 1 : 0.5, flexShrink: 0, transition: 'opacity 0.15s' }} />
                                         {label}

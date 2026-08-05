@@ -34,17 +34,55 @@ router.post(
     [
         body('name').trim().notEmpty().withMessage('Name is required.').isLength({ max: 255 }),
         body('email').trim().isEmail().withMessage('A valid email is required.').normalizeEmail(),
-        body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
+        body('password')
+            .isLength({ min: 8 }).withMessage('Password must be at least 8 characters.')
+            .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter.')
+            .matches(/[0-9]/).withMessage('Password must contain at least one number.'),
         body('role')
             .optional()
             .isIn(['founding_member', 'council_member', 'professional'])
             .withMessage('Invalid role.'),
         body('status').optional().isIn(['pending', 'approved', 'rejected']).withMessage('Invalid status.'),
-        body('organization_name').optional().trim().isLength({ max: 255 }),
-        body('linkedin_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Must be a valid URL.'),
+        body('organization_name').trim().notEmpty().withMessage('Organization name is required.').isLength({ max: 255 }),
+        body('linkedin_url').trim().notEmpty().withMessage('LinkedIn URL is required.').isURL().withMessage('Must be a valid URL.'),
+        body('professional_sub_type')
+            .optional({ checkFalsy: true })
+            .isIn(['working_professional', 'final_year_undergrad'])
+            .withMessage('Invalid professional sub-type.'),
     ],
     validate,
     adminController.createUser
+);
+
+// PATCH /api/admin/users/:id/details  — edit name/email/bio/org/linkedin/sub-type
+router.patch(
+    '/users/:id/details',
+    [
+        body('name').trim().notEmpty().withMessage('Name is required.').isLength({ max: 255 }),
+        body('email').trim().isEmail().withMessage('A valid email is required.').normalizeEmail(),
+        body('bio').optional({ checkFalsy: true }).trim().isLength({ max: 2000 }).withMessage('Bio must be under 2000 characters.'),
+        body('organization_name').trim().notEmpty().withMessage('Organization name is required.').isLength({ max: 255 }),
+        body('linkedin_url').trim().notEmpty().withMessage('LinkedIn URL is required.').isURL().withMessage('Must be a valid URL.'),
+        body('professional_sub_type')
+            .optional({ checkFalsy: true })
+            .isIn(['working_professional', 'final_year_undergrad'])
+            .withMessage('Invalid professional sub-type.'),
+    ],
+    validate,
+    adminController.updateUserDetails
+);
+
+// PATCH /api/admin/users/:id/password  — admin-initiated password reset
+router.patch(
+    '/users/:id/password',
+    [
+        body('newPassword')
+            .isLength({ min: 8 }).withMessage('Password must be at least 8 characters.')
+            .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter.')
+            .matches(/[0-9]/).withMessage('Password must contain at least one number.'),
+    ],
+    validate,
+    adminController.resetUserPassword
 );
 
 // PATCH /api/admin/users/:id/approve

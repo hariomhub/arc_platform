@@ -287,7 +287,7 @@ export const updateUserBadge = async (req, res, next) => {
 // POST /api/admin/users
 export const createUser = async (req, res, next) => {
     try {
-        const { name, email, password, role, status, organization_name, linkedin_url } = req.body;
+        const { name, email, password, role, status, organization_name, linkedin_url, professional_sub_type } = req.body;
 
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email.trim().toLowerCase()]);
         if (existing.length > 0) {
@@ -297,6 +297,7 @@ export const createUser = async (req, res, next) => {
         const password_hash  = await bcrypt.hash(password, 12);
         const assignedRole   = role   || 'professional';
         const assignedStatus = status || 'approved';
+        const subType         = assignedRole === 'professional' ? (professional_sub_type || null) : null;
 
         const expiresAt = assignedStatus === 'approved'
             ? (assignedRole === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
@@ -305,17 +306,72 @@ export const createUser = async (req, res, next) => {
             : null;
 
         const [result] = await pool.query(
-            `INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name, linkedin_url)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, assignedStatus, expiresAt, organization_name || null, linkedin_url || null]
+            `INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name, linkedin_url, professional_sub_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, assignedStatus, expiresAt, organization_name || null, linkedin_url || null, subType]
         );
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, status, organization_name, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, created_at FROM users WHERE id = ?',
             [result.insertId]
         );
 
         return res.status(201).json({ success: true, data: rows[0] });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/users/:id/details  — edit name/email/bio/org/linkedin/sub-type
+export const updateUserDetails = async (req, res, next) => {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const { name, email, bio, organization_name, linkedin_url, professional_sub_type } = req.body;
+
+        const [rows] = await pool.query('SELECT id, role FROM users WHERE id = ?', [targetId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ?', [normalizedEmail, targetId]);
+        if (existing.length > 0) {
+            return res.status(409).json({ success: false, message: 'This email is already registered to another user.' });
+        }
+
+        const subType = rows[0].role === 'professional' ? (professional_sub_type || null) : null;
+
+        await pool.query(
+            `UPDATE users SET name = ?, email = ?, bio = ?, organization_name = ?, linkedin_url = ?, professional_sub_type = ? WHERE id = ?`,
+            [name.trim(), normalizedEmail, bio || null, organization_name || null, linkedin_url || null, subType, targetId]
+        );
+
+        const [updated] = await pool.query(
+            'SELECT id, name, email, role, status, bio, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at FROM users WHERE id = ?',
+            [targetId]
+        );
+
+        return res.json({ success: true, data: updated[0] });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /api/admin/users/:id/password  — admin-initiated password reset
+export const resetUserPassword = async (req, res, next) => {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const { newPassword } = req.body;
+
+        const [rows] = await pool.query('SELECT id, name FROM users WHERE id = ?', [targetId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const password_hash = await bcrypt.hash(newPassword, 12);
+        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash, targetId]);
+
+        return res.json({ success: true, data: { message: `Password reset for ${rows[0].name}.` } });
     } catch (err) {
         next(err);
     }
@@ -326,6 +382,8 @@ export const getStats = async (req, res, next) => {
     try {
         const [[{ total_users }]]          = await pool.query("SELECT COUNT(*) AS total_users FROM users WHERE status != 'deleted'");
         const [[{ pending_users }]]        = await pool.query('SELECT COUNT(*) AS pending_users FROM users WHERE status = "pending"');
+        const [[{ approved_users }]]       = await pool.query('SELECT COUNT(*) AS approved_users FROM users WHERE status = "approved"');
+        const [[{ rejected_users }]]       = await pool.query('SELECT COUNT(*) AS rejected_users FROM users WHERE status = "rejected"');
         const [[{ total_resources }]]      = await pool.query('SELECT COUNT(*) AS total_resources FROM resources');
         const [[{ total_events }]]         = await pool.query('SELECT COUNT(*) AS total_events FROM events');
         const [[{ total_qna }]]            = await pool.query('SELECT COUNT(*) AS total_qna FROM feed_posts');
@@ -335,7 +393,7 @@ export const getStats = async (req, res, next) => {
 
         return res.json({
             success: true,
-            data: { total_users, pending_users, total_resources, total_events, total_qna, pending_applications },
+            data: { total_users, pending_users, approved_users, rejected_users, total_resources, total_events, total_qna, pending_applications },
         });
     } catch (err) {
         next(err);
@@ -462,7 +520,7 @@ export const rejectMembershipApplication = async (req, res, next) => {
 
         // Push notification — immediate
         const roleLabel = app.requested_role === 'founding_member' ? 'Founding Member'
-            : app.requested_role === 'council_member' ? 'Council Member' : 'Professional';
+            : app.requested_role === 'council_member' ? 'Chapter Lead' : 'Professional';
         notifyUser(
             app.user_id,
             NOTIF_TYPES.MEMBERSHIP_REJECTED,

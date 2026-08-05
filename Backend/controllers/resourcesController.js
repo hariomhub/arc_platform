@@ -323,7 +323,7 @@ export const createResource = async (req, res, next) => {
 
         // Professional members cannot upload resources, EXCEPT working professionals
         if (!['founding_member', 'council_member'].includes(uploaderRole) && !(uploaderRole === 'professional' && uploaderSubType === 'working_professional')) {
-            return res.status(403).json({ success: false, message: 'Only Council Members, Founding Members, and Working Professionals can upload resources.' });
+            return res.status(403).json({ success: false, message: 'Only Chapter Leads, Founding Members, and Working Professionals can upload resources.' });
         }
 
         const ADMIN_ONLY_TYPES = ['framework', 'homepage_video'];

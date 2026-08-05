@@ -9,6 +9,8 @@ export const createAdminUser   = (data)       => api.post('/admin/users', data);
 export const updateUserStatus  = (id, status) => api.patch(`/admin/users/${id}/status`, { status });
 export const updateUserRole    = (id, role)   => api.patch(`/admin/users/${id}/role`, { role });
 export const updateUserBadge   = (id, data)   => api.patch(`/admin/users/${id}/badge`, data);
+export const updateUserDetails = (id, data)   => api.patch(`/admin/users/${id}/details`, data);
+export const resetUserPassword = (id, newPassword) => api.patch(`/admin/users/${id}/password`, { newPassword });
 export const deleteUser        = (id)         => api.delete(`/admin/users/${id}`);
 
 // Membership applications
