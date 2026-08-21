@@ -33,6 +33,7 @@ const upload = multer({
 // PUBLIC ROUTES (No authentication required)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+router.get('/bridge-stages', frameworkController.getBridgeStages);
 router.get('/pillars', frameworkController.getPillars);
 router.get('/maturity-levels', frameworkController.getMaturityLevels);
 router.get('/implementation-guide', frameworkController.getImplementationGuide);
@@ -41,6 +42,12 @@ router.get('/audit-templates', frameworkController.getAuditTemplates);
 // ═══════════════════════════════════════════════════════════════════════════════
 // ADMIN ROUTES (Require authentication + admin role)
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── AI Risk Bridge Model Stages (Admin) ──────────────────────────────────────
+router.get('/admin/bridge-stages', authenticate, requireRole('founding_member'), frameworkController.getAllBridgeStagesAdmin);
+router.post('/admin/bridge-stages', authenticate, requireRole('founding_member'), frameworkController.createBridgeStage);
+router.put('/admin/bridge-stages/:id', authenticate, requireRole('founding_member'), frameworkController.updateBridgeStage);
+router.delete('/admin/bridge-stages/:id', authenticate, requireRole('founding_member'), frameworkController.deleteBridgeStage);
 
 // ─── Framework Pillars (Admin) ────────────────────────────────────────────────
 router.get('/admin/pillars', authenticate, requireRole('founding_member'), frameworkController.getAllPillarsAdmin);

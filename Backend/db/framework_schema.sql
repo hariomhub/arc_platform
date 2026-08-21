@@ -127,6 +127,12 @@ CREATE INDEX idx_audit_templates_category ON framework_audit_templates(category)
 CREATE INDEX idx_audit_templates_status ON framework_audit_templates(status);
 CREATE INDEX idx_audit_templates_order ON framework_audit_templates(display_order);
 
+-- ─── Framework AI Risk Bridge Model Stages ─────────────────────────────────────
+-- Public Framework page's "Core Pillars" section was replaced by the five-stage
+-- AI Risk Bridge Model (Exposure → Obligation → Integrity → Defense → Continuity).
+-- Full table definition and seed data live in
+-- Backend/db/migrations/0016_ai_risk_bridge_stages.sql.
+
 -- ─── Security Tools Reference (Optional) ──────────────────────────────────────
 -- This table stores security tools referenced in the Framework page
 -- Currently hardcoded in Framework.jsx but can be made dynamic if needed
@@ -185,8 +191,8 @@ INSERT INTO framework_pillars (title, description, tags, insight, display_order,
 ),
 (
   'Model Risk Management',
-  'Apply systematic validation, testing, and monitoring to all AI models throughout their lifecycle. Implement SR 11-7 aligned model risk practices covering design, validation, deployment, and retirement.',
-  JSON_ARRAY('SR 11-7', 'Lifecycle Management', 'Validation'),
+  'Apply systematic validation, testing, and monitoring to all AI models throughout their lifecycle. Implement SR 26-2 aligned model risk practices covering design, validation, deployment, and retirement.',
+  JSON_ARRAY('SR 26-2', 'Lifecycle Management', 'Validation'),
   'Model drift in production is the most common cause of undetected AI failures. Continuous monitoring is non-negotiable for high-risk systems.',
   3,
   'published',
@@ -374,7 +380,7 @@ INSERT INTO framework_audit_templates (template_id, title, category, format, des
   'Model Risk Assessment (MRA) Template',
   'Risk Assessment',
   'Word / Notion',
-  'A structured 6-section assessment covering model purpose, design, validation, deployment controls, monitoring, and residual risk — aligned to SR 11-7 and NIST AI RMF.',
+  'A structured 6-section assessment covering model purpose, design, validation, deployment controls, monitoring, and residual risk — aligned to SR 26-2 and NIST AI RMF.',
   JSON_ARRAY(
     'Model Purpose & Scope',
     'Training Data Lineage',

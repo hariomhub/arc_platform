@@ -103,7 +103,7 @@ const About = () => {
                 <div style={{ maxWidth: '720px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                     <h1 style={{ color: 'white', fontSize: 'clamp(1.75rem,5vw,2.75rem)', fontWeight: '800', marginBottom: '1rem', fontFamily: 'var(--font-serif)' }}>About the Council</h1>
                     <p style={{ fontSize: 'clamp(0.95rem,1.5vw,1.2rem)', color: '#CBD5E1', lineHeight: '1.7', margin: 0 }}>
-                        Advancing the global standard for Artificial Intelligence governance through independent research, rigorous assessment frameworks, and expert collaboration.
+                        Accelerating responsible AI governance through independent research, rigorous risk assessments, governance frameworks, and expert collaboration.
                     </p>
                 </div>
             </div>
@@ -115,17 +115,17 @@ const About = () => {
                         <div>
                             <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.25rem' }}>Our Mission</h2>
                             <p style={{ fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', color: '#4A5568', lineHeight: '1.8', marginBottom: '1.25rem' }}>
-                                To empower organisations to deploy Artificial Intelligence technology safely, ethically, and responsibly. We provide comprehensive insight reports and security assessments to help you align with global frameworks.
+                                RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly. We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, while continuing to advance responsible AI development.
                             </p>
                             <p style={{ fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', color: '#4A5568', lineHeight: '1.8' }}>
-                                As an independent service provider, we focus strictly on delivering actionable insights tailored to your framework dependencies.
+                                As an independent research and advisory community, we focus on accelerating responsible AI adoption and the maturity of AI governance standards. To make risk assessment accessible to the RAC community, we developed the AI Risk Bridge Model - a plain-language framework for understanding what AI risk actually is and how to manage it.
                             </p>
                         </div>
                         <div style={{ display: 'grid', gap: '2rem' }}>
                             {[
-                                { icon: Shield, title: 'Independence', desc: 'Unbiased research and standards not tied to any specific tech platform or lobby.' },
-                                { icon: Award, title: 'Excellence', desc: 'Rigorous, peer-reviewed methodologies developed by world-class risk professionals.' },
-                                { icon: Users, title: 'Collaboration', desc: 'A global network of regulators, academics, and industry leaders.' },
+                                { icon: Shield, title: 'Independence', desc: 'Unbiased research and standards not tied to any specific tech platform or lobby - we take no vendor or platform funding, and we name our sources.' },
+                                { icon: Award, title: 'Excellence', desc: 'Rigorous, peer-reviewed methodologies developed by world-class risk professionals - published openly, not licensed per seat, so members shape the method rather than simply receive it.' },
+                                { icon: Users, title: 'Collaboration', desc: 'A global network of regulators, academics, and industry AI leaders - brought together to stress-test the method against real practice, not just theory.' },
                             ].map(({ icon: Icon, title, desc }) => (
                                 <div key={title} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
                                     <div style={{ background: '#F0F4F8', padding: '0.85rem', borderRadius: '50%', flexShrink: 0 }}>

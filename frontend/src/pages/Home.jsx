@@ -1146,8 +1146,8 @@ const Home = () => {
                     </div>
                     <div className="mission-grid">
                         {[
-                            { accent: '#003366', label: 'Our Mission', body: 'To empower organisations and professionals to deploy AI technology safely, ethically, and responsibly - providing comprehensive insight reports and security assessments to align with global frameworks.' },
-                            { accent: '#f9a825', label: 'Our Vision',  body: 'A world where artificial intelligence systems are governed with the same rigour and accountability as financial markets - transparent, auditable, and aligned with societal values.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
+                            { accent: '#003366', label: 'Our Mission', body: 'RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly.', sub: 'We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, developing the AI Risk Bridge Model so risk assessment stays accessible to the RAC community, while continuing to advance responsible AI development.' },
+                            { accent: '#f9a825', label: 'Our Vision',  body: 'A world where AI is governed with the rigor and accountability of our most trusted institutions - transparent, auditable, aligned with societal values - because the cost of ungoverned AI only compounds with time.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
                         ].map(({ accent, label, body, sub }) => (
                             <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #E2E8F0', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 12px rgba(0,51,102,0.06)' }}>
                                 <h3 style={{ fontSize: 'clamp(1rem,2vw,1.25rem)', color: '#003366', marginBottom: '0.85rem', fontWeight: '800' }}>{label}</h3>
@@ -1167,7 +1167,7 @@ const Home = () => {
                     <SectionLabel>Who We Are</SectionLabel>
                     <h2 style={{ fontSize: 'clamp(1.3rem,3vw,2rem)', color: '#1E293B', fontWeight: '800', marginBottom: '1rem', lineHeight: 1.3 }}>About the Risk AI Council (RAC)</h2>
                     <p style={{ color: '#4A5568', lineHeight: '1.8', fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', marginBottom: '2rem' }}>
-                        An independent group of peer members, including executives, governance and risk experts, legal scholars, and AI researchers across countries, delivering unbiased and actionable guidance.
+                        An independent community including executives, governance and risk experts, legal scholars, and AI researchers across countries - delivering unbiased and actionable guidance.
                     </p>
                     <Link to="/about"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#003366', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem', textDecoration: 'none', transition: 'background 0.15s' }}

@@ -309,7 +309,7 @@ const Register = () => {
                         <div style={{ position: 'absolute', bottom: -30, left: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(0,153,255,0.06)', pointerEvents: 'none' }} />
                         <div style={{ position: 'relative', zIndex: 1 }}>
                             <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', marginBottom: '1.25rem' }}>
-                                <img src="/ai_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
+                                <img src="/rac_u_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
                                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
                             </Link>
                             <h2 style={{ margin: '0 0 0.3rem', fontSize: 'clamp(1.1rem,4vw,1.4rem)', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>Join the AI Risk Council</h2>
@@ -331,7 +331,7 @@ const Register = () => {
                         <div style={{ position: 'absolute', bottom: -60, left: -60, width: 200, height: 200, borderRadius: '50%', background: 'rgba(0,153,255,0.05)', pointerEvents: 'none' }} />
                         <div>
                             <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', marginBottom: '1.25rem' }}>
-                                <img src="/ai_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
+                                <img src="/rac_u_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
                                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
                             </Link>
                             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the AI Risk Council</h2>

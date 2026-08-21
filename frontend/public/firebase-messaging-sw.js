@@ -28,8 +28,8 @@ messaging.onBackgroundMessage((payload) => {
     const notificationTitle = title || "What's new on AI Risk Council";
     const notificationOptions = {
         body:    body || 'You have new updates.',
-        icon:    '/ai_logo.png',
-        badge:   '/ai_logo.png',
+        icon:    '/rac_u_logo.png',
+        badge:   '/rac_u_logo.png',
         data:    { url: data.url || 'https://www.riskaicouncil.org' },
         requireInteraction: false,
     };

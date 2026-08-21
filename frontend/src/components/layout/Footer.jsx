@@ -72,7 +72,7 @@ const Footer = () => (
                     <div>
                         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '1.25rem' }}>
                             <img
-                                src="/ai_logo.png"
+                                src="/rac_u_logo.png"
                                 alt="AI Risk Council Logo"
                                 style={{
                                     height: '40px', width: 'auto', objectFit: 'contain',

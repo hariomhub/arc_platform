@@ -141,8 +141,8 @@ const sendToTokens = async (tokens, title, body, data = {}) => {
                 notification: {
                     title,
                     body,
-                    icon: '/ai_logo.png',
-                    badge: '/ai_logo.png',
+                    icon: '/rac_u_logo.png',
+                    badge: '/rac_u_logo.png',
                     requireInteraction: false,
                 },
                 fcmOptions: {

@@ -4,7 +4,8 @@ import { useToast } from '../../hooks/useToast';
 import * as frameworkAPI from '../../api/framework';
 
 const FrameworkManagement = () => {
-  const [activeTab, setActiveTab] = useState('pillars');
+  const [activeTab, setActiveTab] = useState('bridge');
+  const [bridgeStages, setBridgeStages] = useState([]);
   const [pillars, setPillars] = useState([]);
   const [maturityLevels, setMaturityLevels] = useState([]);
   const [phases, setPhases] = useState([]);
@@ -31,6 +32,10 @@ const FrameworkManagement = () => {
     setLoading(true);
     try {
       switch (activeTab) {
+        case 'bridge':
+          const bridgeRes = await frameworkAPI.getAllBridgeStagesAdmin();
+          setBridgeStages(bridgeRes.data || []);
+          break;
         case 'pillars':
           const pillarsRes = await frameworkAPI.getAllPillarsAdmin();
           setPillars(pillarsRes.data || []);
@@ -65,7 +70,20 @@ const FrameworkManagement = () => {
 
   const handleEdit = (item) => {
     setEditMode(item.id);
-    setFormData(item);
+    if (activeTab === 'bridge') {
+      // Admin GET returns raw DB columns (snake_case); the form and the
+      // create/update API both use camelCase — normalize once, here.
+      setFormData({
+        ...item,
+        stageKey: item.stage_key,
+        adopterQuestion: item.adopter_question,
+        implementerQuestion: item.implementer_question,
+        displayOrder: item.display_order,
+        referenceLinks: item.referenceLinks || item.reference_links || [],
+      });
+    } else {
+      setFormData(item);
+    }
   };
 
   const handleCancel = () => {
@@ -95,6 +113,9 @@ const FrameworkManagement = () => {
     
     try {
       switch (activeTab) {
+        case 'bridge':
+          await frameworkAPI.deleteBridgeStage(id);
+          break;
         case 'pillars':
           await frameworkAPI.deletePillar(id);
           break;
@@ -118,6 +139,9 @@ const FrameworkManagement = () => {
 
   const createItem = async () => {
     switch (activeTab) {
+      case 'bridge':
+        await frameworkAPI.createBridgeStage(formData);
+        break;
       case 'pillars':
         await frameworkAPI.createPillar(formData);
         break;
@@ -135,6 +159,9 @@ const FrameworkManagement = () => {
 
   const updateItem = async () => {
     switch (activeTab) {
+      case 'bridge':
+        await frameworkAPI.updateBridgeStage(editMode, formData);
+        break;
       case 'pillars':
         await frameworkAPI.updatePillar(editMode, formData);
         break;
@@ -152,6 +179,8 @@ const FrameworkManagement = () => {
 
   const getEmptyFormData = () => {
     switch (activeTab) {
+      case 'bridge':
+        return { stageKey: '', name: '', tagline: '', description: '', adopterQuestion: '', implementerQuestion: '', artifacts: [], referenceLinks: [], displayOrder: 0, status: 'draft' };
       case 'pillars':
         return { title: '', description: '', tags: [], insight: '', displayOrder: 0, status: 'draft' };
       case 'maturity':
@@ -241,6 +270,58 @@ const FrameworkManagement = () => {
   };
 
   // ─── Render Functions ─────────────────────────────────────────────────────────
+
+  const renderBridgeStages = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {bridgeStages.length === 0 && <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '0.875rem', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px' }}>No Bridge Model stages yet — click "Add New" to create one.</div>}
+      {bridgeStages.map((stage) => (
+        <div key={stage.id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '1rem 1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                <span style={{ background: '#001f3f', color: 'white', padding: '2px 9px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stage.stage_key}</span>
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>{stage.name}</h3>
+                <span style={{ fontSize: '13px', color: '#94A3B8', fontStyle: 'italic' }}>"{stage.tagline}"</span>
+              </div>
+              <p style={{ color: '#6B7280', marginBottom: '10px' }}>{stage.description}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px 10px' }}>
+                  <strong style={{ fontSize: '11px', color: '#003366', textTransform: 'uppercase' }}>Adopter question</strong>
+                  <p style={{ fontSize: '13px', color: '#374151', margin: '4px 0 0' }}>{stage.adopter_question}</p>
+                </div>
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px 10px' }}>
+                  <strong style={{ fontSize: '11px', color: '#003366', textTransform: 'uppercase' }}>Implementer question</strong>
+                  <p style={{ fontSize: '13px', color: '#374151', margin: '4px 0 0' }}>{stage.implementer_question}</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                {(stage.artifacts || []).map((a, idx) => (
+                  <span key={idx} style={{ background: '#EFF6FF', color: '#003366', padding: '3px 10px', borderRadius: '12px', fontSize: '12px' }}>{a}</span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {(stage.referenceLinks || []).map((r, idx) => (
+                  <span key={idx} style={{ background: '#F1F5F9', color: '#475569', padding: '3px 10px', borderRadius: '12px', fontSize: '11px' }}>{r}</span>
+                ))}
+              </div>
+              <div style={{ marginTop: '8px', display: 'flex', gap: '16px', fontSize: '13px', color: '#6B7280' }}>
+                <span>Order: {stage.display_order}</span>
+                <span>Status: <span style={{ color: stage.status === 'published' ? '#059669' : '#D97706', fontWeight: '500' }}>{stage.status}</span></span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => handleEdit(stage)} style={{ padding: '8px', background: '#EFF6FF', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                <Edit2 size={16} color="#003366" />
+              </button>
+              <button onClick={() => handleDelete(stage.id)} style={{ padding: '8px', background: '#FEF2F2', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                <Trash2 size={16} color="#DC2626" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   const renderPillars = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -591,10 +672,11 @@ const FrameworkManagement = () => {
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #F1F5F9' }}>
         {[
-          { key: 'pillars', label: 'Core Pillars' },
+          { key: 'bridge', label: 'AI Risk Bridge Model' },
           { key: 'maturity', label: 'Maturity Levels' },
           { key: 'phases', label: 'Implementation Phases' },
-          { key: 'templates', label: 'Audit Templates' }
+          { key: 'templates', label: 'Audit Templates' },
+          { key: 'pillars', label: 'Core Pillars (legacy)' },
         ].map((tab) => {
           const active = activeTab === tab.key;
           return (
@@ -613,6 +695,7 @@ const FrameworkManagement = () => {
       {editMode === 'new' && (
         <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <p style={{ margin: '0 0 1rem', fontWeight: '700', fontSize: '0.92rem', color: '#0F172A' }}>Create New {getTabLabel()}</p>
+          {activeTab === 'bridge' && <BridgeStageForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'pillars' && <PillarForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'maturity' && <MaturityLevelForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'phases' && <PhaseForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
@@ -624,6 +707,7 @@ const FrameworkManagement = () => {
       {editMode !== null && editMode !== 'new' && (
         <div style={{ background: 'white', border: '2px solid #003366', borderRadius: '10px', padding: '1.25rem 1.5rem', boxShadow: '0 0 0 4px rgba(0,51,102,0.06)' }}>
           <p style={{ margin: '0 0 1rem', fontWeight: '700', fontSize: '0.92rem', color: '#003366' }}>Edit {getTabLabel()}</p>
+          {activeTab === 'bridge' && <BridgeStageForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'pillars' && <PillarForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'maturity' && <MaturityLevelForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
           {activeTab === 'phases' && <PhaseForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />}
@@ -639,6 +723,7 @@ const FrameworkManagement = () => {
         </div>
       ) : (
         <>
+          {activeTab === 'bridge' && renderBridgeStages()}
           {activeTab === 'pillars' && renderPillars()}
           {activeTab === 'maturity' && renderMaturityLevels()}
           {activeTab === 'phases' && renderPhases()}
@@ -649,7 +734,7 @@ const FrameworkManagement = () => {
   );
   
   function getTabLabel() {
-    const labels = { pillars: 'Pillar', maturity: 'Maturity Level', phases: 'Phase', templates: 'Template' };
+    const labels = { bridge: 'Bridge Stage', pillars: 'Pillar', maturity: 'Maturity Level', phases: 'Phase', templates: 'Template' };
     return labels[activeTab] || 'Item';
   }
 };
@@ -657,6 +742,28 @@ const FrameworkManagement = () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Form Components (Simplified versions - expand as needed)
 // ═══════════════════════════════════════════════════════════════════════════════
+
+const STAGE_KEY_OPTIONS = ['exposure', 'obligation', 'integrity', 'defense', 'continuity'];
+
+const BridgeStageForm = ({ data, onChange, onSave, onCancel }) => (
+  <FormWrapper>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Select label="Stage Key" value={data.stageKey} onChange={(v) => onChange({ ...data, stageKey: v })} options={STAGE_KEY_OPTIONS} />
+      <Input label="Name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} placeholder="Exposure" />
+    </div>
+    <Input label="Tagline" value={data.tagline} onChange={(v) => onChange({ ...data, tagline: v })} placeholder="Know what exists" />
+    <Textarea label="Description" value={data.description} onChange={(v) => onChange({ ...data, description: v })} rows={3} />
+    <Textarea label="Adopter Question (Board / Executive)" value={data.adopterQuestion} onChange={(v) => onChange({ ...data, adopterQuestion: v })} rows={2} />
+    <Textarea label="Implementer Question (CIO / CTO)" value={data.implementerQuestion} onChange={(v) => onChange({ ...data, implementerQuestion: v })} rows={2} />
+    <Textarea label="Artifacts (one per line)" value={(data.artifacts || []).join('\n')} onChange={(v) => onChange({ ...data, artifacts: v.split('\n').filter(Boolean) })} rows={4} />
+    <Textarea label="Reference Links (one per line)" value={(data.referenceLinks || []).join('\n')} onChange={(v) => onChange({ ...data, referenceLinks: v.split('\n').filter(Boolean) })} rows={3} />
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Input label="Display Order" type="number" value={data.displayOrder} onChange={(v) => onChange({ ...data, displayOrder: parseInt(v) })} />
+      <Select label="Status" value={data.status} onChange={(v) => onChange({ ...data, status: v })} options={['draft', 'published', 'archived']} />
+    </div>
+    <FormActions onSave={onSave} onCancel={onCancel} />
+  </FormWrapper>
+);
 
 const PillarForm = ({ data, onChange, onSave, onCancel }) => (
   <FormWrapper>

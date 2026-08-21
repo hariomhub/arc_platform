@@ -36,6 +36,29 @@ export const getPillars = async (req, res) => {
   }
 };
 
+// ─── Get All AI Risk Bridge Model Stages ───────────────────────────────────────
+export const getBridgeStages = async (req, res) => {
+  try {
+    const [stages] = await db.query(
+      `SELECT id, stage_key, name, tagline, description, adopter_question, implementer_question,
+                    artifacts, reference_links, display_order, status,
+                    created_by, updated_by, created_at, updated_at
+             FROM framework_bridge_stages
+             WHERE status = 'published'
+             ORDER BY display_order ASC`
+    );
+    const parsedStages = stages.map(stage => ({
+      ...stage,
+      artifacts: safeJSONParse(stage.artifacts, []),
+      referenceLinks: safeJSONParse(stage.reference_links, [])
+    }));
+    res.json({ success: true, data: parsedStages });
+  } catch (error) {
+    console.error('Error fetching bridge stages:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch AI Risk Bridge Model stages' });
+  }
+};
+
 // ─── Get All Maturity Levels ──────────────────────────────────────────────────
 export const getMaturityLevels = async (req, res) => {
   try {
@@ -191,6 +214,75 @@ export const getAllPillarsAdmin = async (req, res) => {
   } catch (error) {
     console.error('Error fetching pillars (admin):', error);
     res.status(500).json({ success: false, message: 'Failed to fetch pillars' });
+  }
+};
+
+// ─── AI RISK BRIDGE MODEL STAGES ───────────────────────────────────────────────
+export const createBridgeStage = async (req, res) => {
+  try {
+    const { stageKey, name, tagline, description, adopterQuestion, implementerQuestion, artifacts, referenceLinks, displayOrder, status } = req.body;
+    const userId = req.user.id;
+    if (!stageKey || !name || !tagline || !description || !adopterQuestion || !implementerQuestion) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    const [result] = await db.query(
+      `INSERT INTO framework_bridge_stages (stage_key, name, tagline, description, adopter_question, implementer_question, artifacts, reference_links, display_order, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [stageKey, name, tagline, description, adopterQuestion, implementerQuestion, JSON.stringify(artifacts || []), JSON.stringify(referenceLinks || []), displayOrder || 0, status || 'draft', userId, userId]
+    );
+    res.status(201).json({ success: true, message: 'Bridge stage created successfully', id: result.insertId });
+  } catch (error) {
+    console.error('Error creating bridge stage:', error);
+    if (error.code === 'ER_DUP_ENTRY') return res.status(400).json({ success: false, message: 'Stage key already exists' });
+    res.status(500).json({ success: false, message: 'Failed to create bridge stage' });
+  }
+};
+
+export const updateBridgeStage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stageKey, name, tagline, description, adopterQuestion, implementerQuestion, artifacts, referenceLinks, displayOrder, status } = req.body;
+    const userId = req.user.id;
+    const [result] = await db.query(
+      `UPDATE framework_bridge_stages SET stage_key = ?, name = ?, tagline = ?, description = ?, adopter_question = ?, implementer_question = ?, artifacts = ?, reference_links = ?, display_order = ?, status = ?, updated_by = ? WHERE id = ?`,
+      [stageKey, name, tagline, description, adopterQuestion, implementerQuestion, JSON.stringify(artifacts || []), JSON.stringify(referenceLinks || []), displayOrder, status, userId, id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Bridge stage not found' });
+    res.json({ success: true, message: 'Bridge stage updated successfully' });
+  } catch (error) {
+    console.error('Error updating bridge stage:', error);
+    res.status(500).json({ success: false, message: 'Failed to update bridge stage' });
+  }
+};
+
+export const deleteBridgeStage = async (req, res) => {
+  try {
+    const [result] = await db.query('DELETE FROM framework_bridge_stages WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Bridge stage not found' });
+    res.json({ success: true, message: 'Bridge stage deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting bridge stage:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete bridge stage' });
+  }
+};
+
+export const getAllBridgeStagesAdmin = async (req, res) => {
+  try {
+    const [stages] = await db.query(
+      `SELECT s.*, u1.name as creator_name, u2.name as updater_name
+             FROM framework_bridge_stages s
+             LEFT JOIN users u1 ON s.created_by = u1.id
+             LEFT JOIN users u2 ON s.updated_by = u2.id
+             ORDER BY s.display_order ASC`
+    );
+    const parsedStages = stages.map(stage => ({
+      ...stage,
+      artifacts: safeJSONParse(stage.artifacts, []),
+      referenceLinks: safeJSONParse(stage.reference_links, [])
+    }));
+    res.json({ success: true, data: parsedStages });
+  } catch (error) {
+    console.error('Error fetching bridge stages (admin):', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch bridge stages' });
   }
 };
 

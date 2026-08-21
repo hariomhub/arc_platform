@@ -4,6 +4,11 @@ import axiosInstance from './axios';
 // PUBLIC API - Get Framework Content
 // ═══════════════════════════════════════════════════════════════════════════════
 
+export const getFrameworkBridgeStages = async () => {
+  const response = await axiosInstance.get('/framework/bridge-stages');
+  return response.data;
+};
+
 export const getFrameworkPillars = async () => {
   const response = await axiosInstance.get('/framework/pillars');
   return response.data;
@@ -21,6 +26,30 @@ export const getFrameworkImplementationGuide = async () => {
 
 export const getFrameworkAuditTemplates = async () => {
   const response = await axiosInstance.get('/framework/audit-templates');
+  return response.data;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN API - AI Risk Bridge Model Stages Management
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAllBridgeStagesAdmin = async () => {
+  const response = await axiosInstance.get('/framework/admin/bridge-stages');
+  return response.data;
+};
+
+export const createBridgeStage = async (stageData) => {
+  const response = await axiosInstance.post('/framework/admin/bridge-stages', stageData);
+  return response.data;
+};
+
+export const updateBridgeStage = async (id, stageData) => {
+  const response = await axiosInstance.put(`/framework/admin/bridge-stages/${id}`, stageData);
+  return response.data;
+};
+
+export const deleteBridgeStage = async (id) => {
+  const response = await axiosInstance.delete(`/framework/admin/bridge-stages/${id}`);
   return response.data;
 };
 
