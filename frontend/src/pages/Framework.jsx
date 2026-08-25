@@ -626,15 +626,17 @@ const BOT_PALETTE = ['#003366', '#0369A1', '#7C3AED', '#0F766E', '#B45309'];
 // directly on the hero; the name brightening on hover is the click cue.
 const LearningAgentsLauncher = () => (
     <div className="agents-bar">
-        <span className="agents-bar-new">NEW</span>
         <div className="agents-bar-head">
-            <span className="agents-bar-title">AI Learning Agents</span>
+            <div className="agents-bar-title-row">
+                <span className="agents-bar-title">AI Learning Agents</span>
+                <span className="agents-bar-new">NEW</span>
+            </div>
             <span className="agents-bar-sub">{LEARNING_AGENTS.length} frameworks · Quizzes &amp; more — coming soon</span>
         </div>
         <div className="agents-bar-row">
             {LEARNING_AGENTS.map((a, i) => (
                 <Link key={a.key} to={a.path} className="agents-bar-item" style={{ animationDelay: `${i * 90}ms` }}>
-                    <BotMascot size={68} accent={BOT_PALETTE[i % BOT_PALETTE.length]} className="agent-card-icon" />
+                    <BotMascot size={78} accent={BOT_PALETTE[i % BOT_PALETTE.length]} className="agent-card-icon" />
                     <span className="agents-bar-name">{a.name.replace(/ Agent$/, '')}</span>
                 </Link>
             ))}
@@ -817,30 +819,48 @@ const Framework = () => {
                 .bot-mascot-antenna-dot { fill: #EF4444; animation: botLed 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
                 @keyframes agentItemIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
                 @keyframes agentItemFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-                .agents-bar { position: relative; margin-top: 26px; z-index: 1200; }
-                @media (min-width: 1200px) {
-                    /* Below this, the title/stats row above can itself wrap onto two
-                       lines (see the flexWrap on that row) — floating the bar here too
-                       early would overlap that wrapped text, so it stays in normal flow
-                       (stacked below) until there's reliably room for both side by side. */
-                    .agents-bar { position: absolute; top: -4px; right: 0; margin-top: 0; max-width: 380px; }
-                }
-                .agents-bar-new { position: absolute; top: -9px; left: 0; background: #DC2626; color: white; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; animation: agentsBadgePulse 1.8s ease-in-out infinite; }
-                .agents-bar-head { display: flex; flex-direction: column; margin: 12px 0 14px; }
-                .agents-bar-title { font-size: 1.08rem; font-weight: 800; color: white; }
-                .agents-bar-sub { font-size: 0.78rem; color: #CBD5E1; margin-top: 3px; }
-                .agents-bar-row { display: flex; gap: 24px; flex-wrap: wrap; }
-                .agents-bar-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; cursor: pointer; animation: agentItemIn 0.4s ease both; transition: transform 0.18s; }
+                /* Deliberately always in normal document flow, never absolutely
+                   positioned/floating — that was tried and kept overlapping the
+                   title or the stats row at various widths since an absolute box's
+                   height (which changes if its row wraps) isn't reserved by the
+                   layout around it. It's a real flex child stacked above the stats
+                   (see the hero JSX) instead, so the layout always reserves its
+                   space and it can't overlap anything at any screen size, while
+                   still visually landing top-right like before. */
+                .agents-bar { position: relative; }
+                .agents-bar-title-row { display: flex; align-items: center; gap: 10px; }
+                .agents-bar-new { display: inline-block; background: #DC2626; color: white; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; animation: agentsBadgePulse 1.8s ease-in-out infinite; }
+                .agents-bar-head { display: flex; flex-direction: column; margin-bottom: 14px; }
+                .agents-bar-title { font-size: 1.2rem; font-weight: 800; color: white; }
+                .agents-bar-sub { font-size: 0.85rem; color: #CBD5E1; margin-top: 4px; }
+                /* Fixed per-item width (not content/nowrap-driven) keeps the row's total
+                   width predictable regardless of agent-name length — 5 * 108px + 4 *
+                   16px gap ≈ 604px, which reliably fits next to the hero title within
+                   the hero's 1320px content cap. Bumping these two numbers is safe as
+                   long as title + gap + (that sum) still clears 1320px. */
+                .agents-bar-row { display: flex; gap: 16px; flex-wrap: wrap; max-width: 640px; }
+                .agents-bar-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 108px; text-decoration: none; cursor: pointer; animation: agentItemIn 0.4s ease both; transition: transform 0.18s; }
                 .agents-bar-item .agent-card-icon { animation: botBob 2.4s ease-in-out infinite, agentItemFloat 3.2s ease-in-out infinite; }
                 .agents-bar-item:hover { transform: translateY(-5px); }
                 .agents-bar-item:hover .agent-card-icon { animation-play-state: paused; transform: scale(1.1); }
                 .agents-bar-item:hover .agents-bar-name { color: ${GOLD}; }
-                .agents-bar-name { font-size: 0.78rem; font-weight: 700; color: #E2E8F0; text-align: center; line-height: 1.25; white-space: nowrap; transition: color 0.18s; }
-                .agent-card-icon { transition: transform 0.2s; }
-                @media (max-width: 640px) {
-                    .agents-bar-row { gap: 14px; }
-                    .agents-bar-name { font-size: 0.64rem; white-space: normal; max-width: 72px; }
+                /* min-height reserves room for 2 lines even for names that fit on one
+                   ("EU AI Act"), so every item is the same height and the stats row
+                   below sits flush regardless of which names happen to wrap. */
+                .agents-bar-name { font-size: 0.8rem; font-weight: 700; color: #E2E8F0; text-align: center; line-height: 1.3; min-height: 2.6em; transition: color 0.18s; }
+                /* BotMascot's size is a JS prop baked into an inline style (span) and
+                   plain width/height attributes (svg) — a class alone can't shrink it,
+                   so the span needs !important to beat its own inline style. The svg
+                   doesn't: CSS width/height on an <svg> already outranks its plain
+                   attributes, no !important needed there. */
+                @media (max-width: 480px) {
+                    .agents-bar-row { gap: 10px; }
+                    .agents-bar-item { width: 74px; gap: 5px; }
+                    .agents-bar-item .agent-card-icon { width: 52px !important; height: 68px !important; }
+                    .agents-bar-item .agent-card-icon .bot-mascot-svg { width: 52px; height: 68px; }
+                    .agents-bar-name { font-size: 0.66rem; min-height: 2.2em; }
                 }
+                .agent-card-icon { transition: transform 0.2s; }
 
                 /* ── Responsive ── */
                 @media (max-width: 720px) {
@@ -850,32 +870,51 @@ const Framework = () => {
             `}</style>
 
             {/* ── Hero ── */}
-            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(2rem,5vw,3.5rem) clamp(1rem,4vw,2rem) clamp(2rem,4vw,3.5rem)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(1.1rem,2vw,1.5rem) clamp(1rem,7vw,6rem) clamp(1.5rem,2.5vw,2rem)', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '360px', height: '360px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
                 <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
-                <div style={{ maxWidth: WRAP, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '2rem', flexWrap: 'wrap' }}>
+                {/* Wider than the body's WRAP (1320px, kept for text readability further
+                    down) — the h1 alone runs ~900px, so at 1320 there's rarely enough
+                    left over to hold the bots+stats column beside it without wrapping,
+                    even on large screens with visibly unused width past that cap. */}
+                <div style={{ maxWidth: '1600px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                    {/* A true 50/50 grid — each column always gets exactly half the
+                        available width regardless of content length, so this replaces
+                        the earlier "does the title + bots row both fit" width math
+                        entirely. auto-fit + minmax stacks to one column on screens too
+                        narrow for two ~380px halves, instead of ever overlapping. */}
+                    {/* minmax(min(380px,100%),1fr) — not a bare 380px minimum — so on a
+                        phone narrower than 380px the track can still shrink to fit the
+                        screen instead of forcing the whole grid wider than the viewport
+                        (that's what was cutting off text/bots off the right edge). */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(380px,100%),1fr))', alignItems: 'start', gap: '1.25rem' }}>
                         <div style={{ minWidth: 0 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(249,168,37,0.15)', border: '1px solid rgba(249,168,37,0.3)', color: '#f9a825', fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', borderRadius: '5px', marginBottom: '16px' }}>
                                 <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f9a825' }} />Risk AI Council (RAC)
                             </span>
-                            <h1 style={{ color: 'white', fontSize: 'clamp(1.5rem,4vw,2.6rem)', fontWeight: '800', lineHeight: '1.1', margin: '0 0 12px', fontFamily: 'var(--font-serif,Georgia,serif)', letterSpacing: '-0.02em' }}>AI Risk Governance Framework</h1>
+                            <h1 style={{ color: 'white', fontSize: 'clamp(1.5rem,4vw,2.6rem)', fontWeight: '800', lineHeight: '1.15', margin: '0 0 12px', maxWidth: '640px', fontFamily: 'var(--font-serif,Georgia,serif)', letterSpacing: '-0.02em' }}>AI Risk Governance Framework</h1>
                             <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.875rem,1.5vw,1rem)', lineHeight: '1.7', margin: '0 0 16px', maxWidth: '560px' }}>A five-stage framework for identifying, measuring, and governing artificial intelligence risk — Exposure → Obligation → Integrity → Defense → Continuity.</p>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px 6px 6px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '99px' }}>
                                 <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f9a825', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', color: '#003366', flexShrink: 0 }}>SN</span>
                                 <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>Framework designed by Silvana Nani</span>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                            {[{ n: '5', label: 'Bridge Stages' }, { n: '4', label: 'Maturity Levels' }, { n: '16+', label: 'Implementation Steps' }, { n: '6', label: 'Audit Templates' }].map(s => (
-                                <div key={s.label} className="hero-stat" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '14px 18px', textAlign: 'center', minWidth: '80px' }}>
-                                    <div style={{ fontSize: 'clamp(1.1rem,2vw,1.5rem)', fontWeight: '900', color: 'white', lineHeight: 1, fontFamily: 'var(--font-serif,Georgia,serif)' }}>{s.n}</div>
-                                    <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '4px', lineHeight: '1.3' }}>{s.label}</div>
-                                </div>
-                            ))}
+                        {/* Right column: agents bar stacked above the stats — both stay
+                            in normal flow (no absolute/floating), so this column simply
+                            takes the vertical space it needs and can't overlap the title
+                            or wrap into anything below it, at any screen width. */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '28px' }}>
+                            <LearningAgentsLauncher />
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+                                {[{ n: '5', label: 'Bridge Stages' }, { n: '4', label: 'Maturity Levels' }, { n: '16+', label: 'Implementation Steps' }, { n: '6', label: 'Audit Templates' }].map(s => (
+                                    <div key={s.label} className="hero-stat" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '14px 18px', textAlign: 'center', minWidth: '80px' }}>
+                                        <div style={{ fontSize: 'clamp(1.1rem,2vw,1.5rem)', fontWeight: '900', color: 'white', lineHeight: 1, fontFamily: 'var(--font-serif,Georgia,serif)' }}>{s.n}</div>
+                                        <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '4px', lineHeight: '1.3' }}>{s.label}</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <LearningAgentsLauncher />
                 </div>
             </div>
 
