@@ -1151,8 +1151,8 @@ const Home = () => {
                         ].map(({ accent, label, body, sub }) => (
                             <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #E2E8F0', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 12px rgba(0,51,102,0.06)' }}>
                                 <h3 style={{ fontSize: 'clamp(1rem,2vw,1.25rem)', color: '#003366', marginBottom: '0.85rem', fontWeight: '800' }}>{label}</h3>
-                                <p style={{ color: '#4A5568', lineHeight: '1.8', fontSize: 'clamp(0.875rem,1.5vw,0.97rem)', marginBottom: '0.75rem' }}>{body}</p>
-                                <p style={{ color: '#64748B', lineHeight: '1.75', fontSize: 'clamp(0.8rem,1.3vw,0.88rem)', margin: 0 }}>{sub}</p>
+                                <p style={{ color: '#334155', fontWeight: '500', lineHeight: '1.8', fontSize: 'clamp(0.875rem,1.5vw,0.97rem)', marginBottom: '0.75rem' }}>{body}</p>
+                                <p style={{ color: '#334155', fontWeight: '500', lineHeight: '1.8', fontSize: 'clamp(0.875rem,1.5vw,0.97rem)', margin: 0 }}>{sub}</p>
                             </div>
                         ))}
                     </div>
