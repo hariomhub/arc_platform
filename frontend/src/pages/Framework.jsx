@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, ClipboardList, ChevronRight, ArrowRight, BookOpen, Download, Lock, Shield, Target, ShieldCheck, Search, BarChart, Landmark, Check, RefreshCw, Flag, TrendingUp, Bot, X } from 'lucide-react';
+import { CheckCircle, ClipboardList, ChevronRight, ArrowRight, BookOpen, Download, Lock, Shield, Target, ShieldCheck, Search, BarChart, Landmark, Check, RefreshCw, Flag, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as frameworkAPI from '../api/framework';
 
@@ -560,58 +560,87 @@ const LEARNING_AGENTS = [
     { key: 'bridge-model', name: 'AI Risk Bridge Model Agent', description: 'Quiz-based learning scoped to the RAC AI Risk Bridge Model.', path: '/agents/ai-risk-bridge-model', original: true },
 ];
 
-const LearningAgentsLauncher = () => {
-    const [open, setOpen] = useState(false);
-
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-        document.addEventListener('keydown', onKey);
-        document.body.style.overflow = 'hidden';
-        return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-    }, [open]);
-
+// Full-body vector mascot — head, visor eyes, ear-lights, torso, arms, legs.
+// Pure inline SVG (no image/library fetch, nothing to download), so it paints
+// instantly and scales to any size without a network round-trip. `accent`
+// recolors the eyes/ears/chest-light per agent so five agents read as five
+// distinct characters from one shared shape — add a sixth agent and it just
+// cycles the palette, no new artwork needed.
+const BotMascot = ({ size = 48, accent = ACCENT, className = '', style }) => {
+    const height = Math.round(size * 1.3);
+    const uid = accent.replace('#', '');
+    const visorGrad = `bot-visor-${uid}`;
+    const shellGrad = `bot-shell-${uid}`;
     return (
-        <>
-            <button className="agents-trigger" onClick={() => setOpen(true)}>
-                <span className="agents-trigger-new">NEW</span>
-                <span className="agents-trigger-stack">
-                    {LEARNING_AGENTS.slice(0, 3).map(a => <span key={a.key} className="agents-trigger-avatar"><Bot size={15} /></span>)}
-                    <span className="agents-trigger-avatar agents-trigger-more">+{LEARNING_AGENTS.length - 3}</span>
-                </span>
-                <span className="agents-trigger-text">
-                    <span className="agents-trigger-title">AI Learning Agents</span>
-                    <span className="agents-trigger-sub">{LEARNING_AGENTS.length} frameworks · Quizzes &amp; more</span>
-                </span>
-                <ChevronRight size={18} className="agents-trigger-arrow" />
-            </button>
+        <span className={`bot-mascot ${className}`} style={{ width: size, height, ...style }}>
+            <svg viewBox="0 0 100 130" width={size} height={height} className="bot-mascot-svg">
+                <defs>
+                    <linearGradient id={visorGrad} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#243244" />
+                        <stop offset="100%" stopColor="#0B1220" />
+                    </linearGradient>
+                    <linearGradient id={shellGrad} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FFFFFF" />
+                        <stop offset="100%" stopColor="#E7ECF3" />
+                    </linearGradient>
+                </defs>
 
-            {open && (
-                <div className="agents-modal-backdrop" onClick={() => setOpen(false)}>
-                    <div className="agents-modal" onClick={(e) => e.stopPropagation()}>
-                        <button className="agents-modal-close" onClick={() => setOpen(false)} aria-label="Close"><X size={18} /></button>
-                        <div className="agents-modal-head">
-                            <span className="agents-modal-eyebrow">🎓 Learning Agents</span>
-                            <h3 className="agents-modal-title">Meet the framework-scoped AI agents</h3>
-                            <p className="agents-modal-sub">Each agent turns one standard into quizzes and gamified learning modules — pick a framework to get started.</p>
-                        </div>
-                        <div className="agents-modal-grid">
-                            {LEARNING_AGENTS.map((a, i) => (
-                                <Link key={a.key} to={a.path} className="agent-card" style={{ animationDelay: `${i * 70}ms` }} onClick={() => setOpen(false)}>
-                                    {a.original && <span className="agent-card-ribbon">RAC Original</span>}
-                                    <span className="agent-card-icon"><Bot size={22} /></span>
-                                    <p className="agent-card-name">{a.name}</p>
-                                    <p className="agent-card-desc">{a.description}</p>
-                                    <span className="agent-card-tag">🚀 Coming Soon</span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+                <circle className="bot-mascot-aura" cx="50" cy="58" r="46" style={{ '--bot-accent': accent }} />
+                <ellipse className="bot-mascot-shadow" cx="50" cy="126" rx="27" ry="4" />
+
+                <rect className="bot-mascot-limb" x="32" y="99" width="14" height="23" rx="7" style={{ fill: `url(#${shellGrad})` }} />
+                <rect className="bot-mascot-limb" x="54" y="99" width="14" height="23" rx="7" style={{ fill: `url(#${shellGrad})` }} />
+                <rect className="bot-mascot-foot" x="29" y="117" width="19" height="9" rx="4.5" />
+                <rect className="bot-mascot-foot" x="52" y="117" width="19" height="9" rx="4.5" />
+
+                <rect className="bot-mascot-limb" x="2" y="65" width="14" height="31" rx="7" transform="rotate(-14 9 65)" style={{ fill: `url(#${shellGrad})` }} />
+                <rect className="bot-mascot-limb" x="84" y="65" width="14" height="31" rx="7" transform="rotate(14 91 65)" style={{ fill: `url(#${shellGrad})` }} />
+                <circle className="bot-mascot-hand" cx="5" cy="95" r="6.5" />
+                <circle className="bot-mascot-hand" cx="95" cy="95" r="6.5" />
+
+                <rect className="bot-mascot-body" x="23" y="61" width="54" height="47" rx="19" style={{ fill: `url(#${shellGrad})` }} />
+                <circle className="bot-mascot-chest" cx="50" cy="84" r="5" style={{ '--bot-accent': accent }} />
+
+                <line className="bot-mascot-antenna-stem" x1="50" y1="3" x2="50" y2="15" />
+                <circle className="bot-mascot-antenna-dot" cx="50" cy="2" r="4" />
+                <circle className="bot-mascot-ear" cx="11" cy="37" r="7.5" style={{ '--bot-accent': accent }} />
+                <circle className="bot-mascot-ear" cx="89" cy="37" r="7.5" style={{ '--bot-accent': accent }} />
+                <rect className="bot-mascot-head" x="15" y="13" width="70" height="53" rx="25" style={{ fill: `url(#${shellGrad})` }} />
+                <rect className="bot-mascot-visor" x="25" y="35" width="50" height="25" rx="12.5" style={{ fill: `url(#${visorGrad})` }} />
+                <circle className="bot-mascot-eye" cx="39" cy="47.5" r="5.5" style={{ '--bot-accent': accent }} />
+                <circle className="bot-mascot-eye" cx="61" cy="47.5" r="5.5" style={{ '--bot-accent': accent }} />
+                <rect className="bot-mascot-mouth" x="44" y="61" width="2.4" height="4" rx="1.2" />
+                <rect className="bot-mascot-mouth" x="48.8" y="59.3" width="2.4" height="5.7" rx="1.2" />
+                <rect className="bot-mascot-mouth" x="53.6" y="61" width="2.4" height="4" rx="1.2" />
+                <ellipse className="bot-mascot-shine" cx="33" cy="23" rx="13" ry="6.5" />
+            </svg>
+        </span>
     );
 };
+
+// Cycled per agent card so five agents render as five differently-accented
+// bots — add a sixth LEARNING_AGENTS entry and it picks up automatically.
+const BOT_PALETTE = ['#003366', '#0369A1', '#7C3AED', '#0F766E', '#B45309'];
+
+// Shows all five agent bots inline, no shared card/background — each stands
+// directly on the hero; the name brightening on hover is the click cue.
+const LearningAgentsLauncher = () => (
+    <div className="agents-bar">
+        <span className="agents-bar-new">NEW</span>
+        <div className="agents-bar-head">
+            <span className="agents-bar-title">AI Learning Agents</span>
+            <span className="agents-bar-sub">{LEARNING_AGENTS.length} frameworks · Quizzes &amp; more — coming soon</span>
+        </div>
+        <div className="agents-bar-row">
+            {LEARNING_AGENTS.map((a, i) => (
+                <Link key={a.key} to={a.path} className="agents-bar-item" style={{ animationDelay: `${i * 90}ms` }}>
+                    <BotMascot size={68} accent={BOT_PALETTE[i % BOT_PALETTE.length]} className="agent-card-icon" />
+                    <span className="agents-bar-name">{a.name.replace(/ Agent$/, '')}</span>
+                </Link>
+            ))}
+        </div>
+    </div>
+);
 
 const NAV_ITEMS = [
     { key: 'bridge', label: 'AI Risk Bridge Model', component: BridgeStagesSection },
@@ -765,56 +794,52 @@ const Framework = () => {
                 .hero-stat { transition: transform 0.18s, background 0.18s; }
                 .hero-stat:hover { transform: translateY(-3px); background: rgba(255,255,255,0.12); }
 
-                /* ── Learning Agents trigger — icon-stack "showcase" pill, floats gently ──
-                   z-index 1200 keeps it (and the modal) above the sticky navbar's z-index:1000. */
-                @keyframes agentsFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
-                @keyframes agentsArrow { 0%,100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
+                /* ── Learning Agents bar — shows all five bots inline, no shared card ──
+                   z-index 1200 keeps it above the sticky navbar's z-index:1000. */
                 @keyframes agentsBadgePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.6); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
-                @keyframes agentsGlow { 0%,100% { box-shadow: 0 10px 28px rgba(0,10,30,0.3), 0 0 0 0 rgba(249,168,37,0.35); } 50% { box-shadow: 0 14px 34px rgba(0,10,30,0.34), 0 0 0 8px rgba(249,168,37,0); } }
-                .agents-trigger { position: absolute; top: clamp(1rem,3vw,1.75rem); right: clamp(1rem,4vw,2rem); z-index: 1200; display: inline-flex; align-items: center; gap: 12px; background: white; border: none; padding: 13px 22px 13px 12px; border-radius: 99px; cursor: pointer; font-family: inherit; animation: agentsFloat 2.6s ease-in-out infinite, agentsGlow 2.6s ease-in-out infinite; transition: transform 0.2s; }
-                .agents-trigger:hover { animation-play-state: paused; transform: translateY(-6px) scale(1.05); }
-                .agents-trigger-new { position: absolute; top: -9px; left: -7px; background: #DC2626; color: white; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; animation: agentsBadgePulse 1.8s ease-in-out infinite; }
-                .agents-trigger-stack { display: flex; align-items: center; flex-shrink: 0; }
-                .agents-trigger-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${ACCENT}; color: white; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; margin-left: -11px; flex-shrink: 0; }
-                .agents-trigger-avatar:first-child { margin-left: 0; }
-                .agents-trigger-more { background: ${GOLD}; color: ${ACCENT}; font-size: 0.68rem; font-weight: 800; }
-                .agents-trigger-text { display: flex; flex-direction: column; text-align: left; line-height: 1.28; }
-                .agents-trigger-title { font-size: 0.94rem; font-weight: 800; color: #0F172A; }
-                .agents-trigger-sub { font-size: 0.73rem; color: #64748B; }
-                .agents-trigger-arrow { color: ${GOLD}; flex-shrink: 0; animation: agentsArrow 1.3s ease-in-out infinite; }
-                @media (max-width: 560px) {
-                    .agents-trigger { padding: 9px 12px 9px 9px; gap: 6px; }
-                    .agents-trigger-avatar { width: 24px; height: 24px; }
-                    .agents-trigger-text { display: none; }
+                @keyframes botBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+                @keyframes botLed { 0%,88%,100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(74,222,128,0); } 94% { opacity: 1; box-shadow: 0 0 5px 2px rgba(74,222,128,0.85); } }
+                @keyframes botEyeBlink { 0%,90%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.15); } }
+                @keyframes botEarGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+                .bot-mascot { display: inline-flex; align-items: flex-end; justify-content: center; flex-shrink: 0; animation: botBob 2.4s ease-in-out infinite; }
+                .bot-mascot-svg { overflow: visible; filter: drop-shadow(0 5px 8px rgba(0,10,30,0.3)); }
+                .bot-mascot-aura { fill: var(--bot-accent, ${GOLD}); opacity: 0.16; filter: blur(9px); }
+                .bot-mascot-shadow { fill: rgba(15,23,42,0.1); }
+                .bot-mascot-head, .bot-mascot-body, .bot-mascot-limb { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+                .bot-mascot-hand { fill: #E2E8F0; stroke: #CBD5E1; stroke-width: 1.5; }
+                .bot-mascot-foot { fill: #0F172A; }
+                .bot-mascot-mouth { fill: #0F172A; opacity: 0.85; }
+                .bot-mascot-shine { fill: rgba(255,255,255,0.55); pointer-events: none; }
+                .bot-mascot-eye { fill: var(--bot-accent, ${GOLD}); transform-origin: center; transform-box: fill-box; animation: botEyeBlink 3.4s ease-in-out infinite; filter: drop-shadow(0 0 3px var(--bot-accent, ${GOLD})); }
+                .bot-mascot-ear { fill: var(--bot-accent, ${GOLD}); animation: botEarGlow 2.2s ease-in-out infinite; filter: drop-shadow(0 0 4px var(--bot-accent, ${GOLD})); }
+                .bot-mascot-chest { fill: var(--bot-accent, ${GOLD}); filter: drop-shadow(0 0 3px var(--bot-accent, ${GOLD})); }
+                .bot-mascot-antenna-stem { stroke: #CBD5E1; stroke-width: 3; }
+                .bot-mascot-antenna-dot { fill: #EF4444; animation: botLed 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+                @keyframes agentItemIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+                @keyframes agentItemFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+                .agents-bar { position: relative; margin-top: 26px; z-index: 1200; }
+                @media (min-width: 1200px) {
+                    /* Below this, the title/stats row above can itself wrap onto two
+                       lines (see the flexWrap on that row) — floating the bar here too
+                       early would overlap that wrapped text, so it stays in normal flow
+                       (stacked below) until there's reliably room for both side by side. */
+                    .agents-bar { position: absolute; top: -4px; right: 0; margin-top: 0; max-width: 380px; }
                 }
-
-                /* ── Learning Agents modal — centered card on desktop, bottom sheet on mobile ── */
-                @keyframes agentsFadeIn { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes agentsModalIn { from { opacity: 0; transform: scale(0.92) translateY(16px); } to { opacity: 1; transform: none; } }
-                @keyframes agentsSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
-                @keyframes agentCardIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-                .agents-modal-backdrop { position: fixed; inset: 0; background: rgba(2,10,25,0.66); backdrop-filter: blur(5px); z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 1.5rem; animation: agentsFadeIn 0.2s ease both; }
-                .agents-modal { position: relative; background: white; border-radius: 22px; padding: clamp(1.75rem,4vw,2.75rem); max-width: 960px; width: 100%; max-height: 88vh; overflow-y: auto; animation: agentsModalIn 0.3s cubic-bezier(.2,.8,.2,1) both; }
-                .agents-modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border-radius: 50%; border: none; background: #F1F5F9; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s, transform 0.15s; }
-                .agents-modal-close:hover { background: #E2E8F0; transform: rotate(90deg); }
-                .agents-modal-head { text-align: center; max-width: 600px; margin: 0 auto 2.25rem; }
-                .agents-modal-eyebrow { display: inline-block; font-size: 0.76rem; font-weight: 800; color: #B45309; background: rgba(249,168,37,0.14); border: 1px solid rgba(249,168,37,0.35); padding: 5px 14px; border-radius: 99px; margin-bottom: 14px; }
-                .agents-modal-title { font-size: clamp(1.25rem,2.8vw,1.7rem); font-weight: 800; color: #0F172A; margin: 0 0 10px; font-family: var(--font-serif,Georgia,serif); }
-                .agents-modal-sub { font-size: 0.95rem; color: #64748B; line-height: 1.65; margin: 0; }
-                .agents-modal-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap: 1.1rem; }
-                .agent-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 16px; padding: 1.35rem; text-decoration: none; overflow: hidden; animation: agentCardIn 0.4s ease both; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background 0.2s; }
-                .agent-card:hover { transform: translateY(-5px); border-color: ${ACCENT}; box-shadow: 0 14px 30px rgba(0,51,102,0.16); background: white; }
-                .agent-card-ribbon { position: absolute; top: 12px; right: -30px; background: ${GOLD}; color: ${ACCENT}; font-size: 0.6rem; font-weight: 800; padding: 3px 34px; transform: rotate(40deg); box-shadow: 0 2px 6px rgba(0,0,0,0.18); }
-                .agent-card-icon { width: 46px; height: 46px; border-radius: 13px; background: linear-gradient(135deg, #003366, #0369A1); color: white; display: flex; align-items: center; justify-content: center; }
-                .agent-card-name { font-size: 0.96rem; font-weight: 800; color: #0F172A; margin: 0; }
-                .agent-card-desc { font-size: 0.82rem; color: #64748B; line-height: 1.55; margin: 0; flex: 1; }
-                .agent-card-tag { font-size: 0.72rem; font-weight: 700; color: #B45309; background: #FFFBEB; border: 1px solid #FDE68A; padding: 4px 11px; border-radius: 99px; }
-
+                .agents-bar-new { position: absolute; top: -9px; left: 0; background: #DC2626; color: white; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; animation: agentsBadgePulse 1.8s ease-in-out infinite; }
+                .agents-bar-head { display: flex; flex-direction: column; margin: 12px 0 14px; }
+                .agents-bar-title { font-size: 1.08rem; font-weight: 800; color: white; }
+                .agents-bar-sub { font-size: 0.78rem; color: #CBD5E1; margin-top: 3px; }
+                .agents-bar-row { display: flex; gap: 24px; flex-wrap: wrap; }
+                .agents-bar-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; cursor: pointer; animation: agentItemIn 0.4s ease both; transition: transform 0.18s; }
+                .agents-bar-item .agent-card-icon { animation: botBob 2.4s ease-in-out infinite, agentItemFloat 3.2s ease-in-out infinite; }
+                .agents-bar-item:hover { transform: translateY(-5px); }
+                .agents-bar-item:hover .agent-card-icon { animation-play-state: paused; transform: scale(1.1); }
+                .agents-bar-item:hover .agents-bar-name { color: ${GOLD}; }
+                .agents-bar-name { font-size: 0.78rem; font-weight: 700; color: #E2E8F0; text-align: center; line-height: 1.25; white-space: nowrap; transition: color 0.18s; }
+                .agent-card-icon { transition: transform 0.2s; }
                 @media (max-width: 640px) {
-                    .agents-modal-backdrop { padding: 0; align-items: flex-end; }
-                    .agents-modal { max-width: 100%; max-height: 90vh; border-radius: 22px 22px 0 0; padding: 1.5rem 1.25rem 2rem; animation: agentsSheetIn 0.3s cubic-bezier(.2,.8,.2,1) both; }
-                    .agents-modal-head { margin-bottom: 1.5rem; }
-                    .agents-modal-grid { grid-template-columns: 1fr; }
+                    .agents-bar-row { gap: 14px; }
+                    .agents-bar-name { font-size: 0.64rem; white-space: normal; max-width: 72px; }
                 }
 
                 /* ── Responsive ── */
@@ -825,8 +850,7 @@ const Framework = () => {
             `}</style>
 
             {/* ── Hero ── */}
-            <div style={{ position: 'relative' }}>
-            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(2.5rem,5vw,4rem) clamp(1rem,4vw,2rem) clamp(2rem,4vw,3.5rem)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(2rem,5vw,3.5rem) clamp(1rem,4vw,2rem) clamp(2rem,4vw,3.5rem)', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '360px', height: '360px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
                 <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
                 <div style={{ maxWidth: WRAP, margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -851,9 +875,8 @@ const Framework = () => {
                             ))}
                         </div>
                     </div>
+                    <LearningAgentsLauncher />
                 </div>
-            </div>
-            <LearningAgentsLauncher />
             </div>
 
             {/* ── Body — full width, no sidebar ── */}
