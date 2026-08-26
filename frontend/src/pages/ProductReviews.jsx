@@ -90,7 +90,7 @@ const ProductReviews = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
 
-    useEffect(() => { document.title = 'Product Reviews | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Product Reviews | Risk AI Council'; }, []);
 
     useEffect(() => {
         getProductCategories().then(res => setCategories(res.data?.data || [])).catch(() => {});

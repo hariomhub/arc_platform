@@ -578,7 +578,7 @@ const Profile = () => {
     const [profileError, setProfileError] = useState('');
     const [activeTab, setActiveTab] = useState('info');
 
-    useEffect(() => { document.title = 'My Profile | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'My Profile | Risk AI Council'; }, []);
     useEffect(() => { if (!user) navigate('/login'); }, [user, navigate]);
 
     useEffect(() => {

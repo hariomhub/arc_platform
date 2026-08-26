@@ -363,7 +363,7 @@ const ExecutiveWorkshops = () => {
     const [tab, setTab]             = useState('upcoming');
     const [selectedWs, setSelectedWs] = useState(null); // modal
 
-    useEffect(() => { document.title = 'Executive Workshops | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Executive Workshops | Risk AI Council'; }, []);
 
     const fetchWorkshops = useCallback(async () => {
         setLoading(true); setError('');

@@ -11,7 +11,7 @@ const WHY_ITEMS = [
 
 const Services = () => {
     const navigate = useNavigate();
-    useEffect(() => { document.title = 'Services | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Services | Risk AI Council'; }, []);
 
     return (
         <>
@@ -178,7 +178,7 @@ const Services = () => {
             <div style={{ background:'white', padding:'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', borderTop:'1px solid #E2E8F0' }}>
                 <div style={{ maxWidth:'1100px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'2rem' }}>
-                        <h2 style={{ fontSize:'clamp(1.5rem,3vw,2rem)', fontWeight:'800', color:'#1A202C', marginBottom:'0.5rem' }}>Why Choose AI Risk Council?</h2>
+                        <h2 style={{ fontSize:'clamp(1.5rem,3vw,2rem)', fontWeight:'800', color:'#1A202C', marginBottom:'0.5rem' }}>Why Choose Risk AI Council?</h2>
                         <p style={{ color:'#64748B', fontSize:'clamp(0.9rem,1.5vw,1.05rem)', maxWidth:'560px', margin:'0 auto' }}>
                             Built by practitioners, for practitioners — with no vendor conflicts of interest.
                         </p>

@@ -260,7 +260,7 @@ const ResourceDetail = () => {
         try {
             const res = await getResourceById(id);
             setResource(res.data?.data || res.data);
-            document.title = `${res.data?.data?.title || 'Resource'} | AI Risk Council`;
+            document.title = `${res.data?.data?.title || 'Resource'} | Risk AI Council`;
         } catch (err) {
             if (err?.response?.status === 404) setNotFound(true);
             else setError(getErrorMessage(err));

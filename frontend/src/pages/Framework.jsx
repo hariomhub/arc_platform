@@ -449,7 +449,7 @@ const AuditTemplatesSection = ({ auditTemplates = AUDIT_TEMPLATES }) => {
                 <Lock size={18} color="#93C5FD" />
                 <div style={{ flex: 1, minWidth: '160px' }}>
                     <p className="cta-banner-title">Full templates available to Chapter Leads</p>
-                    <p className="cta-banner-sub">Join the AI Risk Council to download editable versions in Excel, Word, and PDF formats.</p>
+                    <p className="cta-banner-sub">Join the Risk AI Council to download editable versions in Excel, Word, and PDF formats.</p>
                 </div>
                 <Link to="/membership" className="cta-banner-btn">Join the Council</Link>
             </div>

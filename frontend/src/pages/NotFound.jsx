@@ -10,7 +10,7 @@ const SUGGESTIONS = [
 
 const NotFound = () => {
     const navigate = useNavigate();
-    useEffect(() => { document.title = '404 Not Found | AI Risk Council'; }, []);
+    useEffect(() => { document.title = '404 Not Found | Risk AI Council'; }, []);
 
     return (
         <div style={{

@@ -120,7 +120,7 @@ const Membership = () => {
     const [upgrading, setUpgrading] = useState(false);
     const [upgraded,  setUpgraded]  = useState(false);
 
-    useEffect(() => { document.title = 'Membership | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Membership | Risk AI Council'; }, []);
 
     // Re-fetch fresh user data on mount (fixes stale status after SPA navigation post-login)
     useEffect(() => {
@@ -746,7 +746,7 @@ const Membership = () => {
                         </>
                     ) : (
                         <>
-                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Ready to Join the AI Risk Council?</h2>
+                            <h2 style={{ margin: '0 0 0.6rem', color: 'white', fontSize: 'clamp(1.1rem,2.5vw,1.5rem)', fontWeight: '800' }}>Ready to Join the Risk AI Council?</h2>
                             <p style={{ margin: '0 auto 1.5rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.88rem', lineHeight: '1.65', maxWidth: '420px' }}>Apply today and start building in the AI risk and governance space.</p>
                             <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                                 <button onClick={() => setShowSubCatModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', padding: '0.72rem 1.5rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>

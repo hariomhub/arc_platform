@@ -649,7 +649,7 @@ const Resources = () => {
                         Research &amp; Resources
                     </h1>
                     <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(0.875rem,1.5vw,1rem)', margin: '0 0 0.6rem', lineHeight: '1.6' }}>
-                        Explore frameworks, whitepapers, videos, and AI governance resources curated by the AI Risk Council community.
+                        Explore frameworks, whitepapers, videos, and AI governance resources curated by the Risk AI Council community.
                     </p>
                     {user && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'rgba(255,255,255,0.55)', marginBottom: '1.75rem' }}>

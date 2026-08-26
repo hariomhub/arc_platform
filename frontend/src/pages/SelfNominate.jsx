@@ -290,7 +290,7 @@ const SelfNominate = () => {
     const [recaptchaToken, setRecaptchaToken] = useState('');
     const recaptchaRef = useRef(null);
 
-    useEffect(() => { document.title = 'Nominate Yourself | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Nominate Yourself | Risk AI Council'; }, []);
 
     useEffect(() => {
         if (isMember && user) {

@@ -54,7 +54,7 @@ const Login = () => {
     const emailRef = useRef(null);
     const recaptchaRef = useRef(null);
 
-    useEffect(() => { document.title = 'Sign In | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Sign In | Risk AI Council'; }, []);
     useEffect(() => { emailRef.current?.focus(); }, []);
     useEffect(() => { if (!isAuthLoading && user) navigate('/', { replace: true }); }, [user, isAuthLoading, navigate]);
     useEffect(() => {

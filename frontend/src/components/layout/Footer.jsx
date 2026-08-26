@@ -73,7 +73,7 @@ const Footer = () => (
                         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '1.25rem' }}>
                             <img
                                 src="/rac_u_logo.png"
-                                alt="AI Risk Council Logo"
+                                alt="Risk AI Council Logo"
                                 style={{
                                     height: '40px', width: 'auto', objectFit: 'contain',
                                     filter: 'brightness(0) invert(1)',
@@ -164,7 +164,7 @@ const Footer = () => (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.75rem' }}>
                     <div className="ft-bottom">
                         <p style={{ color: '#718096', fontSize: '0.82rem', margin: 0 }}>
-                            © 2026 AI Risk Council. All rights reserved.
+                            © 2026 Risk AI Council. All rights reserved.
                         </p>
                         <nav aria-label="Legal links" className="ft-links">
                             <Link to="/privacy"         className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Privacy Policy</Link>

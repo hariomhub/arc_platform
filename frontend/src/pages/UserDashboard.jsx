@@ -57,7 +57,7 @@ const UserDashboard = () => {
     };
 
     useEffect(() => {
-        document.title = 'Dashboard | AI Risk Council';
+        document.title = 'Dashboard | Risk AI Council';
         Promise.allSettled([
             getEvents({ is_upcoming: true, limit: 4 }),
             getMyRegistrations(),

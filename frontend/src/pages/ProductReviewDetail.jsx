@@ -237,7 +237,7 @@ const ProductReviewDetail = () => {
     const [submittingReview, setSubmittingReview] = useState(false);
     const [deletingReview, setDeletingReview] = useState(false);
 
-    useEffect(() => { document.title = 'Product Review | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Product Review | Risk AI Council'; }, []);
 
     const fetchProduct = useCallback(async () => {
         setLoading(true); setError('');
@@ -245,7 +245,7 @@ const ProductReviewDetail = () => {
             const res = await getProductById(id);
             const data = res.data?.data;
             setProduct(data);
-            document.title = `${data?.name ?? 'Product'} Review | AI Risk Council`;
+            document.title = `${data?.name ?? 'Product'} Review | Risk AI Council`;
             if (user && data?.userReviews) {
                 const existing = data.userReviews.find((r) => r.user_id === user.id);
                 if (existing) { setReviewRating(existing.rating); setReviewComment(existing.comment || ''); }

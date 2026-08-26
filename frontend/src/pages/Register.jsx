@@ -83,7 +83,7 @@ const Register = () => {
     const pwStrength = getPwStrength(form.password);
     const showOrgField = ORG_ROLES.includes(form.role);
 
-    useEffect(() => { document.title = 'Create Account | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Create Account | Risk AI Council'; }, []);
     useEffect(() => { if (!isAuthLoading && user) navigate('/', { replace: true }); }, [user, isAuthLoading, navigate]);
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -312,7 +312,7 @@ const Register = () => {
                                 <img src="/rac_u_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
                                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
                             </Link>
-                            <h2 style={{ margin: '0 0 0.3rem', fontSize: 'clamp(1.1rem,4vw,1.4rem)', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>Join the AI Risk Council</h2>
+                            <h2 style={{ margin: '0 0 0.3rem', fontSize: 'clamp(1.1rem,4vw,1.4rem)', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>Join the Risk AI Council</h2>
                             <p style={{ margin: '0 0 0.875rem', fontSize: '0.8rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>Create your account and gain access to a global community advancing responsible AI governance.</p>
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {PERKS.map(({ icon: Icon, text }) => (
@@ -334,7 +334,7 @@ const Register = () => {
                                 <img src="/rac_u_logo.png" alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', transform: 'scale(1.4)', filter: 'brightness(0) invert(1)' }} />
                                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', transform: 'translate(6px, 3px)' }}>Risk AI Council</span>
                             </Link>
-                            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the AI Risk Council</h2>
+                            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the Risk AI Council</h2>
                             <p style={{ margin: '0 0 2rem', fontSize: '0.86rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
                                 Join as a <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Professional</strong> for community access, or apply for{' '}
                                 <strong style={{ color: '#93C5FD' }}>Chapter Lead</strong> for premium platform benefits.

@@ -11,12 +11,12 @@ import NotificationBell from './NotificationBell.jsx';
 
 const PUBLIC_NAV = [
     { label: 'Home',                 path: '/',              icon: Home },
+    { label: 'AI Risk Framework',    path: '/framework',     icon: FileText },
     { label: 'Events',               path: '/events',        icon: Calendar },
     { label: 'Services',             path: '/services',      icon: Settings },
-    { label: 'AI Risk Framework',    path: '/framework',     icon: FileText },
+    { label: 'Community Feed',        path: '/community-qna', icon:  MessageSquare },
     { label: 'Research & Resources', path: '/resources',     icon: BookOpen },
     { label: 'Certifications',       path: '/certification', icon: Award },
-    { label: 'Community Feed',        path: '/community-qna', icon:  MessageSquare },
     { label: 'About Us',             path: '/about',         icon: Info },
     { label: 'Contact Us',           path: '/contact',       icon: Phone },
 ];

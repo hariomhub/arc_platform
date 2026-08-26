@@ -126,7 +126,7 @@ const TierCard = ({ tier, isActive, onClick }) => {
 
 const Certifications = () => {
     const [activeIdx, setActiveIdx] = useState(1);
-    useEffect(() => { document.title = 'Certifications | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Certifications | Risk AI Council'; }, []);
 
     return (
         <>

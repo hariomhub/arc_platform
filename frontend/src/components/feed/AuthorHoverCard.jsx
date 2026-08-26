@@ -170,7 +170,7 @@ const AuthorHoverCard = ({ authorId, authorName, authorRole, authorPhoto, author
             )}
 
             {!authorOrg && !authorBio && (
-                <p style={{ margin:0, fontSize:'0.74rem', color:'#94a3b8', fontStyle:'italic' }}>AI Risk Council member</p>
+                <p style={{ margin:0, fontSize:'0.74rem', color:'#94a3b8', fontStyle:'italic' }}>Risk AI Council member</p>
             )}
         </div>
     ) : null;

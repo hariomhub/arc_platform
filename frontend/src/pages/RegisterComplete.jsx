@@ -32,7 +32,7 @@ const RegisterComplete = () => {
     const [error,           setError]           = useState('');
     const [success,         setSuccess]         = useState(false);
 
-    useEffect(() => { document.title = 'Complete Your Profile | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Complete Your Profile | Risk AI Council'; }, []);
 
     // Guard: if user is fully logged in and NOT a newly pending linkedin user, redirect away
     useEffect(() => {

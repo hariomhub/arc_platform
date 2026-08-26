@@ -30,7 +30,7 @@ const AllMembers = () => {
     const [filter, setFilter] = useState('all');
     const [selectedMember, setSelectedMember] = useState(null);
 
-    useEffect(() => { document.title = 'All Members | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'All Members | Risk AI Council'; }, []);
 
     const fetchTeam = useCallback(async (signal) => {
         setLoading(true); setError('');

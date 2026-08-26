@@ -70,7 +70,7 @@ const About = () => {
     const [teamError, setTeamError] = useState('');
     const [selectedMember, setSelectedMember] = useState(null);
 
-    useEffect(() => { document.title = 'About Us | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'About Us | Risk AI Council'; }, []);
 
     const fetchTeam = useCallback(async (signal) => {
         setTeamLoading(true); setTeamError('');

@@ -146,7 +146,7 @@ const QnADetail = () => {
             const res = await getFeedPost(id);
             const data = res.data?.data;
             setPost(data);
-            document.title = `${data?.author_name || 'Post'} on Community Feed | AI Risk Council`;
+            document.title = `${data?.author_name || 'Post'} on Community Feed | Risk AI Council`;
         } catch (err) {
             if (err?.response?.status === 404) setNotFound(true);
             else setError(getErrorMessage(err));

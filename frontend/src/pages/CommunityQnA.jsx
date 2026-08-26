@@ -149,7 +149,7 @@ const CommunityQnA = () => {
     const canPost = (isCouncilMember?.() || isAdmin?.());
     const feedRef = useRef(null);
 
-    useEffect(() => { document.title = 'Community Feed | AI Risk Council'; }, []);
+    useEffect(() => { document.title = 'Community Feed | Risk AI Council'; }, []);
 
     const setParam = useCallback((key, value) => {
         setSearchParams(prev => {
