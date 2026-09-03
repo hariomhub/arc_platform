@@ -238,7 +238,7 @@ const Certifications = () => {
                             marginTop: '1.5rem',
                             textAlign: 'center'
                         }}>
-                             LAUNCHING IN JULY 2026
+                             LAUNCHING IN NOVEMBER 2026
                         </div>
                     </div>
                     <div className="cert-cards-grid">

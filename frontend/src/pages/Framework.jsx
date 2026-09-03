@@ -180,31 +180,126 @@ const BrandTile = ({ slug, name, size = 44 }) => {
     );
 };
 
-// The Zero-Trust-style bordered tab row used for browsing a small, ordered
-// set of items (Bridge stages, Maturity levels, Implementation phases). Each
-// tab carries its own icon and the row is chained with connector arrows, so
-// the sequence reads as a journey rather than a plain menu.
-const SecondaryTabs = ({ items, activeKey, getKey, getIcon, getIndex, getName, onSelect }) => (
-    <div className="sec-tabs">
-        {items.map((item, idx) => {
-            const key = getKey(item, idx);
-            return (
-                <React.Fragment key={key}>
-                    <SecondaryTab active={activeKey === key} onClick={() => onSelect(key)} icon={getIcon(item, idx)} index={getIndex(item, idx)} name={getName(item, idx)} />
-                    {idx < items.length - 1 && <ChevronRight size={14} className="sec-tab-connector" />}
-                </React.Fragment>
-            );
-        })}
+// The Bridge Model's own navigation — a literal milestone track instead of a
+// plain tab row, since this is the one section named after a journey. The
+// gold fill shows how far along the five stages the reader currently is;
+// each node doubles as the click target and previews its tagline, so the
+// whole shape of the model is visible before a single stage is opened.
+//
+// The literal bridge — a single suspension cable arcing between the first
+// and last stage (they act as the anchor towers), with a vertical hanger
+// dropping from the arc to every stage in between. That's the real
+// suspension-bridge silhouette, rendered as low-opacity line-art behind the
+// deck, plus a soft glow that continuously traces the arc's own curve (not
+// just a straight line) so the motion actually reads as "crossing a bridge."
+const BridgeMilestones = ({ stages, activeKey, onSelect }) => {
+    const n = stages.length || 1;
+    const activeIdx = Math.max(0, stages.findIndex(s => s.stage_key === activeKey));
+    const fillPct = n > 1 ? (activeIdx / (n - 1)) * 100 : 0;
+    const inset = 100 / (2 * n);
+    const nodeX = (idx) => inset * 2 * idx + inset;
+
+    const x0 = nodeX(0), x1 = nodeX(n - 1), xm = (x0 + x1) / 2;
+    const yTop = 4, yDeck = 27, ySag = 24;
+    const curveY = (x) => {
+        const t = x1 === x0 ? 0 : (x - x0) / (x1 - x0);
+        return (1 - t) ** 2 * yTop + 2 * (1 - t) * t * ySag + t ** 2 * yTop;
+    };
+    const arcD = `M ${x0} ${yTop} Q ${xm} ${ySag} ${x1} ${yTop}`;
+
+    return (
+        <div className="bridge-milestones">
+            <div className="bridge-visual">
+                <svg className="bridge-bg-svg" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+                    <path d={arcD} className="bridge-bg-arc" fill="none" />
+                    {stages.slice(1, -1).map((s, i) => {
+                        const idx = i + 1;
+                        const x = nodeX(idx);
+                        return <line key={s.stage_key} x1={x} y1={curveY(x)} x2={x} y2={yDeck} className="bridge-bg-hanger" />;
+                    })}
+                    <line x1={x0} y1={yTop} x2={x0} y2={yDeck} className="bridge-bg-tower" />
+                    <line x1={x1} y1={yTop} x2={x1} y2={yDeck} className="bridge-bg-tower" />
+                </svg>
+                <div className="bridge-track" style={{ marginLeft: `${inset}%`, marginRight: `${inset}%` }}>
+                    <div className="bridge-track-fill" style={{ width: `${fillPct}%` }} />
+                    <span className="bridge-flow-glow" />
+                </div>
+                <div className="bridge-circles">
+                    {stages.map((s, idx) => {
+                        const Icon = STAGE_ICONS[s.stage_key] || Target;
+                        const state = idx < activeIdx ? 'passed' : idx === activeIdx ? 'active' : 'upcoming';
+                        return (
+                            <button key={s.stage_key} className={`bridge-node bridge-node-${state}`} onClick={() => onSelect(s.stage_key)} aria-label={s.name}>
+                                <span className="bridge-node-circle"><Icon size={17} /></span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="bridge-labels">
+                {stages.map((s, idx) => {
+                    const state = idx < activeIdx ? 'passed' : idx === activeIdx ? 'active' : 'upcoming';
+                    return (
+                        <button key={s.stage_key} className={`bridge-label bridge-label-${state}`} onClick={() => onSelect(s.stage_key)}>
+                            <span className="bridge-label-index">{String(idx + 1).padStart(2, '0')}</span>
+                            <span className="bridge-label-name">{s.name}</span>
+                            <span className="bridge-label-tagline">{s.tagline}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+// Maturity Levels' own navigation — one row of self-contained pills, each
+// carrying its own icon, level number and name. Deliberately a single flat
+// element per level (no separate track+label rows to keep aligned) so there
+// is nothing that can drift out of sync with itself; "passed" levels stay
+// filled navy, the current level is picked out in gold.
+const MaturityStepper = ({ levels, activeLevel, onSelect }) => {
+    const activeIdx = Math.max(0, levels.findIndex(m => m.level === activeLevel));
+    return (
+        <div className="maturity-pills">
+            {levels.map((m, idx) => {
+                const Icon = getMaturityIcon(m);
+                const state = idx < activeIdx ? 'passed' : m.level === activeLevel ? 'active' : 'upcoming';
+                return (
+                    <button key={m.level} className={`maturity-pill maturity-pill-${state}`} onClick={() => onSelect(m.level)}>
+                        <span className="maturity-pill-icon"><Icon size={15} /></span>
+                        <span className="maturity-pill-text">
+                            <span className="maturity-pill-level">Level {m.level}</span>
+                            <span className="maturity-pill-name">{m.name}</span>
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+// Implementation Guide's own navigation — a dashed project-roadmap timeline
+// with diamond milestones, distinct from the Bridge's solid suspension cable
+// and circular stops, since a phased rollout with durations reads more like
+// a schedule than a journey.
+const ImplementationTimeline = ({ phases, activeKey, onSelect, getKey }) => (
+    <div className="impl-timeline">
+        <div className="impl-timeline-track" />
+        <div className="impl-timeline-row">
+            {phases.map((p, idx) => {
+                const key = getKey(p, idx);
+                const isActive = key === activeKey;
+                const Icon = getPhaseIcon(p.phase || p.phase_label, idx);
+                return (
+                    <button key={key} className={`impl-station${isActive ? ' impl-station-active' : ''}`} onClick={() => onSelect(key)}>
+                        <span className="impl-station-duration">{p.duration}</span>
+                        <span className="impl-station-marker"><Icon size={15} /></span>
+                        <span className="impl-station-title">{p.title}</span>
+                    </button>
+                );
+            })}
+        </div>
     </div>
-);
-const SecondaryTab = ({ active, onClick, index, name, icon: Icon }) => (
-    <button className={`sec-tab${active ? ' sec-tab-active' : ''}`} onClick={onClick}>
-        <span className="sec-tab-icon-wrap">
-            {Icon && <span className="sec-tab-icon"><Icon size={15} /></span>}
-            {index != null && <span className="sec-tab-badge">{index}</span>}
-        </span>
-        <span className="sec-tab-name">{name}</span>
-    </button>
 );
 
 const ModuleCard = ({ icon, iconSlot, index, title, subtitle, description, isOpen, onToggle, children }) => (
@@ -241,15 +336,7 @@ const BridgeStagesSection = ({ stages = BRIDGE_STAGES }) => {
     return (
         <div>
             <SectionHeader center title="The AI Risk Bridge Model" subtitle="A five-stage lifecycle for identifying, measuring, and governing AI risk. Each stage answers a different question for the board and for the people implementing it — Exposure → Obligation → Integrity → Defense → Continuity." />
-            <SecondaryTabs
-                items={list}
-                activeKey={stage.stage_key}
-                getKey={(s) => s.stage_key}
-                getIcon={(s) => STAGE_ICONS[s.stage_key] || Target}
-                getIndex={(s, idx) => idx + 1}
-                getName={(s) => s.name}
-                onSelect={setActiveKey}
-            />
+            <BridgeMilestones stages={list} activeKey={stage.stage_key} onSelect={setActiveKey} />
 
             <Reveal key={stage.stage_key}>
                 <div className="stage-detail">
@@ -262,10 +349,13 @@ const BridgeStagesSection = ({ stages = BRIDGE_STAGES }) => {
                     </div>
                     <p className="stage-detail-lead">{stage.translates}</p>
 
-                    <div className="persona-grid">
-                        <div className="persona-col">
-                            <p className="persona-col-label">Board / Adopter</p>
-                            <p className="persona-col-question">{stage.adopter_question || stage.adopterQuestion}</p>
+                    <div className="persona-split">
+                        <div className="persona-side">
+                            <div className="persona-byline">
+                                <span className="persona-avatar persona-avatar-board"><Landmark size={15} /></span>
+                                <p className="persona-role">Board / Adopter</p>
+                            </div>
+                            <p className="persona-quote">{stage.adopter_question || stage.adopterQuestion}</p>
                             {adopterArtifacts.length > 0 && (
                                 <>
                                     <p className="mod-detail-label" style={{ marginTop: '1.1rem' }}>Adopter-Facing Artifact</p>
@@ -273,9 +363,17 @@ const BridgeStagesSection = ({ stages = BRIDGE_STAGES }) => {
                                 </>
                             )}
                         </div>
-                        <div className="persona-col persona-col-implementer">
-                            <p className="persona-col-label">CIO / Implementer</p>
-                            <p className="persona-col-question">{stage.implementer_question || stage.implementerQuestion}</p>
+                        <div className="persona-connector" aria-hidden="true">
+                            <span className="persona-connector-line" />
+                            <span className="persona-connector-dot" />
+                            <span className="persona-connector-line" />
+                        </div>
+                        <div className="persona-side persona-side-implementer">
+                            <div className="persona-byline">
+                                <span className="persona-avatar persona-avatar-implementer"><Target size={15} /></span>
+                                <p className="persona-role">CIO / Implementer</p>
+                            </div>
+                            <p className="persona-quote">{stage.implementer_question || stage.implementerQuestion}</p>
                             {implementerArtifacts.length > 0 && (
                                 <>
                                     <p className="mod-detail-label" style={{ marginTop: '1.1rem' }}>Implementer-Facing Artifact</p>
@@ -324,34 +422,37 @@ const MaturityLevelsSection = ({ maturityLevels = MATURITY_LEVELS }) => {
     return (
         <div>
             <SectionHeader center title="AI Governance Maturity" subtitle="Four descriptive stages organisations typically move through as AI risk governance matures — a shared vocabulary for where you are today, not a score." />
-            <SecondaryTabs
-                items={list}
-                activeKey={activeLevel}
-                getKey={(m) => m.level}
-                getIcon={getMaturityIcon}
-                getIndex={(m) => m.level}
-                getName={(m) => m.name}
-                onSelect={setActiveLevel}
-            />
+            <MaturityStepper levels={list} activeLevel={activeLevel} onSelect={setActiveLevel} />
 
             <Reveal key={active.level}>
                 <div className="stage-detail">
-                    <div className="stage-detail-head">
-                        <IconTile icon={Icon} size={56} />
-                        <div>
-                            <p className="stage-detail-eyebrow">Level {active.level} of {list.length}</p>
-                            <h3 className="stage-detail-title">{active.name}</h3>
+                    {/* Header, description and comparison all share one
+                        centred column — the whole card reads as a single
+                        aligned block instead of a left-hugging header sat
+                        above a separately-centred comparison. */}
+                    <div className="maturity-detail-inner">
+                        <div className="stage-detail-head">
+                            <IconTile icon={Icon} size={56} />
+                            <div>
+                                <p className="stage-detail-eyebrow">Level {active.level} of {list.length}</p>
+                                <h3 className="stage-detail-title">{active.name}</h3>
+                            </div>
                         </div>
-                    </div>
-                    <p className="stage-detail-lead">{active.description}</p>
-                    <div className="persona-grid">
-                        <div className="persona-col">
-                            <p className="persona-col-label">Characteristics</p>
-                            {(active.characteristics || []).map((c, i) => <div key={i} className="mod-detail-row"><span className="mod-dot" />{c}</div>)}
-                        </div>
-                        <div className="persona-col persona-col-implementer">
-                            <p className="persona-col-label" style={{ color: '#16A34A' }}>Next Actions</p>
-                            {(active.actions || []).map((a, i) => <div key={i} className="mod-detail-row"><CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0, marginTop: '2px' }} />{a}</div>)}
+                        <p className="stage-detail-lead" style={{ maxWidth: 'none' }}>{active.description}</p>
+                        <div className="maturity-compare">
+                            <div>
+                                <p className="maturity-compare-label">Characteristics</p>
+                                {(active.characteristics || []).map((c, i) => <div key={i} className="mod-detail-row"><span className="mod-dot" />{c}</div>)}
+                            </div>
+                            <div className="maturity-compare-connector" aria-hidden="true">
+                                <span className="maturity-compare-line" />
+                                <span className="maturity-compare-arrow"><ArrowRight size={14} /></span>
+                                <span className="maturity-compare-line" />
+                            </div>
+                            <div>
+                                <p className="maturity-compare-label" style={{ color: '#16A34A' }}>Next Actions</p>
+                                {(active.actions || []).map((a, i) => <div key={i} className="mod-detail-row"><CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0, marginTop: '2px' }} />{a}</div>)}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -373,15 +474,7 @@ const ImplementationGuideSection = ({ implementationGuide = IMPLEMENTATION_GUIDE
     return (
         <div>
             <SectionHeader center title="Implementation Guide" subtitle={`A phased roadmap for embedding AI risk governance across your organisation. ${totalDone}/${totalAll} steps checked off.`} />
-            <SecondaryTabs
-                items={guide}
-                activeKey={activeKey}
-                getKey={(p) => p.phase || p.phase_label}
-                getIcon={(p, i) => getPhaseIcon(p.phase || p.phase_label, i)}
-                getIndex={(p, i) => i + 1}
-                getName={(p) => p.title}
-                onSelect={setActiveKey}
-            />
+            <ImplementationTimeline phases={guide} activeKey={activeKey} getKey={(p) => p.phase || p.phase_label} onSelect={setActiveKey} />
 
             <Reveal key={activeKey}>
                 <div className="stage-detail">
@@ -618,9 +711,10 @@ const BotMascot = ({ size = 48, accent = ACCENT, className = '', style }) => {
     );
 };
 
-// Cycled per agent card so five agents render as five differently-accented
-// bots — add a sixth LEARNING_AGENTS entry and it picks up automatically.
-const BOT_PALETTE = ['#003366', '#0369A1', '#7C3AED', '#0F766E', '#B45309'];
+// Cycled per agent card so agents read as distinct bots without leaving the
+// site's navy/gold accent system — add a sixth LEARNING_AGENTS entry and it
+// picks up automatically (wraps back to the first tone).
+const BOT_PALETTE = ['#002244', '#003366', '#005599', GOLD];
 
 // Shows all five agent bots inline, no shared card/background — each stands
 // directly on the hero; the name brightening on hover is the click cue.
@@ -631,7 +725,7 @@ const LearningAgentsLauncher = () => (
                 <span className="agents-bar-title">AI Learning Agents</span>
                 <span className="agents-bar-new">NEW</span>
             </div>
-            <span className="agents-bar-sub">{LEARNING_AGENTS.length} frameworks · Quizzes &amp; more — coming soon</span>
+            <span className="agents-bar-sub">{LEARNING_AGENTS.length} frameworks · Quiz-based learning for each</span>
         </div>
         <div className="agents-bar-row">
             {LEARNING_AGENTS.map((a, i) => (
@@ -701,40 +795,159 @@ const Framework = () => {
                 .reveal-visible { opacity: 1; transform: none; }
 
                 /* ── Top-level module tabs ── */
-                .module-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 2.5rem; border-bottom: 1px solid #E2E8F0; }
+                .module-tabs { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; margin-bottom: 2.5rem; border-bottom: 1px solid #E2E8F0; }
                 .module-tab { padding: 0.9rem 1.15rem; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-family: inherit; font-size: 0.92rem; font-weight: 600; color: #64748B; transition: all 0.15s; margin-bottom: -1px; }
                 .module-tab:hover { color: #1E293B; }
                 .module-tab-active { color: ${ACCENT}; font-weight: 800; border-bottom-color: ${ACCENT}; }
 
-                /* ── Secondary (within-module) tab row — mirrors the Zero Trust demo-episode tabs ── */
-                .sec-tabs { display: flex; align-items: center; overflow-x: auto; border: 1px solid #E5E7EB; border-radius: 14px; background: white; margin-bottom: 2rem; padding: 4px; gap: 0; }
-                .sec-tab { flex: 1; min-width: 108px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; padding: 0.55rem 0.7rem; background: none; border: none; border-radius: 10px; border-bottom: 2px solid transparent; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-                .sec-tab:hover { background: #F8FAFC; color: #1E293B; }
-                .sec-tab-active { background: #EFF6FF; border-bottom-color: ${ACCENT}; }
-                .sec-tab-icon-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
-                .sec-tab-icon { width: 26px; height: 26px; border-radius: 50%; background: #F1F5F9; color: #64748B; display: flex; align-items: center; justify-content: center; transition: all 0.18s; }
-                .sec-tab:hover .sec-tab-icon { background: #E0E7FF; color: ${ACCENT}; }
-                .sec-tab-active .sec-tab-icon { background: ${ACCENT}; color: white; }
-                .sec-tab-badge { position: absolute; top: -4px; right: -5px; min-width: 15px; height: 15px; padding: 0 2px; border-radius: 50%; background: white; border: 1.5px solid #CBD5E1; color: #64748B; font-size: 0.6rem; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; }
-                .sec-tab-active .sec-tab-badge { border-color: ${ACCENT}; color: ${ACCENT}; }
-                .sec-tab-name { font-size: 0.94rem; font-weight: 700; color: #334155; white-space: nowrap; }
-                .sec-tab-active .sec-tab-name { color: #0F172A; }
-                .sec-tab-connector { flex-shrink: 0; color: #CBD5E1; }
+                /* ── Maturity Levels — one row of self-contained pills. Each
+                   pill is a single flat element (icon + text, one border),
+                   so there's no separate track/label pairing that can drift
+                   out of alignment with itself. ── */
+                .maturity-pills { display: flex; flex-wrap: wrap; gap: 10px; max-width: 820px; margin: 0 auto 1.75rem; }
+                .maturity-pill { flex: 1; min-width: 160px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #E2E8F0; background: white; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+                .maturity-pill:hover { border-color: #CBD5E1; }
+                .maturity-pill-icon { width: 30px; height: 30px; border-radius: 50%; background: #F1F5F9; color: #94A3B8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+                .maturity-pill-passed { border-color: rgba(0,51,102,0.25); background: rgba(0,51,102,0.04); }
+                .maturity-pill-passed .maturity-pill-icon { background: ${ACCENT}; color: white; }
+                .maturity-pill-active { border-color: ${GOLD}; background: rgba(249,168,37,0.08); box-shadow: 0 0 0 3px rgba(249,168,37,0.15); }
+                .maturity-pill-active .maturity-pill-icon { background: ${ACCENT}; color: white; box-shadow: 0 0 0 3px rgba(249,168,37,0.32); }
+                .maturity-pill-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
+                .maturity-pill-level { font-size: 0.62rem; font-weight: 800; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; }
+                .maturity-pill-active .maturity-pill-level { color: #b3760f; }
+                .maturity-pill-name { font-size: 0.85rem; font-weight: 700; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .maturity-pill-active .maturity-pill-name, .maturity-pill-passed .maturity-pill-name { color: #0F172A; }
+                @media (max-width: 640px) {
+                    .maturity-pills { flex-direction: column; }
+                    .maturity-pill { min-width: 0; }
+                }
+
+                /* ── Implementation Guide — a dashed project-roadmap timeline
+                   with diamond milestones, so a phased rollout with durations
+                   reads as a schedule rather than a repeat of the Bridge's
+                   suspension-cable journey visual. ── */
+                .impl-timeline { position: relative; max-width: 1000px; margin: 0 auto 2.5rem; }
+                .impl-timeline-track { position: absolute; left: 5%; right: 5%; top: 44px; border-top: 2px dashed #CBD5E1; }
+                .impl-timeline-row { position: relative; display: flex; }
+                .impl-station { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; padding: 0 6px; font-family: inherit; }
+                .impl-station-duration { font-size: 0.72rem; font-weight: 700; color: #94A3B8; background: #F1F5F9; padding: 3px 10px; border-radius: 99px; }
+                .impl-station-active .impl-station-duration { color: ${ACCENT}; background: #EFF6FF; }
+                .impl-station-marker { width: 30px; height: 30px; border-radius: 8px; transform: rotate(45deg); background: white; border: 2.5px solid #CBD5E1; color: #94A3B8; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+                .impl-station-marker svg { transform: rotate(-45deg); }
+                .impl-station:hover .impl-station-marker { border-color: ${ACCENT}; color: ${ACCENT}; }
+                .impl-station-active .impl-station-marker { background: ${ACCENT}; border-color: ${GOLD}; color: white; box-shadow: 0 0 0 4px rgba(249,168,37,0.22); }
+                .impl-station-active:hover .impl-station-marker { color: white; }
+                .impl-station-title { font-size: 0.92rem; font-weight: 700; color: #475569; text-align: center; }
+                .impl-station-active .impl-station-title { color: #0F172A; }
+                @media (max-width: 700px) {
+                    .impl-station-title { font-size: 0.78rem; }
+                }
+
+                /* ── Bridge Model milestone track — the model's own journey visual.
+                   Wide and centred under the heading, with a true suspension-
+                   cable arc (not a straight line) tracing the whole shape. ── */
+                @keyframes bridgeArcFlow {
+                    0%   { left: 0%;   top: -60px; opacity: 0; }
+                    6%   { opacity: 1; }
+                    25%  { left: 25%;  top: -41px; }
+                    50%  { left: 50%;  top: -34px; }
+                    75%  { left: 75%;  top: -41px; }
+                    94%  { opacity: 1; }
+                    100% { left: 100%; top: -60px; opacity: 0; }
+                }
+                .bridge-milestones { max-width: 1100px; margin: 0 auto 2.5rem; }
+                .bridge-visual { position: relative; height: 84px; }
+                .bridge-bg-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+                /* non-scaling-stroke keeps these crisp at a fixed pixel width no
+                   matter how the viewBox gets stretched by preserveAspectRatio
+                   none — without it, the arc and hangers render at uneven
+                   apparent thickness depending on their angle. */
+                .bridge-bg-tower { stroke: ${ACCENT}; stroke-width: 2; opacity: 0.45; vector-effect: non-scaling-stroke; }
+                .bridge-bg-arc { stroke: ${ACCENT}; stroke-width: 2; opacity: 0.5; vector-effect: non-scaling-stroke; }
+                .bridge-bg-hanger { stroke: ${ACCENT}; stroke-width: 1.25; opacity: 0.32; vector-effect: non-scaling-stroke; }
+                .bridge-track { position: absolute; left: 0; right: 0; top: 69px; height: 4px; background: #E2E8F0; border-radius: 4px; overflow: visible; }
+                .bridge-track-fill { position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(90deg, ${ACCENT}, ${GOLD}); border-radius: 4px; transition: width 0.45s cubic-bezier(0.4,0,0.2,1); }
+                /* A soft light continuously tracing the arc's own curve (left
+                   AND top both animate) — not just a straight-line dot — so
+                   the motion actually reads as travelling the suspension
+                   cable rather than sliding along the flat progress bar. */
+                .bridge-flow-glow {
+                    position: absolute; left: 0; width: 11px; height: 11px; margin-left: -5.5px;
+                    border-radius: 50%; background: radial-gradient(circle, #fff 0%, ${GOLD} 45%, transparent 78%);
+                    box-shadow: 0 0 16px 5px rgba(249,168,37,0.55), 0 0 4px 1px rgba(255,255,255,0.85);
+                    animation: bridgeArcFlow 6.5s ease-in-out infinite;
+                    pointer-events: none;
+                }
+                .bridge-circles { position: absolute; left: 0; right: 0; top: 48px; display: flex; }
+                .bridge-node { flex: 1; display: flex; justify-content: center; background: none; border: none; cursor: pointer; padding: 0; }
+                .bridge-node-circle { width: 42px; height: 42px; border-radius: 50%; background: white; border: 3px solid #CBD5E1; color: #94A3B8; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+                .bridge-node-passed .bridge-node-circle { background: ${ACCENT}; border-color: ${ACCENT}; color: white; }
+                .bridge-node-active .bridge-node-circle { background: ${ACCENT}; border-color: ${GOLD}; color: white; box-shadow: 0 0 0 5px rgba(249,168,37,0.22); transform: scale(1.1); }
+                .bridge-node:hover .bridge-node-circle { border-color: ${ACCENT}; color: ${ACCENT}; }
+                .bridge-node-passed:hover .bridge-node-circle, .bridge-node-active:hover .bridge-node-circle { color: white; }
+                .bridge-labels { display: flex; margin-top: 10px; }
+                .bridge-label { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0 4px; font-family: inherit; }
+                .bridge-label-index { font-size: 0.7rem; font-weight: 800; color: #7C8CA6; letter-spacing: 0.06em; }
+                .bridge-label-active .bridge-label-index { color: ${GOLD}; }
+                .bridge-label-name { font-size: 1rem; font-weight: 700; color: #334155; }
+                .bridge-label-active .bridge-label-name { color: #0F172A; }
+                .bridge-label-tagline { font-size: 0.82rem; color: #64748B; text-align: center; line-height: 1.35; }
+                .bridge-label-active .bridge-label-tagline { color: #334155; }
+                @media (max-width: 760px) {
+                    .bridge-label-tagline { display: none; }
+                    .bridge-label-name { font-size: 0.85rem; }
+                    .bridge-node-circle { width: 34px; height: 34px; }
+                }
 
                 /* ── Stage / phase / level detail panel ── */
                 .stage-detail { background: white; border: 1px solid #E2E8F0; border-radius: 18px; padding: clamp(1.5rem,3vw,2.5rem); }
                 .stage-detail-head { display: flex; align-items: center; gap: 16px; margin-bottom: 1.5rem; }
                 .stage-detail-eyebrow { font-size: 0.74rem; font-weight: 700; color: ${ACCENT}; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
                 .stage-detail-title { font-size: clamp(1.25rem,2.4vw,1.65rem); font-weight: 800; color: #0F172A; margin: 0; font-family: var(--font-serif,Georgia,serif); }
-                .stage-detail-lead { font-size: clamp(1rem,1.5vw,1.125rem); color: #475569; line-height: 1.75; margin: 0 0 1.75rem; max-width: 860px; }
+                .stage-detail-lead { font-size: clamp(1rem,1.5vw,1.125rem); color: #475569; line-height: 1.75; margin: 0 0 1.75rem; max-width: 740px; }
 
-                /* ── Board / Implementer persona split ── */
-                .persona-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 1.5rem; margin-bottom: 1.75rem; }
-                .persona-col { padding: 1.25rem 1.5rem; border-radius: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid ${ACCENT}; transition: transform 0.18s; }
-                .persona-col:hover { transform: translateY(-2px); }
-                .persona-col-implementer { border-left-color: ${GOLD}; }
-                .persona-col-label { font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px; }
-                .persona-col-question { font-size: 1.08rem; color: #0F172A; font-weight: 700; line-height: 1.55; margin: 0; }
+                /* ── Board / Implementer persona split — an editorial pull-quote
+                   pairing instead of two bordered cards, with a thin connector
+                   between them standing in for the "bridge" between the two
+                   viewpoints this stage has to translate across. ── */
+                .persona-split { display: grid; grid-template-columns: 1fr auto 1fr; gap: 2rem; margin-bottom: 1.75rem; }
+                .persona-side { min-width: 0; }
+                .persona-byline { display: flex; align-items: center; gap: 8px; margin-bottom: 0.7rem; }
+                .persona-avatar { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .persona-avatar-board { background: ${ACCENT}; color: white; }
+                .persona-avatar-implementer { background: rgba(249,168,37,0.15); color: #b3760f; }
+                .persona-role { font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+                .persona-quote { position: relative; font-family: var(--font-serif,Georgia,serif); font-size: clamp(1.02rem,1.6vw,1.2rem); font-weight: 700; color: #0F172A; line-height: 1.5; margin: 0; }
+                .persona-quote::before {
+                    content: '\\201C'; position: absolute; left: -2px; top: -0.65em; font-size: 2.75rem;
+                    font-family: var(--font-serif,Georgia,serif); font-weight: 800; color: ${ACCENT}; opacity: 0.12;
+                    line-height: 1; pointer-events: none;
+                }
+                .persona-side-implementer .persona-quote::before { color: ${GOLD}; opacity: 0.35; }
+                .persona-connector { display: flex; flex-direction: column; align-items: center; }
+                .persona-connector-line { width: 1px; flex: 1; background: linear-gradient(180deg, transparent, #CBD5E1 25%, #CBD5E1 75%, transparent); }
+                .persona-connector-dot { width: 7px; height: 7px; border-radius: 50%; background: ${ACCENT}; margin: 6px 0; flex-shrink: 0; }
+                @media (max-width: 640px) {
+                    .persona-split { grid-template-columns: 1fr; gap: 1.5rem; }
+                    .persona-connector { display: none; }
+                }
+
+                /* ── Characteristics → Next Actions (Maturity Levels) — no card
+                   chrome at all, since a boxed panel around 2-3 short bullets
+                   just frames empty space. The connector reuses the Bridge
+                   persona-split's line-and-marker language for consistency,
+                   with an arrow instead of a dot: this pairing is a "current
+                   state leads to a next step", not two independent quotes. ── */
+                .maturity-detail-inner { max-width: 820px; margin: 0 auto; }
+                .maturity-compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 2rem; margin-bottom: 0; }
+                .maturity-compare-label { font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; }
+                .maturity-compare-connector { display: flex; flex-direction: column; align-items: center; }
+                .maturity-compare-line { width: 1px; flex: 1; background: linear-gradient(180deg, transparent, #CBD5E1 25%, #CBD5E1 75%, transparent); }
+                .maturity-compare-arrow { color: #CBD5E1; margin: 6px 0; flex-shrink: 0; }
+                @media (max-width: 640px) {
+                    .maturity-compare { grid-template-columns: 1fr; gap: 1.25rem; }
+                    .maturity-compare-connector { display: none; }
+                }
 
                 .shared-block { padding-top: 1.5rem; border-top: 1px solid #F1F5F9; margin-bottom: 1.5rem; }
                 .shared-grid { display: flex; flex-wrap: wrap; gap: 8px 32px; }
@@ -798,7 +1011,6 @@ const Framework = () => {
 
                 /* ── Learning Agents bar — shows all five bots inline, no shared card ──
                    z-index 1200 keeps it above the sticky navbar's z-index:1000. */
-                @keyframes agentsBadgePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.6); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
                 @keyframes botBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
                 @keyframes botLed { 0%,88%,100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(74,222,128,0); } 94% { opacity: 1; box-shadow: 0 0 5px 2px rgba(74,222,128,0.85); } }
                 @keyframes botEyeBlink { 0%,90%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.15); } }
@@ -829,7 +1041,7 @@ const Framework = () => {
                    still visually landing top-right like before. */
                 .agents-bar { position: relative; }
                 .agents-bar-title-row { display: flex; align-items: center; gap: 10px; }
-                .agents-bar-new { display: inline-block; background: #DC2626; color: white; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; animation: agentsBadgePulse 1.8s ease-in-out infinite; }
+                .agents-bar-new { display: inline-block; background: rgba(249,168,37,0.16); border: 1px solid rgba(249,168,37,0.4); color: ${GOLD}; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; }
                 .agents-bar-head { display: flex; flex-direction: column; margin-bottom: 14px; }
                 .agents-bar-title { font-size: 1.2rem; font-weight: 800; color: white; }
                 .agents-bar-sub { font-size: 0.85rem; color: #CBD5E1; margin-top: 4px; }
@@ -864,7 +1076,6 @@ const Framework = () => {
 
                 /* ── Responsive ── */
                 @media (max-width: 720px) {
-                    .sec-tab { min-width: 130px; }
                     .stage-detail { padding: 1.5rem; }
                 }
             `}</style>
