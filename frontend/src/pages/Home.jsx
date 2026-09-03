@@ -4,7 +4,8 @@ import {
     Globe, ChevronLeft, ChevronRight, X, ArrowRight,
     Calendar, MapPin, CheckCircle, Lock, AlertCircle,
     RefreshCw, Users, BookOpen, Zap, Star,
-    Volume2, VolumeX, Play, Pause, Trophy
+    Volume2, VolumeX, Play, Pause, Trophy,
+    Target, Eye
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -277,11 +278,16 @@ const HeroVideoCarousel = ({ videos, viewAllHref }) => {
                         />
                     )}
 
-                    {/* ── Entering (active) video ── */}
+                    {/* ── Entering (active) video ──
+                        No `key` here on purpose: keying this by activeIdx used to force a full
+                        unmount/remount on every slide switch, which threw away any buffering the
+                        browser had already done and made every switch start loading from zero.
+                        Same element now, just a new `src` — the browser can reuse its connection,
+                        and onCanPlay/play() below still fire correctly on the new source. */}
                     <video
-                        key={`active-${activeIdx}`}
                         ref={mainVideoRef}
                         src={active.video_url}
+                        poster={active.thumbnail_url || undefined}
                         preload="auto"
                         autoPlay
                         muted={isMuted}
@@ -311,8 +317,12 @@ const HeroVideoCarousel = ({ videos, viewAllHref }) => {
                             animation: transitioning
                                 ? `hvc-slide-in-${direction} ${TRANSITION_MS}ms cubic-bezier(0.4,0,0.2,1) forwards`
                                 : 'none',
-                            opacity: (!transitioning && !videoReady) ? 0 : 1,
-                            transition: (!transitioning && !videoReady) ? 'none' : 'opacity 0.4s ease',
+                            /* Only hide-until-ready when there's no poster to bridge the gap —
+                               with a poster, showing the element immediately means the poster
+                               paints right away instead of a blank/black flash. Videos without
+                               a thumbnail_url keep the exact previous behavior. */
+                            opacity: (!transitioning && !videoReady && !active.thumbnail_url) ? 0 : 1,
+                            transition: (!transitioning && !videoReady && !active.thumbnail_url) ? 'none' : 'opacity 0.4s ease',
                         }}
                     />
 
@@ -452,7 +462,16 @@ const HeroVideoCarousel = ({ videos, viewAllHref }) => {
                                             boxShadow: isActive ? `0 0 0 2px ${gc.from}66, 0 8px 22px rgba(0,0,0,0.6)` : '0 2px 8px rgba(0,0,0,0.3)',
                                             transform: isActive ? 'scale(1.08)' : 'scale(1)',
                                             background:'#050c1a' }}>
-                                        <video src={vid.video_url+'#t=0.001'} preload="metadata" muted playsInline style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block',pointerEvents:'none',zIndex:1 }} />
+                                        {/* Real thumbnail image when the admin has uploaded one — the old
+                                            fallback (seeking a <video> to its first frame via preload=metadata)
+                                            only paints reliably on some browsers/CDNs, which is why some
+                                            thumbnails used to show nothing. Only videos without a thumbnail_url
+                                            still use that fallback, unchanged. */}
+                                        {vid.thumbnail_url ? (
+                                            <img src={vid.thumbnail_url} alt="" loading="lazy" style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block',pointerEvents:'none',zIndex:1 }} />
+                                        ) : (
+                                            <video src={vid.video_url+'#t=0.001'} preload="metadata" muted playsInline style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block',pointerEvents:'none',zIndex:1 }} />
+                                        )}
                                         <div className="hvc-tdim" style={{ position:'absolute',inset:0,zIndex:2,background: isActive?'rgba(0,0,0,0)':'rgba(0,0,0,0.5)',transition:'opacity 0.3s' }} />
                                         {isActive && (
                                             <div style={{ position:'absolute',inset:0,zIndex:4,overflow:'hidden',pointerEvents:'none' }}>
@@ -532,6 +551,7 @@ const NominationCarousel = () => {
     const [loading, setLoading] = useState(true);
     const [activeIdx, setActiveIdx] = useState(0);
     const [paused, setPaused] = useState(false);
+    const [dragStart, setDragStart] = useState(null);
     const timerRef = useRef(null);
 
     useEffect(() => {
@@ -548,6 +568,20 @@ const NominationCarousel = () => {
     }, []);
 
     const goNext = () => setActiveIdx((i) => (i + 1) % awards.length);
+    const goPrev = () => setActiveIdx((i) => (i - 1 + awards.length) % awards.length);
+
+    // Swipe left → next, swipe right → previous. Paused during the drag itself
+    // so autoplay can't fight the gesture; mirrors HeroVideoCarousel's pattern above.
+    const handleDragStart = (e) => { setPaused(true); setDragStart(e.clientX ?? e.touches?.[0]?.clientX ?? null); };
+    const handleDragEnd = (e) => {
+        if (dragStart === null) { setPaused(false); return; }
+        const endX = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragStart;
+        if (Math.abs(dragStart - endX) > 40) {
+            if (dragStart - endX > 0) goNext(); else goPrev();
+        }
+        setDragStart(null);
+        setPaused(false);
+    };
 
     useEffect(() => {
         if (paused || awards.length < 2) return;
@@ -578,7 +612,7 @@ const NominationCarousel = () => {
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
                         <Link to={`/self-nominate?award=${award.id}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg,#F59E0B,#D97706)', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '9px', fontWeight: '700', fontSize: '0.85rem', textDecoration: 'none', boxShadow: '0 4px 14px rgba(217,119,6,0.35)' }}>
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'white', color: '#003366', padding: '0.6rem 1.25rem', borderRadius: '6px', fontWeight: '800', fontSize: '0.85rem', textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
                             Nominate Now <ArrowRight size={13} />
                         </Link>
                         {deadline && (
@@ -603,11 +637,18 @@ const NominationCarousel = () => {
     };
 
     return (
-        <section style={{ background: '#0B1220', padding: 'clamp(1rem,2.5vw,1.5rem) clamp(1rem,4vw,3rem)' }}
+        <section style={{ background: '#001429', padding: 'clamp(1rem,2.5vw,1.5rem) clamp(1rem,4vw,3rem)' }}
             onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
             <style>{`
-                .nom-carousel-card { position: relative; border-radius: 16px; overflow: hidden; background: #0B1220; box-shadow: 0 16px 40px rgba(0,10,30,0.35); }
-                .nom-carousel-viewport { overflow: hidden; width: 100%; }
+                .nom-carousel-card { position: relative; border-radius: 16px; overflow: hidden; background: #001429; box-shadow: 0 16px 40px rgba(0,10,30,0.35); }
+                .nom-carousel-viewport { position: relative; overflow: hidden; width: 100%; }
+                /* Prev/next live in the bottom nav bar next to the dots, never over the slide
+                   itself — they used to float on top of the slide (absolute + vertical-center),
+                   which put them on top of the text on desktop and, worse, on top of the
+                   paragraph once mobile stacks text-then-image. A fixed nav strip below the
+                   slide can't overlap slide content at any screen size or text length. */
+                .nom-nav { position: relative; flex-shrink: 0; width: 26px; height: 26px; min-width: 26px; min-height: 26px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.9; transition: opacity 0.2s, background 0.2s; outline: none; }
+                .nom-nav:hover { opacity: 1; background: rgba(255,255,255,0.16); color: white; }
                 .nom-carousel-track { display: flex; transition: transform 0.5s cubic-bezier(0.65,0,0.35,1); }
                 /* Each slide's width comes from the inline style (100 / awards.length) — flex-shrink:0 just
                    stops it collapsing; no flex-basis/min-width here so it doesn't fight that inline width. */
@@ -615,7 +656,19 @@ const NominationCarousel = () => {
                 /* min-height is a floor for the text side (never clips it) — the image is capped
                    independently via its own explicit max-height, so its aspect ratio can no longer
                    stretch the whole card taller than intended (that was the actual bug before). */
-                .nom-carousel-slide { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.35fr); align-items: center; min-height: clamp(210px,27vw,260px); background: linear-gradient(115deg,#001a33 0%,#003366 48%,#0055A4 100%); }
+                /* Flat brand navy instead of a diagonal gradient — the gradient's sweep read
+                   as uneven next to the banner image on the right, which is a flat/solid
+                   dark tone with no gradient of its own. One flat color (the site's actual
+                   brand navy, used everywhere else) reads as one consistent panel next to
+                   it, and is lighter overall than the gradient's darkest stops were. */
+                /* Same dot-pattern texture as the "Join the Global Council" CTA banner
+                   further down this page (radial-gradient dots, 1px, low opacity) — reused
+                   rather than a new motif, so it's recognizably part of this site's language.
+                   Slowly drifting it (background-position, not transform/position) is what
+                   makes it read as a background animation while staying strictly inside this
+                   element's own box — nothing here extends past the panel's edges. */
+                @keyframes nom-drift { from { background-position: 0 0; } to { background-position: 64px 64px; } }
+                .nom-carousel-slide { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.35fr); align-items: center; min-height: clamp(210px,27vw,260px); background-color: #003366; background-image: radial-gradient(circle,rgba(255,255,255,0.05) 1px,transparent 1px); background-size: 28px 28px; animation: nom-drift 30s linear infinite; }
                 .nom-carousel-content { padding: clamp(1rem,2.2vw,1.4rem) clamp(1.25rem,3vw,1.85rem); min-width: 0; }
                 .nom-carousel-image { display: flex; align-items: center; justify-content: center; padding: clamp(0.75rem,1.8vw,1.1rem) clamp(0.4rem,1vw,0.6rem) clamp(0.75rem,1.8vw,1.1rem) clamp(0.5rem,1.2vw,0.75rem); box-sizing: border-box; min-width: 0; overflow: hidden; height: 100%; }
                 /* display:contents removes the <Link> from the box model entirely (it's only there
@@ -624,8 +677,8 @@ const NominationCarousel = () => {
                 .nom-carousel-img-link { display: contents; }
                 /* max-height is an absolute clamp(), not a %, so it caps the image on its own —
                    no reliance on a parent's computed height (which is what broke last time). */
-                .nom-carousel-img { display: block; width: auto; height: auto; max-width: 100%; max-height: clamp(190px,25vw,240px); object-fit: contain; border-radius: 10px; box-shadow: 0 0 0 2px rgba(245,158,11,0.4); transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; cursor: pointer; }
-                .nom-carousel-img-link:hover .nom-carousel-img { transform: scale(1.04); box-shadow: 0 8px 28px rgba(245,158,11,0.28), 0 0 0 2px rgba(245,158,11,0.75); filter: brightness(1.06); }
+                .nom-carousel-img { display: block; width: auto; height: auto; max-width: 100%; max-height: clamp(190px,25vw,240px); object-fit: contain; border-radius: 10px; box-shadow: 0 0 0 2px rgba(249,168,37,0.4); transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; cursor: pointer; }
+                .nom-carousel-img-link:hover .nom-carousel-img { transform: scale(1.04); box-shadow: 0 8px 28px rgba(249,168,37,0.28), 0 0 0 2px rgba(249,168,37,0.75); filter: brightness(1.06); }
                 @media (max-width: 760px) {
                     .nom-carousel-slide { grid-template-columns: 1fr; min-height: 0; }
                     .nom-carousel-content h2, .nom-carousel-content p { max-width: none !important; }
@@ -635,7 +688,10 @@ const NominationCarousel = () => {
             `}</style>
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
                 <div className="nom-carousel-card">
-                    <div className="nom-carousel-viewport">
+                    <div className="nom-carousel-viewport"
+                        style={{ cursor: awards.length > 1 ? (dragStart !== null ? 'grabbing' : 'grab') : undefined, touchAction: 'pan-y' }}
+                        onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
+                        onTouchStart={handleDragStart} onTouchEnd={handleDragEnd}>
                         <div className="nom-carousel-track" style={{ width: `${awards.length * 100}%`, transform: `translateX(-${(100 / awards.length) * activeIdx}%)` }}>
                             {awards.map((a) => (
                                 <div key={a.id} className="nom-carousel-slide-wrap" style={{ width: `${100 / awards.length}%` }}>
@@ -646,11 +702,23 @@ const NominationCarousel = () => {
                     </div>
 
                     {awards.length > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', padding: '0.55rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                            {awards.map((a, i) => (
-                                <button key={a.id} onClick={() => setActiveIdx(i)} aria-label={`Show ${a.name}`}
-                                    style={{ width: i === activeIdx ? '20px' : '7px', height: '7px', borderRadius: '100px', border: 'none', background: i === activeIdx ? '#F59E0B' : 'rgba(255,255,255,0.25)', cursor: 'pointer', transition: 'all 0.25s', padding: 0 }} />
-                            ))}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '0.55rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                            <button className="nom-nav" onClick={goPrev} aria-label="Previous award">
+                                <ChevronLeft size={14} />
+                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                                {awards.map((a, i) => (
+                                    <button key={a.id} onClick={() => setActiveIdx(i)} aria-label={`Show ${a.name}`}
+                                        /* minWidth/minHeight override the site-wide 44px touch-target
+                                           floor (index.css button rule: min-height/min-width: 44px) —
+                                           that floor is what was silently overriding width/height here
+                                           every time, no matter how small they were set. */
+                                        style={{ width: i === activeIdx ? '18px' : '8px', height: '3px', minWidth: i === activeIdx ? '18px' : '8px', minHeight: '3px', borderRadius: '1.5px', border: 'none', background: i === activeIdx ? '#f9a825' : 'rgba(255,255,255,0.25)', cursor: 'pointer', transition: 'all 0.25s', padding: 0 }} />
+                                ))}
+                            </div>
+                            <button className="nom-nav" onClick={goNext} aria-label="Next award">
+                                <ChevronRight size={14} />
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1116,7 +1184,7 @@ const Home = () => {
             ══════════════════════════════════════════════════════════════ */}
             <section ref={statsRef} style={{ background: 'linear-gradient(135deg,#001a33 0%,#003366 100%)', ...SECTION_STYLE }}>
                 <div style={INNER}>
-                    <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '2.5rem' }}>Our global reach</p>
+                    <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.65)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '2.5rem' }}>Our global reach</p>
                     <div className="stats-grid">
                         {[
                             { icon: Users,    label: 'Member Organisations', count: counts.members,   suffix: '+', sub: 'across all industries' },
@@ -1128,7 +1196,7 @@ const Home = () => {
                                 <Icon size={26} color="#f9a825" style={{ margin: '0 auto 0.65rem', display: 'block' }} aria-hidden="true" />
                                 <div style={{ fontSize: 'clamp(1.6rem, 4vw, 2.8rem)', fontWeight: '900', color: 'white', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{count}{suffix}</div>
                                 <p style={{ margin: '0.35rem 0 0', fontSize: 'clamp(0.75rem, 1.2vw, 0.82rem)', color: '#93C5FD', fontWeight: '600' }}>{label}</p>
-                                <p style={{ margin: '0.15rem 0 0', fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{sub}</p>
+                                <p style={{ margin: '0.15rem 0 0', fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>{sub}</p>
                             </div>
                         ))}
                     </div>
@@ -1138,19 +1206,30 @@ const Home = () => {
             {/* ══════════════════════════════════════════════════════════════
                 3. MISSION & VISION
             ══════════════════════════════════════════════════════════════ */}
-            <section style={{ background: '#F8FAFC', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
+            <section style={{ background: '#EEF2F7', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
                 <div style={{ ...INNER, padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                         <SectionLabel>Our Purpose</SectionLabel>
                         <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 2.2rem)', color: '#1E293B', fontWeight: '800', margin: 0, letterSpacing: '-0.02em' }}>Built to Make AI Governance Actionable</h2>
                     </div>
+                    {/* Both cards share one identical structural treatment (border, shadow,
+                        radius, icon-badge size) — the only thing that differs between them is
+                        the icon and its badge color, so the distinction reads as meaningful
+                        (target vs. eye, navy vs. gold) rather than an arbitrary stripe. The
+                        section itself now sits a shade darker than the white cards so the
+                        card edges are actually visible instead of blending into the page. */}
                     <div className="mission-grid">
                         {[
-                            { accent: '#003366', label: 'Our Mission', body: 'RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly.', sub: 'We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, developing the AI Risk Bridge Model so risk assessment stays accessible to the RAC community, while continuing to advance responsible AI development.' },
-                            { accent: '#f9a825', label: 'Our Vision',  body: 'A world where AI is governed with the rigor and accountability of our most trusted institutions - transparent, auditable, aligned with societal values - because the cost of ungoverned AI only compounds with time.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
-                        ].map(({ accent, label, body, sub }) => (
-                            <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #E2E8F0', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 12px rgba(0,51,102,0.06)' }}>
-                                <h3 style={{ fontSize: 'clamp(1rem,2vw,1.25rem)', color: '#003366', marginBottom: '0.85rem', fontWeight: '800' }}>{label}</h3>
+                            { icon: Target, tint: '#EFF6FF', iconColor: '#003366', label: 'Our Mission', body: 'RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly.', sub: 'We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, developing the AI Risk Bridge Model so risk assessment stays accessible to the RAC community, while continuing to advance responsible AI development.' },
+                            { icon: Eye,    tint: '#FFF8E8', iconColor: '#B45309', label: 'Our Vision',  body: 'A world where AI is governed with the rigor and accountability of our most trusted institutions - transparent, auditable, aligned with societal values - because the cost of ungoverned AI only compounds with time.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
+                        ].map(({ icon: Icon, tint, iconColor, label, body, sub }) => (
+                            <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #D8E0EA', boxShadow: '0 4px 18px rgba(15,40,80,0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '1.1rem' }}>
+                                    <div style={{ width: '44px', height: '44px', flexShrink: 0, borderRadius: '12px', background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icon size={22} color={iconColor} />
+                                    </div>
+                                    <h3 style={{ fontSize: 'clamp(1rem,2vw,1.25rem)', color: '#003366', fontWeight: '800', margin: 0 }}>{label}</h3>
+                                </div>
                                 <p style={{ color: '#334155', fontWeight: '500', lineHeight: '1.8', fontSize: 'clamp(0.875rem,1.5vw,0.97rem)', marginBottom: '0.75rem' }}>{body}</p>
                                 <p style={{ color: '#334155', fontWeight: '500', lineHeight: '1.8', fontSize: 'clamp(0.875rem,1.5vw,0.97rem)', margin: 0 }}>{sub}</p>
                             </div>
@@ -1179,9 +1258,11 @@ const Home = () => {
             </section>
 
             {/* ══════════════════════════════════════════════════════════════
-                5. WHY JOIN
+                5. WHY JOIN — same background as "Built to Make AI Governance
+                Actionable" and Featured Events below, so all three light sections
+                on this page share one color instead of each having its own shade.
             ══════════════════════════════════════════════════════════════ */}
-            <section style={{ background: '#F8FAFC', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
+            <section style={{ background: '#EEF2F7', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
                 <div style={{ ...INNER, padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                         <SectionLabel>Membership</SectionLabel>
@@ -1353,7 +1434,7 @@ const Home = () => {
             {/* ══════════════════════════════════════════════════════════════
                 7. UPCOMING EVENTS
             ══════════════════════════════════════════════════════════════ */}
-            <section ref={featuredEventsRef} id="featured-events" style={{ background: '#F0F5FF', ...SECTION_STYLE, borderBottom: '1px solid #DBEAFE' }}>
+            <section ref={featuredEventsRef} id="featured-events" style={{ background: '#EEF2F7', ...SECTION_STYLE, borderBottom: '1px solid #E8EDF3' }}>
                 <div style={{ ...INNER, padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
@@ -1437,21 +1518,29 @@ const Home = () => {
                 8. MEMBERSHIP CTA BANNER
             ══════════════════════════════════════════════════════════════ */}
             <section style={{ background: '#F8FAFC', ...SECTION_STYLE }}>
-                <div style={{ ...INNER, padding: '0 clamp(1rem, 4vw, 3rem)' }}>
-                    <div style={{ background: 'linear-gradient(135deg,#002855 0%,#003d80 100%)', borderRadius: '20px', padding: 'clamp(2rem,5vw,4rem) clamp(1.5rem,4vw,3rem)', textAlign: 'center', boxShadow: '0 8px 40px rgba(0,40,85,0.18)', position: 'relative', overflow: 'hidden' }}>
+                {/* Wider than the standard 1400px INNER container (matches the 1600px used for
+                    the Framework page hero) — a closing CTA banner reads better with more
+                    presence than a body-text-width section. Vertical padding and the spacing
+                    between badge/heading/paragraph are also tightened, since the card felt
+                    hollow at the old sizes relative to how little content it holds. */}
+                <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
+                    <div style={{ background: 'linear-gradient(135deg,#002855 0%,#003d80 100%)', borderRadius: '20px', padding: 'clamp(1.4rem,3vw,2.1rem) clamp(1.5rem,4vw,3rem)', textAlign: 'center', boxShadow: '0 8px 40px rgba(0,40,85,0.18)', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none' }} aria-hidden="true" />
                         <div style={{ position: 'relative', zIndex: 1 }}>
-                            <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 14px', borderRadius: '100px', marginBottom: '1.25rem' }}>Join Today</span>
-                            <h2 style={{ color: 'white', fontSize: 'clamp(1.4rem,3vw,2.2rem)', fontWeight: '800', marginBottom: '1rem', fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>Join the Global Council</h2>
-                            <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.875rem,1.5vw,1rem)', lineHeight: '1.75', marginBottom: '2.25rem', maxWidth: '560px', margin: '0 auto 2.25rem' }}>
+                            <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 14px', borderRadius: '100px', marginBottom: '0.8rem' }}>Join Today</span>
+                            <h2 style={{ color: 'white', fontSize: 'clamp(1.3rem,2.6vw,1.9rem)', fontWeight: '800', marginBottom: '0.6rem', fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>Join the Global Council</h2>
+                            <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.85rem,1.4vw,0.95rem)', lineHeight: '1.6', maxWidth: '560px', margin: '0 auto 1.3rem' }}>
                                 Access exclusive risk assessment templates, peer benchmarking data, and executive briefings. Join a network of over 25 global organisations committed to responsible AI.
                             </p>
                             <div className="cta-btns">
+                                {/* ArrowRight matches every other primary CTA on this page (Join
+                                    the Council, Nominate Now, Learn More About Us) — this one was
+                                    the only button on the page missing it. */}
                                 <Link to="/membership"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', color: '#003366', padding: 'clamp(0.7rem,2vw,0.85rem) clamp(1.25rem,3vw,2rem)', borderRadius: '6px', fontWeight: '700', fontSize: 'clamp(0.85rem,1.5vw,0.95rem)', textDecoration: 'none', transition: 'box-shadow 0.15s', whiteSpace: 'nowrap' }}
                                     onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'}
                                     onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-                                    Explore Membership
+                                    Explore Membership <ArrowRight size={15} />
                                 </Link>
                                 <Link to="/contact"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'transparent', color: 'white', border: '1.5px solid rgba(255,255,255,0.5)', padding: 'clamp(0.7rem,2vw,0.85rem) clamp(1.25rem,3vw,2rem)', borderRadius: '6px', fontWeight: '600', fontSize: 'clamp(0.85rem,1.5vw,0.95rem)', textDecoration: 'none', transition: 'border-color 0.15s,background 0.15s', whiteSpace: 'nowrap' }}

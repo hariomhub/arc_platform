@@ -201,7 +201,13 @@ const layout = (bodyHtml, previewText = '') => `
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px auto;">
         <tr>
          <td valign="middle" style="padding-right:10px;">
-          <img src="${APP_URL()}/rac_u_logo.png" alt="Logo" width="40" height="40" style="display:block;width:40px;height:40px;object-fit:contain;filter:brightness(0) invert(1);" />
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:10px;">
+           <tr>
+            <td align="center" valign="middle" width="40" height="40" style="width:40px;height:40px;border-radius:10px;">
+             <img src="${APP_URL()}/rac_u_logo.png" alt="Logo" width="30" height="30" style="display:block;width:30px;height:30px;object-fit:contain;" />
+            </td>
+           </tr>
+          </table>
          </td>
          <td valign="middle">
           <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;display:block;padding-top:2px;">Risk AI Council</span>

@@ -25,14 +25,14 @@ const Footer = () => (
             }
             .ft-link {
                 color: #CBD5E0;
-                font-size: 0.875rem;
+                font-size: 0.925rem;
                 text-decoration: none;
                 transition: color 0.2s;
             }
             .ft-link:hover { color: white; text-decoration: none; }
             .ft-col-link {
                 color: #CBD5E0;
-                font-size: 0.875rem;
+                font-size: 0.925rem;
                 text-decoration: none;
                 transition: color 0.2s;
                 display: block;
@@ -70,22 +70,25 @@ const Footer = () => (
 
                     {/* ── Brand ── */}
                     <div>
-                        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '1.25rem' }}>
-                            <img
-                                src="/rac_u_logo.png"
-                                alt="Risk AI Council Logo"
-                                style={{
-                                    height: '40px', width: 'auto', objectFit: 'contain',
-                                    filter: 'brightness(0) invert(1)',
-                                    display: 'block', transform: 'translateY(-2px)'
-                                }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                            <span style={{ fontSize: '1.35rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', whiteSpace: 'nowrap', transform: 'translateY(1px)' }}>
+                        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', marginBottom: '1.25rem' }}>
+                            <span style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '44px', height: '44px', borderRadius: '10px',
+                                background: '#FFFFFF', boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
+                                flexShrink: 0,
+                            }}>
+                                <img
+                                    src="/rac_u_logo.png"
+                                    alt="Risk AI Council Logo"
+                                    style={{ height: '38px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                            </span>
+                            <span style={{ fontSize: '1.45rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
                                 Risk AI Council
                             </span>
                         </Link>
-                        <p style={{ color: '#E2E8F0', fontSize: '0.875rem', lineHeight: '1.7', maxWidth: '280px', margin: 0 }}>
+                        <p style={{ color: '#E2E8F0', fontSize: '0.925rem', lineHeight: '1.7', maxWidth: '280px', margin: 0 }}>
                             The global authority on AI risk governance, setting standards for responsible,
                             ethical, and compliant artificial intelligence systems.
                         </p>
@@ -95,7 +98,7 @@ const Footer = () => (
                     <div>
                         <h5 style={{
                             color: 'white', marginBottom: '1.25rem',
-                            fontFamily: 'var(--font-sans)', fontSize: '0.875rem',
+                            fontFamily: 'var(--font-sans)', fontSize: '0.925rem',
                             fontWeight: '700', letterSpacing: '0.05em',
                             textTransform: 'uppercase',
                         }}>
@@ -113,7 +116,7 @@ const Footer = () => (
                     <div>
                         <h5 style={{
                             color: 'white', marginBottom: '1.25rem',
-                            fontFamily: 'var(--font-sans)', fontSize: '0.875rem',
+                            fontFamily: 'var(--font-sans)', fontSize: '0.925rem',
                             fontWeight: '700', letterSpacing: '0.05em',
                             textTransform: 'uppercase',
                         }}>
@@ -131,13 +134,13 @@ const Footer = () => (
                     <div>
                         <h5 style={{
                             color: 'white', marginBottom: '1.25rem',
-                            fontFamily: 'var(--font-sans)', fontSize: '0.875rem',
+                            fontFamily: 'var(--font-sans)', fontSize: '0.925rem',
                             fontWeight: '700', letterSpacing: '0.05em',
                             textTransform: 'uppercase',
                         }}>
                             Contact
                         </h5>
-                        <address style={{ fontStyle: 'normal', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem', color: '#CBD5E0' }}>
+                        <address style={{ fontStyle: 'normal', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.925rem', color: '#CBD5E0' }}>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                 <MapPin size={15} style={{ marginTop: '3px', flexShrink: 0, opacity: 0.7 }} aria-hidden="true" />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', lineHeight: '1.55' }}>
@@ -163,14 +166,14 @@ const Footer = () => (
                 {/* ── Bottom bar ── */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.75rem' }}>
                     <div className="ft-bottom">
-                        <p style={{ color: '#718096', fontSize: '0.82rem', margin: 0 }}>
+                        <p style={{ color: '#718096', fontSize: '0.87rem', margin: 0 }}>
                             © 2026 Risk AI Council. All rights reserved.
                         </p>
                         <nav aria-label="Legal links" className="ft-links">
-                            <Link to="/privacy"         className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Privacy Policy</Link>
-                            <Link to="/terms"           className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Terms of Use</Link>
-                            <Link to="/cookie"          className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Cookie Preferences</Link>
-                            <Link to="/delete-account"  className="ft-link" style={{ color: '#718096', fontSize: '0.82rem' }}>Delete Account</Link>
+                            <Link to="/privacy"         className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Privacy Policy</Link>
+                            <Link to="/terms"           className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Terms of Use</Link>
+                            <Link to="/cookie"          className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Cookie Preferences</Link>
+                            <Link to="/delete-account"  className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Delete Account</Link>
                         </nav>
                     </div>
                 </div>

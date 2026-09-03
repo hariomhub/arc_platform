@@ -54,15 +54,22 @@ const Services = () => {
                     border: 1px solid #E2E8F0;
                     box-shadow: 0 4px 16px rgba(0,0,0,0.06);
                     overflow: hidden;
-                    transition: box-shadow 0.2s, transform 0.2s;
+                    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
                     display: flex;
                     flex-direction: column;
                 }
                 .svc-card:hover {
                     transform: translateY(-4px);
+                    box-shadow: 0 12px 32px rgba(0,51,102,0.12);
                 }
-                .svc-card-blue:hover  { box-shadow: 0 12px 32px rgba(0,51,102,0.12); }
-                .svc-card-purple:hover { box-shadow: 0 12px 32px rgba(124,58,237,0.12); }
+
+                /* Card header (icon + title band) */
+                .svc-card-header {
+                    background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
+                    padding: clamp(1rem,2vw,1.35rem) clamp(1.25rem,2.5vw,1.75rem);
+                    position: relative;
+                    overflow: hidden;
+                }
 
                 /* Why card hover */
                 .svc-why-card {
@@ -112,21 +119,54 @@ const Services = () => {
                     </div>
 
                     <div className="svc-cards-grid">
-                        {/* Card 1 */}
-                        <div className="svc-card svc-card-blue">
-                            <div style={{ height:'5px', background:'#003366' }}/>
-                            <div style={{ padding:'clamp(1.5rem,3vw,2.25rem)', flex:1, display:'flex', flexDirection:'column' }}>
-                                <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
-                                    <div style={{ width:'52px', height:'52px', borderRadius:'12px', background:'#EBF0F7', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                                        <ShieldCheck size={26} color="#003366"/>
+                        {/* Card 1 — Executive Workshops */}
+                        <div className="svc-card">
+                            <div className="svc-card-header">
+                                <div style={{ position:'absolute', top:'-60px', right:'-60px', width:'180px', height:'180px', borderRadius:'50%', background:'rgba(255,255,255,0.05)', pointerEvents:'none' }}/>
+                                <div style={{ display:'flex', alignItems:'center', gap:'0.85rem', position:'relative' }}>
+                                    <div style={{ width:'42px', height:'42px', borderRadius:'10px', background:'rgba(255,255,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                        <Users size={22} color="white"/>
                                     </div>
-                                    <h2 style={{ fontSize:'clamp(1.1rem,2vw,1.3rem)', fontWeight:'800', color:'#1A202C', margin:0 }}>AI Product Reviews</h2>
+                                    <h2 style={{ fontSize:'clamp(1.05rem,2vw,1.25rem)', fontWeight:'800', color:'white', margin:0 }}>Executive Workshops</h2>
                                 </div>
-                                <p style={{ color:'#4A5568', lineHeight:'1.8', fontSize:'0.95rem', marginBottom:'1.5rem' }}>
+                            </div>
+                            <div style={{ padding:'clamp(1.25rem,2.5vw,1.75rem)', flex:1, display:'flex', flexDirection:'column' }}>
+                                <p style={{ color:'#4A5568', lineHeight:'1.7', fontSize:'0.95rem', marginBottom:'1.25rem' }}>
+                                    Half-day and full-day immersive sessions for Board Directors and C-Suite leaders to build AI risk literacy and fulfil their fiduciary oversight responsibilities.
+                                </p>
+                                <ul style={{ listStyle:'none', padding:0, margin:'0 0 1.5rem', display:'flex', flexDirection:'column', gap:'0.55rem', flex:1 }}>
+                                    {['Foundation models, enterprise adoption & the rise of Agentic AI — the market reality every board must understand', 'GenAI, Copilots & AI Agents — the executive mental model for cutting through the hype', 'Enterprise value-chain workshop to pinpoint where AI actually moves the needle', 'AI governance, regulation & board fiduciary oversight', 'Hands-on labs: Microsoft 365 Copilot, Excel & agentic workflows', 'Benchmarking Claude, ChatGPT, Gemini & the enterprise AI landscape'].map(f => (
+                                        <li key={f} style={{ display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'0.875rem', color:'#475569' }}>
+                                            <CheckCircle size={15} color="#003366" style={{ flexShrink:0, marginTop:'2px' }}/>{f}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button onClick={() => navigate('/executive-workshops')}
+                                    style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'#003366', color:'white', border:'none', padding:'0.7rem 1.4rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)', transition:'background 0.15s', alignSelf:'flex-start' }}
+                                    onMouseOver={e => e.currentTarget.style.background='#002244'}
+                                    onMouseOut={e => e.currentTarget.style.background='#003366'}>
+                                    Enquire Now <ArrowRight size={16}/>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Card 2 — AI Product Reviews */}
+                        <div className="svc-card">
+                            <div className="svc-card-header">
+                                <div style={{ position:'absolute', top:'-60px', right:'-60px', width:'180px', height:'180px', borderRadius:'50%', background:'rgba(255,255,255,0.05)', pointerEvents:'none' }}/>
+                                <div style={{ display:'flex', alignItems:'center', gap:'0.85rem', position:'relative' }}>
+                                    <div style={{ width:'42px', height:'42px', borderRadius:'10px', background:'rgba(255,255,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                        <ShieldCheck size={22} color="white"/>
+                                    </div>
+                                    <h2 style={{ fontSize:'clamp(1.05rem,2vw,1.25rem)', fontWeight:'800', color:'white', margin:0 }}>AI Product Reviews</h2>
+                                </div>
+                            </div>
+                            <div style={{ padding:'clamp(1.25rem,2.5vw,1.75rem)', flex:1, display:'flex', flexDirection:'column' }}>
+                                <p style={{ color:'#4A5568', lineHeight:'1.7', fontSize:'0.95rem', marginBottom:'1.25rem' }}>
                                     Independent, practitioner-written reviews of AI governance, risk, and compliance tools.
                                     Each product is tested against real-world use cases and scored across key capability dimensions.
                                 </p>
-                                <ul style={{ listStyle:'none', padding:0, margin:'0 0 2rem', display:'flex', flexDirection:'column', gap:'0.6rem', flex:1 }}>
+                                <ul style={{ listStyle:'none', padding:0, margin:'0 0 1.5rem', display:'flex', flexDirection:'column', gap:'0.55rem', flex:1 }}>
                                     {['Hands-on feature testing with scored results','Evidence-backed capability assessments','Vendor-neutral, unbiased analysis','User community ratings and feedback'].map(f => (
                                         <li key={f} style={{ display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'0.875rem', color:'#475569' }}>
                                             <CheckCircle size={15} color="#003366" style={{ flexShrink:0, marginTop:'2px' }}/>{f}
@@ -134,39 +174,10 @@ const Services = () => {
                                     ))}
                                 </ul>
                                 <button onClick={() => navigate('/services/product-reviews')}
-                                    style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'#003366', color:'white', border:'none', padding:'0.8rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)', transition:'background 0.15s', alignSelf:'flex-start' }}
+                                    style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'#003366', color:'white', border:'none', padding:'0.7rem 1.4rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)', transition:'background 0.15s', alignSelf:'flex-start' }}
                                     onMouseOver={e => e.currentTarget.style.background='#002244'}
                                     onMouseOut={e => e.currentTarget.style.background='#003366'}>
                                     Browse Reviews <ArrowRight size={16}/>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Card 2 */}
-                        <div className="svc-card svc-card-purple">
-                            <div style={{ height:'5px', background:'#7C3AED' }}/>
-                            <div style={{ padding:'clamp(1.5rem,3vw,2.25rem)', flex:1, display:'flex', flexDirection:'column' }}>
-                                <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
-                                    <div style={{ width:'52px', height:'52px', borderRadius:'12px', background:'#F3F0FF', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                                        <Users size={26} color="#7C3AED"/>
-                                    </div>
-                                    <h2 style={{ fontSize:'clamp(1.1rem,2vw,1.3rem)', fontWeight:'800', color:'#1A202C', margin:0 }}>Executive Workshops</h2>
-                                </div>
-                                <p style={{ color:'#4A5568', lineHeight:'1.8', fontSize:'0.95rem', marginBottom:'1.5rem' }}>
-                                    Half-day and full-day immersive sessions for Board Directors and C-Suite leaders to build AI risk literacy and fulfil their fiduciary oversight responsibilities.
-                                </p>
-                                <ul style={{ listStyle:'none', padding:0, margin:'0 0 2rem', display:'flex', flexDirection:'column', gap:'0.6rem', flex:1 }}>
-                                    {['Foundation models, enterprise adoption & the rise of Agentic AI — the market reality every board must understand', 'GenAI, Copilots & AI Agents — the executive mental model for cutting through the hype', 'Enterprise value-chain workshop to pinpoint where AI actually moves the needle', 'AI governance, regulation & board fiduciary oversight', 'Hands-on labs: Microsoft 365 Copilot, Excel & agentic workflows', 'Benchmarking Claude, ChatGPT, Gemini & the enterprise AI landscape'].map(f => (
-                                        <li key={f} style={{ display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'0.875rem', color:'#475569' }}>
-                                            <CheckCircle size={15} color="#7C3AED" style={{ flexShrink:0, marginTop:'2px' }}/>{f}
-                                        </li>
-                                    ))}
-                                </ul>
-                                <button onClick={() => navigate('/executive-workshops')}
-                                    style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'#7C3AED', color:'white', border:'none', padding:'0.8rem 1.5rem', borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)', transition:'background 0.15s', alignSelf:'flex-start' }}
-                                    onMouseOver={e => e.currentTarget.style.background='#6D28D9'}
-                                    onMouseOut={e => e.currentTarget.style.background='#7C3AED'}>
-                                    Enquire Now <ArrowRight size={16}/>
                                 </button>
                             </div>
                         </div>

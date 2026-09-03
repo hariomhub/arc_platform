@@ -91,13 +91,14 @@ const MediaHub = () => {
     const [modalIdx,   setModalIdx]   = useState(null);
     const [modalUrl,   setModalUrl]   = useState(null);
     const [modalTitle, setModalTitle] = useState('');
+    const [heroHoverIdx, setHeroHoverIdx] = useState(null);
 
     useEffect(() => {
         (async () => {
             setLoading(true);
             try {
                 const res  = await getRecentVideos();
-                const data = res.data?.videos ?? res.data ?? [];
+                const data = res.data?.data ?? [];
                 setVideos(Array.isArray(data) ? data : []);
             } catch { setVideos([]); }
             finally  { setLoading(false); }
@@ -138,7 +139,7 @@ const MediaHub = () => {
                 }
                 .mh-card:hover {
                     transform:translateY(-5px) scale(1.02);
-                    box-shadow:0 18px 40px rgba(0,0,0,0.16), 0 0 0 2px rgba(147,197,253,0.28);
+                    box-shadow:0 18px 40px rgba(0,51,102,0.18), 0 0 0 2px rgba(0,51,102,0.25);
                     z-index:5;
                 }
                 .mh-media { position:relative; width:100%; aspect-ratio:16/9; background:#0f172a; overflow:hidden; }
@@ -149,40 +150,101 @@ const MediaHub = () => {
                     background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
                     background-size:200% 100%; animation:mh-shimmer 1.5s ease-in-out infinite;
                 }
-                .mh-search:focus { border-color:rgba(147,197,253,0.55) !important; outline:none; }
+                .mh-search:focus { border-color:rgba(255,255,255,0.4) !important; outline:none; }
+
+                .mh-hero-inner { display:flex; align-items:center; gap:2rem; }
+                .mh-hero-stack { position:relative; flex:0 0 430px; height:220px; margin:0 auto; }
+                @media (max-width:1100px) { .mh-hero-stack { display:none; } }
+                .mh-hero-tile {
+                    position:absolute; width:210px; aspect-ratio:16/9; border-radius:12px; overflow:hidden;
+                    border:2px solid rgba(255,255,255,0.22); box-shadow:0 12px 28px rgba(0,17,34,0.35);
+                    background:#001830 center/cover no-repeat;
+                    transition:transform 0.3s cubic-bezier(0.25,1,0.5,1), box-shadow 0.3s ease, border-color 0.3s ease;
+                }
+                .mh-hero-tile:hover { border-color:rgba(255,255,255,0.5); }
+                .mh-hero-sk {
+                    background:linear-gradient(90deg,rgba(255,255,255,0.06) 25%,rgba(255,255,255,0.14) 50%,rgba(255,255,255,0.06) 75%);
+                    background-size:200% 100%; animation:mh-shimmer 1.6s ease-in-out infinite;
+                }
             `}</style>
 
             {/* ── Compact Hero ── */}
-            <div style={{ background:'linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%)', padding:'clamp(2rem,4vw,3rem) clamp(1rem,4vw,3rem)', position:'relative', overflow:'hidden' }}>
-                <div style={{ position:'absolute',top:'-60px',left:'-50px',width:'300px',height:'300px',borderRadius:'50%',background:'radial-gradient(circle,rgba(59,130,246,0.14) 0%,transparent 70%)',animation:'mh-float 9s ease-in-out infinite',pointerEvents:'none' }} />
-                <div style={{ position:'absolute',bottom:'-70px',right:'-40px',width:'260px',height:'260px',borderRadius:'50%',background:'radial-gradient(circle,rgba(167,139,250,0.12) 0%,transparent 70%)',animation:'mh-float 11s 2s ease-in-out infinite',pointerEvents:'none' }} />
-                <div style={{ maxWidth:'1400px',margin:'0 auto',position:'relative',zIndex:1 }}>
-                    <div style={{ display:'inline-flex',alignItems:'center',gap:'7px',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.13)',borderRadius:'100px',padding:'4px 12px',marginBottom:'0.85rem' }}>
-                        <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#4ade80',boxShadow:'0 0 7px #4ade80',animation:'mh-dot 1.8s ease-in-out infinite' }} />
-                        <span style={{ fontSize:'0.66rem',fontWeight:'700',color:'rgba(255,255,255,0.65)',textTransform:'uppercase',letterSpacing:'0.12em' }}>Video Library</span>
+            <div style={{ background:'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding:'clamp(1.5rem,3vw,2.25rem) clamp(1rem,4vw,3rem)', position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute',top:'-60px',left:'-50px',width:'300px',height:'300px',borderRadius:'50%',background:'rgba(255,255,255,0.03)',pointerEvents:'none' }} />
+                <div style={{ position:'absolute',bottom:'-70px',right:'-40px',width:'260px',height:'260px',borderRadius:'50%',background:'rgba(255,255,255,0.02)',pointerEvents:'none' }} />
+                <div className="mh-hero-inner" style={{ maxWidth:'1400px',margin:'0 auto',position:'relative',zIndex:1 }}>
+                    <div style={{ flex:'0 1 480px', minWidth:0 }}>
+                        <div style={{ display:'inline-flex',alignItems:'center',gap:'7px',background:'rgba(255,255,255,0.1)',borderRadius:'100px',padding:'4px 12px',marginBottom:'0.75rem' }}>
+                            <span style={{ width:'6px',height:'6px',borderRadius:'50%',background:'#4ade80',boxShadow:'0 0 7px #4ade80',animation:'mh-dot 1.8s ease-in-out infinite' }} />
+                            <span style={{ fontSize:'0.66rem',fontWeight:'700',color:'#93C5FD',textTransform:'uppercase',letterSpacing:'0.12em' }}>Video Library</span>
+                        </div>
+                        <h1 style={{ color:'white',fontSize:'clamp(1.5rem,3.4vw,2.4rem)',fontWeight:'800',lineHeight:1.1,letterSpacing:'-0.03em',margin:'0 0 0.5rem',fontFamily:'var(--font-serif)' }}>
+                            Media Hub
+                        </h1>
+                        <p style={{ color:'#CBD5E1',fontSize:'clamp(0.85rem,1.6vw,0.95rem)',maxWidth:'460px',lineHeight:1.6,margin:'0 0 1.1rem' }}>
+                            Browse the full collection of videos from the Risk AI Council (RAC).
+                        </p>
+                        <div style={{ position:'relative',maxWidth:'380px' }}>
+                            <Search size={14} style={{ position:'absolute',left:'13px',top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,0.45)',pointerEvents:'none' }} />
+                            <input className="mh-search" type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search videos..."
+                                style={{ width:'100%',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.18)',borderRadius:'100px',padding:'8px 16px 8px 36px',color:'white',fontSize:'0.84rem',fontFamily:'var(--font-sans)',boxSizing:'border-box',transition:'border-color 0.2s' }} />
+                        </div>
                     </div>
-                    <h1 style={{ color:'white',fontSize:'clamp(1.6rem,4vw,2.8rem)',fontWeight:'800',lineHeight:1.1,letterSpacing:'-0.03em',margin:'0 0 0.6rem',fontFamily:'var(--font-serif)' }}>
-                        Media Hub
-                    </h1>
-                    <p style={{ color:'rgba(255,255,255,0.45)',fontSize:'clamp(0.85rem,1.8vw,0.95rem)',maxWidth:'460px',lineHeight:1.65,margin:'0 0 1.5rem' }}>
-                        Browse the full collection of videos from the Risk AI Council (RAC).
-                    </p>
-                    <div style={{ position:'relative',maxWidth:'380px' }}>
-                        <Search size={14} style={{ position:'absolute',left:'13px',top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,0.35)',pointerEvents:'none' }} />
-                        <input className="mh-search" type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search videos..."
-                            style={{ width:'100%',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.13)',borderRadius:'100px',padding:'9px 16px 9px 36px',color:'white',fontSize:'0.84rem',fontFamily:'var(--font-sans)',boxSizing:'border-box',transition:'border-color 0.2s' }} />
+
+                    {/* Preview stack of the latest videos — click to play */}
+                    <div className="mh-hero-stack">
+                        {(loading ? [0,1,2,3,4] : videos.slice(0,5)).map((v, i) => {
+                            const rotations = [-10, -6, 0, 6, 10];
+                            const offsets   = [{ top:70, left:0 }, { top:36, left:50 }, { top:13, left:100 }, { top:36, left:150 }, { top:70, left:200 }];
+                            const baseZ     = [1, 2, 5, 3, 1];
+                            const isHover   = !loading && heroHoverIdx === i;
+                            return (
+                                <div key={loading ? `sk-${i}` : (v.id ?? i)}
+                                    className={`mh-hero-tile${loading ? ' mh-hero-sk' : ''}`}
+                                    onMouseEnter={() => !loading && setHeroHoverIdx(i)}
+                                    onMouseLeave={() => !loading && setHeroHoverIdx(null)}
+                                    onClick={() => {
+                                        if (loading) return;
+                                        const fi = filtered.findIndex(fv => fv.id === v.id);
+                                        openModal(v, fi === -1 ? 0 : fi);
+                                    }}
+                                    style={{
+                                        top: offsets[i].top, left: offsets[i].left,
+                                        zIndex: isHover ? 20 : baseZ[i],
+                                        transform: `rotate(${isHover ? 0 : rotations[i]}deg) scale(${isHover ? 1.16 : 1})`,
+                                        boxShadow: isHover ? '0 20px 40px rgba(0,17,34,0.55)' : undefined,
+                                        cursor: loading ? 'default' : 'pointer',
+                                        backgroundImage: (!loading && v.thumbnail_url) ? `url(${v.thumbnail_url})` : undefined,
+                                    }}>
+                                    {!loading && (<>
+                                        {!v.thumbnail_url && (
+                                            <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                                                <Play size={24} fill="rgba(255,255,255,0.5)" color="rgba(255,255,255,0.5)" />
+                                            </div>
+                                        )}
+                                        <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,transparent 45%,rgba(0,10,25,0.88) 100%)' }} />
+                                        <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width: isHover?'44px':'36px', height: isHover?'44px':'36px', borderRadius:'50%', background:'rgba(255,255,255,0.18)', backdropFilter:'blur(6px)', border:'1.5px solid rgba(255,255,255,0.45)', display:'flex', alignItems:'center', justifyContent:'center', opacity: isHover?1:0.85, transition:'all 0.25s' }}>
+                                            <Play size={isHover?18:15} fill="white" color="white" style={{ marginLeft:'2px' }} />
+                                        </div>
+                                        <p style={{ position:'absolute', bottom:'8px', left:'10px', right:'10px', margin:0, color:'white', fontSize:'0.8rem', fontWeight:'700', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                            {v.title}
+                                        </p>
+                                    </>)}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
 
             {/* ── Count strip ── */}
-            <div style={{ background:'white',borderBottom:'1px solid #e8edf3',padding:'0.6rem clamp(1rem,4vw,3rem)' }}>
+            <div style={{ background:'white',borderBottom:'1px solid #E2E8F0',padding:'0.6rem clamp(1rem,4vw,3rem)' }}>
                 <div style={{ maxWidth:'1400px',margin:'0 auto',display:'flex',alignItems:'center',gap:'8px' }}>
-                    <Film size={14} color="#3b82f6" />
-                    <span style={{ fontSize:'0.8rem',fontWeight:'700',color:'#1e293b' }}>
+                    <Film size={14} color="#003366" />
+                    <span style={{ fontSize:'0.8rem',fontWeight:'700',color:'#1A202C' }}>
                         {loading ? 'Loading…' : `${filtered.length} video${filtered.length!==1?'s':''}`}
                     </span>
-                    {search && <span style={{ fontSize:'0.75rem',color:'#94a3b8' }}>for "{search}"</span>}
+                    {search && <span style={{ fontSize:'0.75rem',color:'#64748B' }}>for "{search}"</span>}
                 </div>
             </div>
 
