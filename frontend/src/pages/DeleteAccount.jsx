@@ -459,8 +459,8 @@ export default function DeleteAccount() {
           {/* Footer contact */}
           <div style={{ textAlign: 'center', padding: '1.1rem', background: '#fff', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
             <p style={{ margin: '0 0 0.35rem', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Still have questions? Our support team is here to help.</p>
-            <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Mail size={14} /> support@riskaicouncil.com
+            <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Mail size={14} /> support@riskaicouncil.org
             </a>
             <span style={{ margin: '0 0.85rem', color: 'var(--border-medium)' }}>|</span>
             <Link to="/privacy" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.88rem' }}>View Privacy Policy →</Link>

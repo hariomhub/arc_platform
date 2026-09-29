@@ -5,6 +5,7 @@ import { getTeam } from '../api/team.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import TeamCard from '../components/team/TeamCard.jsx';
 import TeamBioModal from '../components/team/TeamBioModal.jsx';
+import { operatorLine } from '../config/brand.js';
 
 const SkeletonCard = () => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', border: '1px solid #E2E8F0', textAlign: 'center' }}>
@@ -100,10 +101,13 @@ const About = () => {
             <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)', position: 'relative', overflow: 'hidden', textAlign: 'center' }}>
                 <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
                 <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
-                <div style={{ maxWidth: '720px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                <div style={{ maxWidth: '980px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                     <h1 style={{ color: 'white', fontSize: 'clamp(1.75rem,5vw,2.75rem)', fontWeight: '800', marginBottom: '1rem', fontFamily: 'var(--font-serif)' }}>About the Council</h1>
-                    <p style={{ fontSize: 'clamp(0.95rem,1.5vw,1.2rem)', color: '#CBD5E1', lineHeight: '1.7', margin: 0 }}>
-                        Accelerating responsible AI governance through independent research, rigorous risk assessments, governance frameworks, and expert collaboration.
+                    <p style={{ fontSize: 'clamp(0.95rem,1.5vw,1.2rem)', fontWeight: '600', color: '#E2E8F0', lineHeight: '1.6', margin: '0 0 0.6rem' }}>
+                        An emerging community for practical AI governance, risk, and responsible adoption.
+                    </p>
+                    <p style={{ fontSize: 'clamp(0.85rem,1.3vw,1rem)', color: 'rgba(255,255,255,0.7)', lineHeight: '1.7', margin: '0 auto', maxWidth: '720px' }}>
+                        {operatorLine() && `${operatorLine()} `}We bring practitioners together to develop practical AI governance knowledge, resources, and community programmes.
                     </p>
                 </div>
             </div>
@@ -115,17 +119,17 @@ const About = () => {
                         <div>
                             <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.25rem' }}>Our Mission</h2>
                             <p style={{ fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', color: '#4A5568', lineHeight: '1.8', marginBottom: '1.25rem' }}>
-                                RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly. We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, while continuing to advance responsible AI development.
+                                RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly. We deliver rigorous, framework-informed insight to maximize the benefits of AI implementation and minimize its risks, while continuing to advance responsible AI development.
                             </p>
                             <p style={{ fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', color: '#4A5568', lineHeight: '1.8' }}>
-                                As an independent research and advisory community, we focus on accelerating responsible AI adoption and the maturity of AI governance standards. To make risk assessment accessible to the RAC community, we developed the AI Risk Bridge Model - a plain-language framework for understanding what AI risk actually is and how to manage it.
+                                As an emerging practitioner community, we focus on accelerating responsible AI adoption and the maturity of AI governance standards. To make risk assessment accessible to the RAC community, we developed the AI Risk Bridge Model - a plain-language framework for understanding what AI risk actually is and how to manage it.
                             </p>
                         </div>
                         <div style={{ display: 'grid', gap: '2rem' }}>
                             {[
-                                { icon: Shield, title: 'Independence', desc: 'Unbiased research and standards not tied to any specific tech platform or lobby - we take no vendor or platform funding, and we name our sources.' },
-                                { icon: Award, title: 'Excellence', desc: 'Rigorous, peer-reviewed methodologies developed by world-class risk professionals - published openly, not licensed per seat, so members shape the method rather than simply receive it.' },
-                                { icon: Users, title: 'Collaboration', desc: 'A global network of regulators, academics, and industry AI leaders - brought together to stress-test the method against real practice, not just theory.' },
+                                { icon: Shield, title: 'Independence, with disclosure', desc: 'Our editorial approach prioritises evidence, transparent methods, and disclosure of relevant commercial relationships.' },
+                                { icon: Award, title: 'Open Methods', desc: 'Practical methods developed by practitioners and published openly - not licensed per seat - so members help shape the method rather than simply receive it.' },
+                                { icon: Users, title: 'Collaboration', desc: 'A growing community of practitioners - brought together to test the method against real practice, not just theory.' },
                             ].map(({ icon: Icon, title, desc }) => (
                                 <div key={title} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
                                     <div style={{ background: '#F0F4F8', padding: '0.85rem', borderRadius: '50%', flexShrink: 0 }}>
@@ -145,9 +149,9 @@ const About = () => {
                         <h3 style={{ fontSize: 'clamp(1.1rem,2.5vw,1.35rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.5rem', textAlign: 'center' }}>What Defines Us</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: '1.25rem' }}>
                             {[
-                                { icon: Shield, title: 'Independent', desc: 'Delivering unbiased guidance to support AI governance, risk, and compliance for confident, board-level decision-making.' },
-                                { icon: BookOpen, title: 'Research-Backed', desc: 'Peer-reviewed publications, open datasets, and audit-ready templates you can deploy immediately.' },
-                                { icon: Award, title: 'Aligned with Global Standards', desc: 'Following frameworks and guidance from OECD, EU AI Office, NIST, and national ministries across six continents.' },
+                                { icon: Shield, title: 'Evidence-Led', desc: 'Guidance grounded in evidence and transparent methods, so you can see how conclusions are reached.' },
+                                { icon: BookOpen, title: 'Practical Resources', desc: 'Whitepapers, audit templates, and a curated governance library you can put to work.' },
+                                { icon: Award, title: 'Informed by Established Standards', desc: 'Our framework draws on established standards such as NIST AI RMF, ISO/IEC 42001 and the EU AI Act. Naming them does not imply endorsement or affiliation.' },
                                 { icon: Target, title: 'Actionable', desc: 'Practical frameworks digestible in hours - not weeks of consultant time or opaque recommendations.' },
                             ].map(({ icon: Icon, title, desc }) => (
                                 <div key={title}
@@ -175,9 +179,9 @@ const About = () => {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(280px,100%),1fr))', gap: '1.5rem' }}>
                         {[
-                            { title: 'Events & Community', desc: 'Hosting webinars, seminars, workshops, and podcasts that bring together AI risk professionals, security officers, and governance experts. Members receive priority registration, access to session recordings, and can participate in live Q&A and community discussions.', accent: '#003366' },
-                            { title: 'AI Product Reviews', desc: 'Independent, evidence-based assessments of AI and governance products. Our review committee tests tools against established frameworks and publishes findings including feature test scores, methodology notes, and supporting evidence so organisations can make informed procurement decisions without vendor bias.', accent: '#0055A4' },
-                            { title: 'AI Risk Guidance & Resources', desc: 'Practical, framework-aligned guidance to help organisations navigate the evolving AI regulatory landscape. We publish whitepapers, risk assessment templates, and research aligned with EU AI Act, NIST AI RMF, and ISO 42001 -  giving security leaders, compliance officers, and executives the structured knowledge they need to make responsible AI decisions with confidence.', accent: '#4A5568' },
+                            { title: 'Events & Community', desc: 'Hosting webinars, seminars, workshops, and podcasts that bring together AI risk professionals, security officers, and governance experts. Members can register for open community events, watch available recordings, and take part in community discussions.', accent: '#003366' },
+                            { title: 'AI Product Reviews', desc: 'Practitioner-written reviews of AI governance, risk, and compliance tools, with feature test scores, methodology notes, and supporting evidence.', accent: '#0055A4' },
+                            { title: 'AI Risk Guidance & Resources', desc: 'Practical guidance to help organisations navigate the evolving AI regulatory landscape, including whitepapers, audit templates, and a curated resource library informed by the EU AI Act, NIST AI RMF, and ISO 42001.', accent: '#4A5568' },
                         ].map(({ title, desc, accent }) => (
                             <div key={title} style={{ background: 'white', padding: 'clamp(1.25rem,3vw,2rem)', borderRadius: '12px', borderTop: `4px solid ${accent}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1A202C', marginBottom: '0.75rem' }}>{title}</h3>
@@ -192,10 +196,10 @@ const About = () => {
             <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
                 <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Members</h2>
-                        <p style={{ color: '#64748B', fontSize: '1rem', marginBottom: '0.75rem' }}>Meet the people guiding our initiatives</p>
+                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>People &amp; Contributors</h2>
+                        <p style={{ color: '#64748B', fontSize: '1rem', marginBottom: '0.75rem' }}>Meet the people behind our initiatives</p>
                         <Link to="/members" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#003366', fontWeight: '700', fontSize: '0.85rem', textDecoration: 'none' }}>
-                            View All Members <ArrowRight size={14} />
+                            View all people &amp; contributors <ArrowRight size={14} />
                         </Link>
                     </div>
 

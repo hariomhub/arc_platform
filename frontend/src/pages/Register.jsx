@@ -534,8 +534,8 @@ const Register = () => {
 
                             <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8', lineHeight: 1.6 }}>
                                 By creating an account you agree to our{' '}
-                                <a href="#" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Terms of Service</a>{' '}and{' '}
-                                <a href="#" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</a>.
+                                <Link to="/terms" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Terms of Service</Link>{' '}and{' '}
+                                <Link to="/privacy" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</Link>.
                             </p>
 
                             {/* CAPTCHA disabled for now — will be re-enabled later.

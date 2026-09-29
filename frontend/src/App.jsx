@@ -42,6 +42,7 @@ const ExecutiveWorkshops = lazy(() => import('./pages/ExecutiveWorkshops.jsx'));
 const MediaHub = lazy(() => import('./pages/MediaHub.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 const PrivacyPolicy  = lazy(() => import('./pages/PrivacyPolicy.jsx'));
+const Terms          = lazy(() => import('./pages/Terms.jsx'));
 const DeleteAccount  = lazy(() => import('./pages/DeleteAccount.jsx'));
 const SelfNominate   = lazy(() => import('./pages/SelfNominate.jsx'));
 const NominationTerms = lazy(() => import('./pages/NominationTerms.jsx'));
@@ -104,6 +105,7 @@ function App() {
               <Route path="/media-hub" element={<MediaHub />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/services/product-reviews" element={<ProductReviews />} />
               <Route path="/services/product-reviews/:id" element={<ProductReviewDetail />} />

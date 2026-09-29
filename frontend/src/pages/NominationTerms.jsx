@@ -158,7 +158,7 @@ export default function NominationTerms() {
             <SectionCard id="withdrawal" title="7. Withdrawing a Nomination">
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
                 You may request that your self-nomination be withdrawn or removed at any time, whether pending or already live, by contacting us at{' '}
-                <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.com</a>.
+                <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.org</a>.
               </p>
             </SectionCard>
 
@@ -174,7 +174,7 @@ export default function NominationTerms() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <Mail size={15} color="var(--primary)" /><strong style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>Email</strong>
                 </div>
-                <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.88rem' }}>support@riskaicouncil.com</a>
+                <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.88rem' }}>support@riskaicouncil.org</a>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '1rem 0 0' }}>
                 This policy supplements our general <Link to="/privacy" style={{ color: 'var(--primary)', fontWeight: 600 }}>Privacy Policy</Link>.

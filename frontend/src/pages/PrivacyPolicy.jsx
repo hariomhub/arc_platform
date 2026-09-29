@@ -110,7 +110,7 @@ export default function PrivacyPolicy() {
           </p>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center', fontSize: '0.8rem', color: '#94A3B8' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Calendar size={13} /> Effective: April 23, 2026</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Globe size={13} /> riskaicouncil.com</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Globe size={13} /> riskaicouncil.org</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Smartphone size={13} /> Web &amp; Mobile App</span>
           </div>
         </div>
@@ -140,7 +140,7 @@ export default function PrivacyPolicy() {
           <main>
             <SectionCard id="introduction" title="1. Introduction">
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-                Risk AI Council ("we," "us," or "our") operates <strong>riskaicouncil.com</strong> and its associated mobile application (the "Platform"). This Privacy Policy describes how we collect, use, store, share, and protect personal information for all users and visitors.
+                Risk AI Council ("we," "us," or "our") operates <strong>riskaicouncil.org</strong> and its associated mobile application (the "Platform"). This Privacy Policy describes how we collect, use, store, share, and protect personal information for all users and visitors.
               </p>
               <Callout type="success">We do not sell your personal information to any third party, ever. Your data is used solely to operate and improve the Risk AI Council platform.</Callout>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>By using the Platform, you agree to this policy. If you do not agree, please discontinue use.</p>
@@ -202,7 +202,7 @@ export default function PrivacyPolicy() {
                 <strong>Post Retention Policy:</strong> If you hold or have held the role of Chapter Lead or Founding Member, your posts are part of the Platform's knowledge base. Upon account deletion, posts are NOT removed — your name is replaced with <em>"Former Chapter Lead"</em> to preserve community integrity.
               </Callout>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0' }}>
-                Contact us at <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.com</a> or visit the <Link to="/delete-account" style={{ color: 'var(--accent)', fontWeight: 600 }}>Account Deletion page</Link> to exercise these rights.
+                Contact us at <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.org</a> or visit the <Link to="/delete-account" style={{ color: 'var(--accent)', fontWeight: 600 }}>Account Deletion page</Link> to exercise these rights.
               </p>
             </SectionCard>
 
@@ -237,7 +237,7 @@ export default function PrivacyPolicy() {
               <Row label="Rate Limiting" value="Auth endpoints are rate-limited to prevent brute-force attacks." />
               <Row label="Cloud Storage" value="All media is stored in Microsoft Azure Blob Storage with account-level access controls." />
               <Row label="Input Validation" value="All user input is validated and sanitized server-side before processing or storage." />
-              <Callout type="warning">No system is 100% secure. If you believe your account is compromised, contact <strong>support@riskaicouncil.com</strong> immediately.</Callout>
+              <Callout type="warning">No system is 100% secure. If you believe your account is compromised, contact <strong>support@riskaicouncil.org</strong> immediately.</Callout>
             </SectionCard>
 
             <SectionCard id="children" title="8. Children's Privacy">
@@ -245,7 +245,7 @@ export default function PrivacyPolicy() {
                 The Risk AI Council Platform is intended for professionals and is not directed to individuals under the age of <strong>18</strong>. We do not knowingly collect personal information from minors.
               </p>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
-                If you believe a minor has provided us with their information, contact <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)' }}>support@riskaicouncil.com</a> and we will delete it promptly.
+                If you believe a minor has provided us with their information, contact <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)' }}>support@riskaicouncil.org</a> and we will delete it promptly.
               </p>
             </SectionCard>
 
@@ -268,7 +268,7 @@ export default function PrivacyPolicy() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Mail size={15} color="var(--primary)" /><strong style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>Email</strong>
                   </div>
-                  <a href="mailto:support@riskaicouncil.com" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.88rem' }}>support@riskaicouncil.com</a>
+                  <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.88rem' }}>support@riskaicouncil.org</a>
                 </div>
                 <div style={{ background: 'var(--bg-light)', borderRadius: '7px', padding: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>

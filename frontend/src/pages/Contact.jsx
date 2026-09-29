@@ -266,7 +266,7 @@ const Contact = () => {
                                         </div>
                                         <div>
                                             <p style={{ margin:'0 0 3px', fontSize:'0.72rem', fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Email</p>
-                                            <a href="mailto:support@riskaicouncil.com" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600, wordBreak:'break-all' }}>support@riskaicouncil.com</a>
+                                            <a href="mailto:support@riskaicouncil.org" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600, wordBreak:'break-all' }}>support@riskaicouncil.org</a>
                                         </div>
                                     </div>
                                 </div>

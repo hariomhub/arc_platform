@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, MapPin, Phone } from 'lucide-react';
+import { operatorLine } from '../../config/brand.js';
 
 const Footer = () => (
     <>
@@ -89,9 +90,11 @@ const Footer = () => (
                             </span>
                         </Link>
                         <p style={{ color: '#E2E8F0', fontSize: '0.925rem', lineHeight: '1.7', maxWidth: '280px', margin: 0 }}>
-                            The global authority on AI risk governance, setting standards for responsible,
-                            ethical, and compliant artificial intelligence systems.
+                            An emerging community for practical AI governance, risk, and responsible adoption.
                         </p>
+                        {operatorLine() && (
+                            <p style={{ color: '#94A3B8', fontSize: '0.82rem', lineHeight: '1.6', maxWidth: '280px', margin: '0.75rem 0 0' }}>{operatorLine()}</p>
+                        )}
                     </div>
 
                     {/* ── Governance ── */}
@@ -105,10 +108,10 @@ const Footer = () => (
                             Governance
                         </h5>
                         <nav aria-label="Governance links" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                            <Link to="/framework"     className="ft-col-link">Risk Framework</Link>
-                            <Link to="/certification" className="ft-col-link">Assessment &amp; Certification</Link>
-                            <Link to="/services"      className="ft-col-link">Global Standards</Link>
-                            <Link to="/contact"       className="ft-col-link">Policy &amp; Regulation</Link>
+                            <Link to="/framework"     className="ft-col-link">AI Risk Framework</Link>
+                            <Link to="/certification" className="ft-col-link">Learning Programmes</Link>
+                            <Link to="/services"      className="ft-col-link">Services</Link>
+                            <Link to="/services/product-reviews" className="ft-col-link">Product Reviews</Link>
                         </nav>
                     </div>
 
@@ -123,10 +126,10 @@ const Footer = () => (
                             Resources
                         </h5>
                         <nav aria-label="Resources links" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                            <Link to="/resources"     className="ft-col-link">Research &amp; Whitepapers</Link>
+                            <Link to="/resources"     className="ft-col-link">Resources</Link>
                             <Link to="/events"        className="ft-col-link">Events &amp; Webinars</Link>
-                            <Link to="/membership"    className="ft-col-link">Member Portal</Link>
-                            <Link to="/certification" className="ft-col-link">Council Careers</Link>
+                            <Link to="/membership"    className="ft-col-link">Membership</Link>
+                            <Link to="/community-qna" className="ft-col-link">Community Feed</Link>
                         </nav>
                     </div>
 
@@ -149,15 +152,15 @@ const Footer = () => (
                                     <span><strong style={{ color: '#e2e8f0' }}>Canada:</strong> 3105, 50 Charles street East M4Y 0C3, Toronto ON</span>
                                 </div>
                             </div>
-                            <a href="tel:+12125550199" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}>
+                            <a href="tel:+16477688767" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}>
                                 <Phone size={15} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }} />
                                 <span>+1 (647) 7688767</span>
                             </a>
-                            <a href="mailto:contact@airiskcouncil.org" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}
+                            <a href="mailto:support@riskaicouncil.org" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}
                                 onMouseOver={e => e.currentTarget.style.color = 'white'}
                                 onMouseOut={e => e.currentTarget.style.color = '#CBD5E0'}>
                                 <Mail size={15} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }} />
-                                <span>support@riskaicouncil.com</span>
+                                <span>support@riskaicouncil.org</span>
                             </a>
                         </address>
                     </div>
@@ -172,7 +175,6 @@ const Footer = () => (
                         <nav aria-label="Legal links" className="ft-links">
                             <Link to="/privacy"         className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Privacy Policy</Link>
                             <Link to="/terms"           className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Terms of Use</Link>
-                            <Link to="/cookie"          className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Cookie Preferences</Link>
                             <Link to="/delete-account"  className="ft-link" style={{ color: '#718096', fontSize: '0.87rem' }}>Delete Account</Link>
                         </nav>
                     </div>

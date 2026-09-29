@@ -1180,7 +1180,7 @@ export const sendDeletionRequestConfirmationEmail = ({ name, email }) => {
 
     <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
       If you did not submit this request, please contact us immediately at
-      <a href="mailto:support@riskaicouncil.com" style="color:#003366;">support@riskaicouncil.com</a>.
+      <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
     </p>
   `,
   'Your account deletion request has been received and is pending review.');
@@ -1305,7 +1305,7 @@ export const sendDeletionRejectedEmail = ({ name, email, reason }) => {
 
     <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
       If you have questions, please contact us at
-      <a href="mailto:support@riskaicouncil.com" style="color:#003366;">support@riskaicouncil.com</a>.
+      <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
     </p>
   `,
   'Your account deletion request has not been approved — your account is now active.');

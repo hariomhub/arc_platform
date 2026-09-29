@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    Globe, ChevronLeft, ChevronRight, X, ArrowRight,
-    Calendar, MapPin, CheckCircle, Lock, AlertCircle,
-    RefreshCw, Users, BookOpen, Zap, Star,
+    ChevronLeft, ChevronRight, X, ArrowRight,
+    Calendar, MapPin, AlertCircle,
+    RefreshCw, Users, BookOpen, Star,
     Volume2, VolumeX, Play, Pause, Trophy,
-    Target, Eye
+    Target, Eye,
+    Search, Landmark, ShieldCheck, Shield
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
@@ -17,6 +18,7 @@ import { getAwards } from '../api/nominations.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import UpgradeModal from '../components/modals/UpgradeModal.jsx';
 import { EventDetailModal } from './Events.jsx';
+import { COMPLIMENTARY_MONTHS, NO_PAYMENT_LINE } from '../config/pricing.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
@@ -26,7 +28,21 @@ const CATEGORY_COLORS = {
     podcast:  { bg: '#FAF5FF', color: '#7C3AED' },
 };
 
-const STAT_TARGETS = { members: 25, events: 3, papers: 7, countries: 3 };
+// The five stages of the RAC AI Risk Bridge Model - mirrors pages/Framework.jsx.
+const FRAMEWORK_STAGES = [
+    { icon: Search,      name: 'Exposure',   tagline: 'Know what exists' },
+    { icon: Landmark,    name: 'Obligation', tagline: 'Know the rules' },
+    { icon: ShieldCheck, name: 'Integrity',  tagline: "Verify it's trustworthy" },
+    { icon: Shield,      name: 'Defense',    tagline: 'Protect it' },
+    { icon: RefreshCw,   name: 'Continuity', tagline: 'Sustain it' },
+];
+
+// Three ways in - shown in the hero when there are no featured videos.
+const START_LINKS = [
+    { icon: Users,    to: '/members',   title: 'Meet our contributors',       sub: 'See who contributes to RAC' },
+    { icon: BookOpen, to: '/resources', title: 'Explore practical resources', sub: 'Articles, whitepapers and tools' },
+    { icon: Calendar, to: '/events',    title: 'Join a community session',    sub: 'Webinars, seminars and workshops' },
+];
 const CARD_W   = 300;
 const CARD_GAP = 16;
 
@@ -661,7 +677,7 @@ const NominationCarousel = () => {
                    dark tone with no gradient of its own. One flat color (the site's actual
                    brand navy, used everywhere else) reads as one consistent panel next to
                    it, and is lighter overall than the gradient's darkest stops were. */
-                /* Same dot-pattern texture as the "Join the Global Council" CTA banner
+                /* Same dot-pattern texture as the "Join the community" CTA banner
                    further down this page (radial-gradient dots, 1px, low opacity) — reused
                    rather than a new motif, so it's recognizably part of this site's language.
                    Slowly drifting it (background-position, not transform/position) is what
@@ -747,10 +763,7 @@ const Home = () => {
     const carouselPausedRef = useRef(false);
     const lastIdxRef = useRef(0);
     const touchStart = useRef(null);
-    const statsRef = useRef(null);
 
-    const [statsVisible, setStatsVisible] = useState(false);
-    const [counts, setCounts] = useState({ members: 0, events: 0, papers: 0, countries: 0 });
     const [news, setNews] = useState([]);
     const [newsLoading, setNewsLoading] = useState(true);
     const [newsError, setNewsError] = useState('');
@@ -796,7 +809,7 @@ const Home = () => {
         fetchNews(ctrl.signal);
         fetchEvents(ctrl.signal);
         fetchVideos(ctrl.signal);
-        document.title = 'Risk Council | Governing AI Risk';
+        document.title = 'Risk AI Council | Practical AI Governance, Risk & Responsible Adoption';
         return () => ctrl.abort();
     }, [fetchNews, fetchEvents, fetchVideos]);
 
@@ -863,32 +876,6 @@ const Home = () => {
             scrollCarousel(touchStart.current > e.changedTouches[0].clientX ? 1 : -1);
         touchStart.current = null;
     };
-
-    useEffect(() => {
-        if (!statsRef.current) return;
-        const obs = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting && entry.boundingClientRect.top > 0) {
-                    setStatsVisible(true);
-                    obs.disconnect();
-                }
-            },
-            { threshold: 0.2, rootMargin: '0px 0px -50px 0px' }
-        );
-        obs.observe(statsRef.current);
-        return () => obs.disconnect();
-    }, []);
-
-    useEffect(() => {
-        if (!statsVisible) return;
-        const duration = 1800, start = performance.now();
-        const animate = (now) => {
-            const ease = 1 - Math.pow(1 - Math.min((now - start) / duration, 1), 3);
-            setCounts({ members: Math.round(ease * STAT_TARGETS.members), events: Math.round(ease * STAT_TARGETS.events), papers: Math.round(ease * STAT_TARGETS.papers), countries: Math.round(ease * STAT_TARGETS.countries) });
-            if (ease < 1) requestAnimationFrame(animate);
-        };
-        requestAnimationFrame(animate);
-    }, [statsVisible]);
 
     const handleFrameworkCTA = () => { if (canDownloadFramework()) navigate('/resources'); else upgradeModal.open(); };
 
@@ -959,15 +946,16 @@ const Home = () => {
 
                 .stats-grid {
                     display: grid;
-                    grid-template-columns: repeat(4, 1fr);
+                    grid-template-columns: repeat(5, 1fr);
                     gap: 1.5rem;
                     text-align: center;
                 }
-                @media (max-width: 768px) {
-                    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+                @media (max-width: 900px) {
+                    .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
                 }
-                @media (max-width: 380px) {
-                    .stats-grid { grid-template-columns: 1fr; }
+                @media (max-width: 520px) {
+                    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+                    .stats-grid > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
                 }
 
                 .mission-grid {
@@ -1037,6 +1025,12 @@ const Home = () => {
                 }
             `}</style>
 
+            {/* Launch banner */}
+            <div role="region" aria-label="Membership announcement" style={{ background: 'linear-gradient(90deg,#002855 0%,#003d80 100%)', color: 'white', textAlign: 'center', padding: '0.65rem clamp(1rem,4vw,3rem)', fontSize: 'clamp(0.8rem,1.4vw,0.92rem)', lineHeight: 1.5 }}>
+                Your first {COMPLIMENTARY_MONTHS} months of community membership are complimentary.{' '}
+                <Link to="/membership" style={{ color: '#FCD34D', fontWeight: '700', textDecoration: 'underline', whiteSpace: 'nowrap' }}>View membership details</Link>
+            </div>
+
             {/* ══════════════════════════════════════════════════════════════
                 1. HERO
             ══════════════════════════════════════════════════════════════ */}
@@ -1097,36 +1091,48 @@ const Home = () => {
                     <div className="hero-grid">
                         {/* Left */}
                         <div>
-                            {/* CHANGE 2: Trust badge above headline */}
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '100px', padding: '5px 13px', marginBottom: '1.1rem' }}>
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
-                                <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.03em' }}>Trusted by 25+ organisations globally</span>
-                            </div>
-
+                            {/* Main heading */}
                             {/* CHANGE 2: tightened line-height and letter-spacing on h1 */}
                             <h1 style={{ color: 'white', marginBottom: '1.1rem', lineHeight: '1.08', fontSize: 'clamp(1.8rem, 3.5vw, 3.2rem)', letterSpacing: '-0.03em', fontFamily: 'var(--font-serif)', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
-                                AI Security Insight Reports &amp; Assessments
+                                Understand AI risk.<br />Put responsible AI into practice.
                             </h1>
-                            <p style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.05rem)', color: '#CBD5E1', marginBottom: '1rem', lineHeight: '1.75', maxWidth: '500px' }}>
-                                We provide comprehensive insight reports and security assessments to help your organisation adopt Artificial Intelligence responsibly, utilising industry-leading frameworks.
+                            {/* Sub-heading: brand descriptor */}
+                            <p style={{ fontSize: 'clamp(0.95rem, 1.6vw, 1.15rem)', fontWeight: '600', color: '#E2E8F0', marginBottom: '0.85rem', lineHeight: '1.55', maxWidth: '520px' }}>
+                                An emerging community for practical AI governance, risk, and responsible adoption.
                             </p>
-                            <p style={{ fontSize: 'clamp(0.8rem, 1.2vw, 0.9rem)', color: 'rgba(255,255,255,0.45)', marginBottom: '2rem', lineHeight: '1.7', maxWidth: '460px' }}>
-                                Trusted by governments, enterprises, and regulators across countries to navigate the evolving landscape of AI risk, compliance, and ethics.
+                            {/* Paragraph: supporting text */}
+                            <p style={{ fontSize: 'clamp(0.85rem, 1.3vw, 0.95rem)', color: 'rgba(255,255,255,0.6)', marginBottom: '2rem', lineHeight: '1.7', maxWidth: '500px' }}>
+                                Learn with practitioners, explore practical governance resources, and help shape a growing AI risk community.
                             </p>
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                                 <button onClick={() => navigate('/membership')}
                                     style={{ background: 'white', color: '#003366', border: 'none', padding: 'clamp(0.65rem,2vw,0.85rem) clamp(1.25rem,3vw,1.85rem)', fontSize: 'clamp(0.83rem,1.5vw,0.92rem)', fontWeight: '800', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', fontFamily: 'var(--font-sans)', transition: 'transform 0.15s,box-shadow 0.15s', whiteSpace: 'nowrap' }}
                                     onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)'; }}
                                     onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)'; }}>
-                                    Join the Council
+                                    Join the community
                                 </button>
-                                <button onClick={() => navigate('/services')}
+                                <button onClick={() => navigate('/framework')}
                                     style={{ background: 'transparent', color: 'white', border: '1.5px solid rgba(255,255,255,0.45)', padding: 'clamp(0.65rem,2vw,0.85rem) clamp(1.25rem,3vw,1.85rem)', fontSize: 'clamp(0.83rem,1.5vw,0.92rem)', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'border-color 0.15s,background 0.15s', whiteSpace: 'nowrap' }}
                                     onMouseOver={e => { e.currentTarget.style.borderColor = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
                                     onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.45)'; e.currentTarget.style.background = 'transparent'; }}>
-                                    Explore Our Services
+                                    Explore the AI Risk Framework
                                 </button>
                             </div>
+
+                            {/* Quick links. Hidden only when the "Start here" panel on the right already lists them
+                                (no featured videos), so they appear exactly once in the hero. */}
+                            {(videosLoading || recentVideos.length > 0) && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.1rem', marginTop: '1.5rem' }}>
+                                    {START_LINKS.map(({ icon: Icon, to, title }) => (
+                                        <Link key={to} to={to}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.25)', paddingBottom: '1px', transition: 'color 0.15s, border-color 0.15s' }}
+                                            onMouseOver={e => { e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; }}
+                                            onMouseOut={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}>
+                                            <Icon size={14} color="#93C5FD" aria-hidden="true" />{title}
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Right: video carousel or fallback */}
@@ -1140,34 +1146,22 @@ const Home = () => {
                                     <HeroVideoCarousel videos={recentVideos} viewAllHref="/media-hub" />
                                 </div>
                             ) : !videosLoading ? (
-                                /* CHANGE 4: compact fallback — stacked trust rows + stat grid */
+                                /* Fallback when there are no featured videos: three ways in */
                                 <div style={{ width: '100%', maxWidth: '460px' }}>
-                                    <p style={{ margin: '0 0 1rem', fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Trusted globally</p>
+                                    <p style={{ margin: '0 0 1rem', fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Start here</p>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.09)' }}>
-                                        {[
-                                            { icon: CheckCircle, text: 'EU AI Act · NIST AI RMF · ISO 42001', sub: 'Framework aligned' },
-                                            { icon: Globe,       text: '500+ global member organisations',    sub: 'Across 40+ countries' },
-                                            { icon: Lock,        text: 'Independent · Zero vendor bias',      sub: 'Cited by OECD & EU AI Office' },
-                                        ].map(({ icon: Icon, text, sub }) => (
-                                            <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0.9rem 1rem', background: 'rgba(255,255,255,0.04)' }}>
-                                                <Icon size={15} color="#93C5FD" style={{ flexShrink: 0 }} />
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: '0.82rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</p>
+                                        {START_LINKS.map(({ icon: Icon, to, title, sub }) => (
+                                            <Link key={to} to={to}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0.9rem 1rem', background: 'rgba(255,255,255,0.04)', textDecoration: 'none', transition: 'background 0.15s' }}
+                                                onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+                                                onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}>
+                                                <Icon size={15} color="#93C5FD" style={{ flexShrink: 0 }} aria-hidden="true" />
+                                                <div style={{ minWidth: 0, flex: 1 }}>
+                                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: '0.82rem', fontWeight: '600' }}>{title}</p>
                                                     <p style={{ margin: 0, color: 'rgba(255,255,255,0.38)', fontSize: '0.7rem' }}>{sub}</p>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', marginTop: '1px', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
-                                        {[
-                                            { val: '25+', label: 'Organisations' },
-                                            { val: '7+',  label: 'Research papers' },
-                                            { val: '3+',  label: 'Countries' },
-                                        ].map(({ val, label }) => (
-                                            <div key={label} style={{ background: 'rgba(255,255,255,0.04)', padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                                                <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'white', lineHeight: 1 }}>{val}</p>
-                                                <p style={{ margin: '3px 0 0', fontSize: '0.62rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.3 }}>{label}</p>
-                                            </div>
+                                                <ArrowRight size={14} color="rgba(255,255,255,0.45)" aria-hidden="true" />
+                                            </Link>
                                         ))}
                                     </div>
                                 </div>
@@ -1180,25 +1174,29 @@ const Home = () => {
             <NominationCarousel />
 
             {/* ══════════════════════════════════════════════════════════════
-                2. STATS BAR
+                2. FRAMEWORK BAND (was the counters bar)
             ══════════════════════════════════════════════════════════════ */}
-            <section ref={statsRef} style={{ background: 'linear-gradient(135deg,#001a33 0%,#003366 100%)', ...SECTION_STYLE }}>
+            <section style={{ background: 'linear-gradient(135deg,#001a33 0%,#003366 100%)', ...SECTION_STYLE }}>
                 <div style={INNER}>
-                    <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.65)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '2.5rem' }}>Our global reach</p>
+                    <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.65)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>The RAC framework</p>
+                    <h2 style={{ textAlign: 'center', color: 'white', fontSize: 'clamp(1.3rem,2.8vw,2rem)', fontWeight: '800', margin: '0 0 0.5rem', fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>One practical framework. Five stages of AI risk.</h2>
+                    <p style={{ textAlign: 'center', color: '#CBD5E1', fontSize: 'clamp(0.85rem,1.4vw,0.95rem)', margin: '0 auto 2rem', maxWidth: '560px', lineHeight: '1.6' }}>RAC's practical framework, informed by established standards.</p>
                     <div className="stats-grid">
-                        {[
-                            { icon: Users,    label: 'Member Organisations', count: counts.members,   suffix: '+', sub: 'across all industries' },
-                            { icon: Calendar, label: 'Events Hosted',         count: counts.events,    suffix: '+', sub: 'annually worldwide' },
-                            { icon: BookOpen, label: 'Research Papers',        count: counts.papers,    suffix: '+', sub: 'peer-reviewed' },
-                            { icon: Globe,    label: 'Countries',              count: counts.countries, suffix: '+', sub: 'on six continents' },
-                        ].map(({ icon: Icon, label, count, suffix, sub }) => (
-                            <div key={label}>
+                        {FRAMEWORK_STAGES.map(({ icon: Icon, name, tagline }) => (
+                            <div key={name}>
                                 <Icon size={26} color="#f9a825" style={{ margin: '0 auto 0.65rem', display: 'block' }} aria-hidden="true" />
-                                <div style={{ fontSize: 'clamp(1.6rem, 4vw, 2.8rem)', fontWeight: '900', color: 'white', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{count}{suffix}</div>
-                                <p style={{ margin: '0.35rem 0 0', fontSize: 'clamp(0.75rem, 1.2vw, 0.82rem)', color: '#93C5FD', fontWeight: '600' }}>{label}</p>
-                                <p style={{ margin: '0.15rem 0 0', fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>{sub}</p>
+                                <div style={{ fontSize: 'clamp(1.05rem, 2vw, 1.5rem)', fontWeight: '800', color: 'white', lineHeight: 1.1 }}>{name}</div>
+                                <p style={{ margin: '0.35rem 0 0', fontSize: 'clamp(0.75rem, 1.2vw, 0.82rem)', color: '#93C5FD', fontWeight: '600' }}>{tagline}</p>
                             </div>
                         ))}
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                        <Link to="/framework"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#FCD34D', fontWeight: '700', fontSize: '0.92rem', textDecoration: 'none', border: '1.5px solid rgba(252,211,77,0.5)', padding: '0.6rem 1.25rem', borderRadius: '6px', transition: 'background 0.15s' }}
+                            onMouseOver={e => { e.currentTarget.style.background = 'rgba(252,211,77,0.1)'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; }}>
+                            Explore the AI Risk Framework <ArrowRight size={15} />
+                        </Link>
                     </div>
                 </div>
             </section>
@@ -1220,7 +1218,7 @@ const Home = () => {
                         card edges are actually visible instead of blending into the page. */}
                     <div className="mission-grid">
                         {[
-                            { icon: Target, tint: '#EFF6FF', iconColor: '#003366', label: 'Our Mission', body: 'RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly.', sub: 'We deliver rigorous, framework-aligned insight to maximize the benefits of AI implementation and minimize its risks, developing the AI Risk Bridge Model so risk assessment stays accessible to the RAC community, while continuing to advance responsible AI development.' },
+                            { icon: Target, tint: '#EFF6FF', iconColor: '#003366', label: 'Our Mission', body: 'RAC is an accelerator of leading AI governance standards - not a self-appointed authority, but an active, collaborative community - empowering organizations and professionals to deploy AI safely, ethically, and responsibly.', sub: 'We deliver rigorous, framework-informed insight to maximize the benefits of AI implementation and minimize its risks, developing the AI Risk Bridge Model so risk assessment stays accessible to the RAC community, while continuing to advance responsible AI development.' },
                             { icon: Eye,    tint: '#FFF8E8', iconColor: '#B45309', label: 'Our Vision',  body: 'A world where AI is governed with the rigor and accountability of our most trusted institutions - transparent, auditable, aligned with societal values - because the cost of ungoverned AI only compounds with time.', sub: 'An ecosystem where trust in AI is earned through evidence, not asserted through marketing.' },
                         ].map(({ icon: Icon, tint, iconColor, label, body, sub }) => (
                             <div key={label} style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.5rem,3vw,2.5rem)', border: '1px solid #D8E0EA', boxShadow: '0 4px 18px rgba(15,40,80,0.08)' }}>
@@ -1245,8 +1243,11 @@ const Home = () => {
                 <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <SectionLabel>Who We Are</SectionLabel>
                     <h2 style={{ fontSize: 'clamp(1.3rem,3vw,2rem)', color: '#1E293B', fontWeight: '800', marginBottom: '1rem', lineHeight: 1.3 }}>About the Risk AI Council (RAC)</h2>
-                    <p style={{ color: '#4A5568', lineHeight: '1.8', fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', marginBottom: '2rem' }}>
-                        An independent community including executives, governance and risk experts, legal scholars, and AI researchers across countries - delivering unbiased and actionable guidance.
+                    <p style={{ color: '#4A5568', lineHeight: '1.8', fontSize: 'clamp(0.9rem,1.5vw,1.05rem)', marginBottom: '0.75rem' }}>
+                        We bring practitioners together to develop practical AI governance knowledge, resources, and community programmes.
+                    </p>
+                    <p style={{ color: '#64748B', lineHeight: '1.7', fontSize: 'clamp(0.82rem,1.3vw,0.92rem)', marginBottom: '2rem' }}>
+                        Our editorial approach prioritises evidence, transparent methods, and disclosure of relevant commercial relationships.
                     </p>
                     <Link to="/about"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#003366', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem', textDecoration: 'none', transition: 'background 0.15s' }}
@@ -1266,18 +1267,18 @@ const Home = () => {
                 <div style={{ ...INNER, padding: '0 clamp(1rem, 4vw, 3rem)' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                         <SectionLabel>Membership</SectionLabel>
-                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2.25rem)', color: '#1E293B', fontWeight: '800', margin: '0 0 0.75rem' }}>Why Join the Council?</h2>
-                        <p style={{ color: '#64748B', fontSize: 'clamp(0.875rem,1.5vw,1rem)', maxWidth: '560px', margin: '0 auto' }}>A global community built for practitioners who care about getting AI governance right.</p>
+                        <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2.25rem)', color: '#1E293B', fontWeight: '800', margin: '0 0 0.75rem' }}>Why Join the Community?</h2>
+                        <p style={{ color: '#64748B', fontSize: 'clamp(0.875rem,1.5vw,1rem)', maxWidth: '560px', margin: '0 auto' }}>A growing community welcoming practitioners across regions.</p>
                     </div>
                     <div className="why-grid">
                         {[
-                            { icon: BookOpen, color: '#003366', title: 'Exclusive Research',  desc: 'Access 120+ peer-reviewed reports, audit templates, and risk frameworks. New publications added monthly.' },
-                            { icon: Users,    color: '#7C3AED', title: 'Peer Network',         desc: 'Connect with 500+ risk professionals, legal experts, and AI leaders across countries via forums and roundtables.' },
-                            { icon: Zap,      color: '#D97706', title: 'Stay Ahead',           desc: 'Receive early-access briefings on upcoming regulations - EU AI Act enforcement, NIST AI RMF revisions, and more.' },
-                            { icon: Star,     color: '#0369A1', title: 'Priority Access',      desc: 'Skip the waitlist for workshops, advisory sessions, and annual summit seats. Members get first-look at every resource.' },
-                        ].map(({ icon: Icon, color, title, desc }) => (
-                            <div key={title}
-                                style={{ background: 'white', borderRadius: '16px', padding: 'clamp(1.25rem,2.5vw,2rem)', border: '1px solid #E2E8F0', transition: 'transform 0.2s,box-shadow 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                            { icon: BookOpen, color: '#003366', title: 'Curated Library',       desc: 'Explore our curated AI governance library - articles, whitepapers and practical tools in one place.', to: '/resources' },
+                            { icon: Users,    color: '#7C3AED', title: 'Meet Our Contributors', desc: 'Meet our contributors, learn with practitioners and join community discussions.', to: '/members' },
+                            { icon: Calendar, color: '#D97706', title: 'Community Sessions',    desc: 'Join a community session - webinars, seminars and workshops open for registration.', to: '/events' },
+                            { icon: Star,     color: '#0369A1', title: 'Shape What We Build',   desc: 'Vote in the AI Risk Awards and give feedback on resources and product reviews.', to: '/nominees' },
+                        ].map(({ icon: Icon, color, title, desc, to }) => (
+                            <Link key={title} to={to}
+                                style={{ display: 'block', textDecoration: 'none', color: 'inherit', background: 'white', borderRadius: '16px', padding: 'clamp(1.25rem,2.5vw,2rem)', border: '1px solid #E2E8F0', transition: 'transform 0.2s,box-shadow 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
                                 onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'; }}
                                 onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'; }}>
                                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
@@ -1285,7 +1286,7 @@ const Home = () => {
                                 </div>
                                 <h3 style={{ margin: '0 0 0.5rem', fontWeight: '700', color: '#1E293B', fontSize: 'clamp(0.9rem,1.5vw,1rem)' }}>{title}</h3>
                                 <p style={{ margin: 0, color: '#64748B', fontSize: 'clamp(0.8rem,1.3vw,0.875rem)', lineHeight: '1.6' }}>{desc}</p>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                     <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
@@ -1293,8 +1294,11 @@ const Home = () => {
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#003366', color: 'white', padding: '0.9rem 2rem', borderRadius: '8px', fontWeight: '700', fontSize: '0.95rem', textDecoration: 'none', transition: 'background 0.15s' }}
                             onMouseOver={e => e.currentTarget.style.background = '#002244'}
                             onMouseOut={e => e.currentTarget.style.background = '#003366'}>
-                            Join the Council <ArrowRight size={15} />
+                            Join the community <ArrowRight size={15} />
                         </Link>
+                        <p style={{ margin: '0.85rem 0 0', fontSize: '0.85rem', color: '#64748B' }}>
+                            Your first {COMPLIMENTARY_MONTHS} months are complimentary. {NO_PAYMENT_LINE}
+                        </p>
                     </div>
                 </div>
             </section>
@@ -1528,9 +1532,9 @@ const Home = () => {
                         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none' }} aria-hidden="true" />
                         <div style={{ position: 'relative', zIndex: 1 }}>
                             <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 14px', borderRadius: '100px', marginBottom: '0.8rem' }}>Join Today</span>
-                            <h2 style={{ color: 'white', fontSize: 'clamp(1.3rem,2.6vw,1.9rem)', fontWeight: '800', marginBottom: '0.6rem', fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>Join the Global Council</h2>
+                            <h2 style={{ color: 'white', fontSize: 'clamp(1.3rem,2.6vw,1.9rem)', fontWeight: '800', marginBottom: '0.6rem', fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>Join the community</h2>
                             <p style={{ color: '#CBD5E1', fontSize: 'clamp(0.85rem,1.4vw,0.95rem)', lineHeight: '1.6', maxWidth: '560px', margin: '0 auto 1.3rem' }}>
-                                Access exclusive risk assessment templates, peer benchmarking data, and executive briefings. Join a network of over 25 global organisations committed to responsible AI.
+                                Learn with practitioners, explore practical governance resources, and help shape what we build next. Your first {COMPLIMENTARY_MONTHS} months are complimentary.
                             </p>
                             <div className="cta-btns">
                                 {/* ArrowRight matches every other primary CTA on this page (Join
@@ -1540,7 +1544,7 @@ const Home = () => {
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', color: '#003366', padding: 'clamp(0.7rem,2vw,0.85rem) clamp(1.25rem,3vw,2rem)', borderRadius: '6px', fontWeight: '700', fontSize: 'clamp(0.85rem,1.5vw,0.95rem)', textDecoration: 'none', transition: 'box-shadow 0.15s', whiteSpace: 'nowrap' }}
                                     onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'}
                                     onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-                                    Explore Membership <ArrowRight size={15} />
+                                    Join the community <ArrowRight size={15} />
                                 </Link>
                                 <Link to="/contact"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'transparent', color: 'white', border: '1.5px solid rgba(255,255,255,0.5)', padding: 'clamp(0.7rem,2vw,0.85rem) clamp(1.25rem,3vw,2rem)', borderRadius: '6px', fontWeight: '600', fontSize: 'clamp(0.85rem,1.5vw,0.95rem)', textDecoration: 'none', transition: 'border-color 0.15s,background 0.15s', whiteSpace: 'nowrap' }}
