@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, ClipboardList, ChevronRight, ArrowRight, BookOpen, Download, Lock, Shield, Target, ShieldCheck, Search, BarChart, Landmark, Check, RefreshCw, Flag, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as frameworkAPI from '../api/framework';
+import BotMascot from '../components/agents/BotMascot';
+import { LEARNING_AGENTS, BOT_PALETTE } from '../config/agents';
 
 // ─── Design constants ──────────────────────────────────────────────────────────
 // One brand accent (navy) used everywhere; gold is reserved for the single
@@ -640,81 +642,8 @@ const PlaybooksSection = () => {
 };
 
 // ─── Learning Agents launcher ───────────────────────────────────────────────────
-// Framework-scoped AI agents (quizzes, gamified learning modules) are being
-// built as a separate system. This is only the entry point: each agent link
-// points at a route that doesn't exist yet, so it falls through to the app's
-// existing catch-all 404 route today. Wiring up the real agent pages later is
-// just adding matching <Route> entries — nothing here needs to change.
-const LEARNING_AGENTS = [
-    { key: 'nist', name: 'NIST AI RMF Agent', description: 'Quiz-based learning scoped to the NIST AI Risk Management Framework.', path: '/agents/nist-ai-rmf' },
-    { key: 'eu-ai-act', name: 'EU AI Act Agent', description: 'Quiz-based learning scoped to the EU AI Act.', path: '/agents/eu-ai-act' },
-    { key: 'iso-42001', name: 'ISO/IEC 42001 Agent', description: 'Quiz-based learning scoped to ISO/IEC 42001.', path: '/agents/iso-42001' },
-    { key: 'rbi-free-ai', name: 'RBI FREE-AI Framework Agent', description: 'Quiz-based learning scoped to the RBI FREE-AI Framework.', path: '/agents/rbi-free-ai' },
-    { key: 'bridge-model', name: 'AI Risk Bridge Model Agent', description: 'Quiz-based learning scoped to the RAC AI Risk Bridge Model.', path: '/agents/ai-risk-bridge-model', original: true },
-];
-
-// Full-body vector mascot — head, visor eyes, ear-lights, torso, arms, legs.
-// Pure inline SVG (no image/library fetch, nothing to download), so it paints
-// instantly and scales to any size without a network round-trip. `accent`
-// recolors the eyes/ears/chest-light per agent so five agents read as five
-// distinct characters from one shared shape — add a sixth agent and it just
-// cycles the palette, no new artwork needed.
-const BotMascot = ({ size = 48, accent = ACCENT, className = '', style }) => {
-    const height = Math.round(size * 1.3);
-    const uid = accent.replace('#', '');
-    const visorGrad = `bot-visor-${uid}`;
-    const shellGrad = `bot-shell-${uid}`;
-    return (
-        <span className={`bot-mascot ${className}`} style={{ width: size, height, ...style }}>
-            <svg viewBox="0 0 100 130" width={size} height={height} className="bot-mascot-svg">
-                <defs>
-                    <linearGradient id={visorGrad} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#243244" />
-                        <stop offset="100%" stopColor="#0B1220" />
-                    </linearGradient>
-                    <linearGradient id={shellGrad} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#FFFFFF" />
-                        <stop offset="100%" stopColor="#E7ECF3" />
-                    </linearGradient>
-                </defs>
-
-                <circle className="bot-mascot-aura" cx="50" cy="58" r="46" style={{ '--bot-accent': accent }} />
-                <ellipse className="bot-mascot-shadow" cx="50" cy="126" rx="27" ry="4" />
-
-                <rect className="bot-mascot-limb" x="32" y="99" width="14" height="23" rx="7" style={{ fill: `url(#${shellGrad})` }} />
-                <rect className="bot-mascot-limb" x="54" y="99" width="14" height="23" rx="7" style={{ fill: `url(#${shellGrad})` }} />
-                <rect className="bot-mascot-foot" x="29" y="117" width="19" height="9" rx="4.5" />
-                <rect className="bot-mascot-foot" x="52" y="117" width="19" height="9" rx="4.5" />
-
-                <rect className="bot-mascot-limb" x="2" y="65" width="14" height="31" rx="7" transform="rotate(-14 9 65)" style={{ fill: `url(#${shellGrad})` }} />
-                <rect className="bot-mascot-limb" x="84" y="65" width="14" height="31" rx="7" transform="rotate(14 91 65)" style={{ fill: `url(#${shellGrad})` }} />
-                <circle className="bot-mascot-hand" cx="5" cy="95" r="6.5" />
-                <circle className="bot-mascot-hand" cx="95" cy="95" r="6.5" />
-
-                <rect className="bot-mascot-body" x="23" y="61" width="54" height="47" rx="19" style={{ fill: `url(#${shellGrad})` }} />
-                <circle className="bot-mascot-chest" cx="50" cy="84" r="5" style={{ '--bot-accent': accent }} />
-
-                <line className="bot-mascot-antenna-stem" x1="50" y1="3" x2="50" y2="15" />
-                <circle className="bot-mascot-antenna-dot" cx="50" cy="2" r="4" />
-                <circle className="bot-mascot-ear" cx="11" cy="37" r="7.5" style={{ '--bot-accent': accent }} />
-                <circle className="bot-mascot-ear" cx="89" cy="37" r="7.5" style={{ '--bot-accent': accent }} />
-                <rect className="bot-mascot-head" x="15" y="13" width="70" height="53" rx="25" style={{ fill: `url(#${shellGrad})` }} />
-                <rect className="bot-mascot-visor" x="25" y="35" width="50" height="25" rx="12.5" style={{ fill: `url(#${visorGrad})` }} />
-                <circle className="bot-mascot-eye" cx="39" cy="47.5" r="5.5" style={{ '--bot-accent': accent }} />
-                <circle className="bot-mascot-eye" cx="61" cy="47.5" r="5.5" style={{ '--bot-accent': accent }} />
-                <rect className="bot-mascot-mouth" x="44" y="61" width="2.4" height="4" rx="1.2" />
-                <rect className="bot-mascot-mouth" x="48.8" y="59.3" width="2.4" height="5.7" rx="1.2" />
-                <rect className="bot-mascot-mouth" x="53.6" y="61" width="2.4" height="4" rx="1.2" />
-                <ellipse className="bot-mascot-shine" cx="33" cy="23" rx="13" ry="6.5" />
-            </svg>
-        </span>
-    );
-};
-
-// Cycled per agent card so agents read as distinct bots without leaving the
-// site's navy/gold accent system — add a sixth LEARNING_AGENTS entry and it
-// picks up automatically (wraps back to the first tone).
-const BOT_PALETTE = ['#002244', '#003366', '#005599', GOLD];
+// Agent data and the bot artwork are shared with the "coming soon" page each
+// agent link opens — see config/agents.js and components/agents/BotMascot.jsx.
 
 // Shows all five agent bots inline, no shared card/background — each stands
 // directly on the hero; the name brightening on hover is the click cue.
@@ -1011,24 +940,6 @@ const Framework = () => {
 
                 /* ── Learning Agents bar — shows all five bots inline, no shared card ──
                    z-index 1200 keeps it above the sticky navbar's z-index:1000. */
-                @keyframes botBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-                @keyframes botLed { 0%,88%,100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(74,222,128,0); } 94% { opacity: 1; box-shadow: 0 0 5px 2px rgba(74,222,128,0.85); } }
-                @keyframes botEyeBlink { 0%,90%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.15); } }
-                @keyframes botEarGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
-                .bot-mascot { display: inline-flex; align-items: flex-end; justify-content: center; flex-shrink: 0; animation: botBob 2.4s ease-in-out infinite; }
-                .bot-mascot-svg { overflow: visible; filter: drop-shadow(0 5px 8px rgba(0,10,30,0.3)); }
-                .bot-mascot-aura { fill: var(--bot-accent, ${GOLD}); opacity: 0.16; filter: blur(9px); }
-                .bot-mascot-shadow { fill: rgba(15,23,42,0.1); }
-                .bot-mascot-head, .bot-mascot-body, .bot-mascot-limb { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
-                .bot-mascot-hand { fill: #E2E8F0; stroke: #CBD5E1; stroke-width: 1.5; }
-                .bot-mascot-foot { fill: #0F172A; }
-                .bot-mascot-mouth { fill: #0F172A; opacity: 0.85; }
-                .bot-mascot-shine { fill: rgba(255,255,255,0.55); pointer-events: none; }
-                .bot-mascot-eye { fill: var(--bot-accent, ${GOLD}); transform-origin: center; transform-box: fill-box; animation: botEyeBlink 3.4s ease-in-out infinite; filter: drop-shadow(0 0 3px var(--bot-accent, ${GOLD})); }
-                .bot-mascot-ear { fill: var(--bot-accent, ${GOLD}); animation: botEarGlow 2.2s ease-in-out infinite; filter: drop-shadow(0 0 4px var(--bot-accent, ${GOLD})); }
-                .bot-mascot-chest { fill: var(--bot-accent, ${GOLD}); filter: drop-shadow(0 0 3px var(--bot-accent, ${GOLD})); }
-                .bot-mascot-antenna-stem { stroke: #CBD5E1; stroke-width: 3; }
-                .bot-mascot-antenna-dot { fill: #EF4444; animation: botLed 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
                 @keyframes agentItemIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
                 @keyframes agentItemFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
                 /* Deliberately always in normal document flow, never absolutely

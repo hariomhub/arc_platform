@@ -1,0 +1,20 @@
+/* BotMascot — shared by the Framework page's agents launcher and the agent
+   "coming soon" page. Moved verbatim from Framework.jsx's inline <style>. */
+@keyframes botBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes botLed { 0%,88%,100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(74,222,128,0); } 94% { opacity: 1; box-shadow: 0 0 5px 2px rgba(74,222,128,0.85); } }
+@keyframes botEyeBlink { 0%,90%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.15); } }
+@keyframes botEarGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+.bot-mascot { display: inline-flex; align-items: flex-end; justify-content: center; flex-shrink: 0; animation: botBob 2.4s ease-in-out infinite; }
+.bot-mascot-svg { overflow: visible; filter: drop-shadow(0 5px 8px rgba(0,10,30,0.3)); }
+.bot-mascot-aura { fill: var(--bot-accent, #f9a825); opacity: 0.16; filter: blur(9px); }
+.bot-mascot-shadow { fill: rgba(15,23,42,0.1); }
+.bot-mascot-head, .bot-mascot-body, .bot-mascot-limb { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+.bot-mascot-hand { fill: #E2E8F0; stroke: #CBD5E1; stroke-width: 1.5; }
+.bot-mascot-foot { fill: #0F172A; }
+.bot-mascot-mouth { fill: #0F172A; opacity: 0.85; }
+.bot-mascot-shine { fill: rgba(255,255,255,0.55); pointer-events: none; }
+.bot-mascot-eye { fill: var(--bot-accent, #f9a825); transform-origin: center; transform-box: fill-box; animation: botEyeBlink 3.4s ease-in-out infinite; filter: drop-shadow(0 0 3px var(--bot-accent, #f9a825)); }
+.bot-mascot-ear { fill: var(--bot-accent, #f9a825); animation: botEarGlow 2.2s ease-in-out infinite; filter: drop-shadow(0 0 4px var(--bot-accent, #f9a825)); }
+.bot-mascot-chest { fill: var(--bot-accent, #f9a825); filter: drop-shadow(0 0 3px var(--bot-accent, #f9a825)); }
+.bot-mascot-antenna-stem { stroke: #CBD5E1; stroke-width: 3; }
+.bot-mascot-antenna-dot { fill: #EF4444; animation: botLed 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }

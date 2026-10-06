@@ -16,6 +16,7 @@ const AllMembers = lazy(() => import('./pages/AllMembers.jsx'));
 const Events = lazy(() => import('./pages/Events.jsx'));
 const Services = lazy(() => import('./pages/Services.jsx'));
 const Framework = lazy(() => import('./pages/Framework.jsx'));
+const AgentComingSoon = lazy(() => import('./pages/AgentComingSoon.jsx'));
 const Resources = lazy(() => import('./pages/Resources.jsx'));
 const ResourceDetail = lazy(() => import('./pages/ResourceDetail.jsx'));
 const Certifications = lazy(() => import('./pages/Certifications.jsx'));
@@ -92,6 +93,10 @@ function App() {
               <Route path="/events" element={<Events />} />
               <Route path="/services" element={<Services />} />
               <Route path="/framework" element={<Framework />} />
+              {/* Learning Agents — every agent shows "coming soon" until its real page exists.
+                  Add a specific /agents/<slug> route above the :agentSlug one to take an agent live. */}
+              <Route path="/agents" element={<Navigate to="/framework" replace />} />
+              <Route path="/agents/:agentSlug" element={<AgentComingSoon />} />
               <Route path="/assessment" element={<Navigate to="/framework" replace />} />
               <Route path="/ai-research" element={<Navigate to="/community-qna" replace />} />
               <Route path="/certification" element={<Certifications />} />
