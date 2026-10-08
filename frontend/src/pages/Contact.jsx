@@ -5,6 +5,10 @@ const INQUIRY_TYPES = ['Membership Inquiry', 'Assessment Request', 'Press / Medi
 
 const OFFICES = [
     {
+        region: 'USA',
+        address: '5425 Wisconsin Ave, Suite 600, Chevy Chase, MD 20815',
+    },
+    {
         region: 'UAE',
         address: 'Villa 43, Street 2, Springs 3, Dubai',
     },
