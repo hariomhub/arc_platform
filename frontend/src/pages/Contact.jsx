@@ -127,7 +127,7 @@ const Contact = () => {
                 .ct-offices {
                     display: flex;
                     flex-direction: column;
-                    gap: 1.25rem;
+                    gap: 0.85rem;
                 }
             `}</style>
 
@@ -258,7 +258,7 @@ const Contact = () => {
                                         </div>
                                         <div>
                                             <p style={{ margin:'0 0 3px', fontSize:'0.72rem', fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Phone</p>
-                                            <a href="tel:+16477688767" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600 }}>+1 (647) 7688767</a>
+                                            <a href="tel:+13015026867" style={{ color:'white', textDecoration:'none', fontSize:'0.9rem', fontWeight:600 }}>+1 (301) 502-6867</a>
                                             <p style={{ margin:'2px 0 0', color:'rgba(255,255,255,0.45)', fontSize:'0.78rem' }}>Mon–Fri, 9am–5pm EST</p>
                                         </div>
                                     </div>
@@ -299,7 +299,7 @@ const Contact = () => {
 
                             <div className="ct-offices">
                                 {OFFICES.map(({ region, address }) => (
-                                    <div key={region} style={{ display:'flex', gap:'0.875rem', alignItems:'flex-start', paddingBottom:'1.1rem', borderBottom:'1px solid #F1F5F9' }}
+                                    <div key={region} style={{ display:'flex', gap:'0.875rem', alignItems:'flex-start', paddingBottom:'0.8rem', borderBottom:'1px solid #F1F5F9' }}
                                         onMouseOver={e => e.currentTarget.style.borderBottomColor='#BFDBFE'}
                                         onMouseOut={e => e.currentTarget.style.borderBottomColor='#F1F5F9'}>
                                         <div style={{ width:28, height:28, borderRadius:7, background:'#EFF6FF', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>

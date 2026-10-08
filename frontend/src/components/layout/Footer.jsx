@@ -153,9 +153,9 @@ const Footer = () => (
                                     <span><strong style={{ color: '#e2e8f0' }}>Canada:</strong> 3105, 50 Charles street East M4Y 0C3, Toronto ON</span>
                                 </div>
                             </div>
-                            <a href="tel:+16477688767" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}>
+                            <a href="tel:+13015026867" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}>
                                 <Phone size={15} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }} />
-                                <span>+1 (647) 7688767</span>
+                                <span>+1 (301) 502-6867</span>
                             </a>
                             <a href="mailto:support@riskaicouncil.org" style={{ display: 'flex', gap: '10px', alignItems: 'center', color: '#CBD5E0', textDecoration: 'none' }}
                                 onMouseOver={e => e.currentTarget.style.color = 'white'}
