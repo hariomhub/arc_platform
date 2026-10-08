@@ -46,6 +46,7 @@ import autoNewsRoutes     from './routes/autoNews.js';
 import membershipRoutes   from './routes/membership.js';
 import workshopsRoutes    from './routes/workshops.js';
 import accountDeletionRoutes from './routes/accountDeletion.js';
+import contactRoutes         from './routes/contact.js';
 
 // ─── Cron Job Imports ─────────────────────────────────────────────────────────
 import { initNewsFetchCron }        from './jobs/newsFetchJob.js';
@@ -154,6 +155,7 @@ app.use('/api/membership',      membershipRoutes);
 app.use('/api/workshops',       workshopsRoutes);
 app.use('/api/notifications',   notificationsRoutes);
 app.use('/api/account-deletion',accountDeletionRoutes);
+app.use('/api/contact',         contactRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

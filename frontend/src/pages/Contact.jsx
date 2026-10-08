@@ -1,7 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { Mail, Phone, MapPin, Send, CheckCircle, AlertCircle, Loader2, Globe, Building } from 'lucide-react';
+import { submitContactForm } from '../api/contact.js';
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+// Keep in sync with INQUIRY_TYPES in Backend/routes/contact.js.
 const INQUIRY_TYPES = ['Membership Inquiry', 'Assessment Request', 'Press / Media', 'Workshop Enquiry', 'Other'];
+
+// Mirror the server-side limits so visitors get instant feedback.
+const LIMITS = { name: 100, email: 255, organization: 255, message: 5000 };
+const MESSAGE_MIN = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// `website` is a honeypot: hidden from people, filled in by bots.
+const EMPTY_FORM = { firstName: '', lastName: '', email: '', organization: '', inquiry: INQUIRY_TYPES[0], message: '', website: '' };
 
 const OFFICES = [
     {
@@ -43,10 +56,12 @@ const FieldLabel = ({ children, required }) => (
 );
 
 const Contact = () => {
-    const [form, setForm] = useState({ firstName: '', lastName: '', email: '', organization: '', inquiry: 'Membership Inquiry', message: '' });
+    const [form, setForm] = useState(EMPTY_FORM);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
+    const [recaptchaToken, setRecaptchaToken] = useState('');
+    const recaptchaRef = useRef(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -54,20 +69,45 @@ const Contact = () => {
         setError('');
     };
 
+    const resetRecaptcha = () => {
+        recaptchaRef.current?.reset();
+        setRecaptchaToken('');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.firstName.trim() || !form.email.trim() || !form.message.trim()) {
+        if (submitting) return;
+
+        const email = form.email.trim();
+        const message = form.message.trim();
+        if (!form.firstName.trim() || !email || !message) {
             setError('Please fill in all required fields.');
             return;
         }
+        if (!EMAIL_RE.test(email)) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+        if (message.length < MESSAGE_MIN) {
+            setError(`Please write at least ${MESSAGE_MIN} characters in your message.`);
+            return;
+        }
+        if (RECAPTCHA_SITE_KEY && !recaptchaToken) {
+            setError('Please complete the reCAPTCHA verification.');
+            return;
+        }
+
         setSubmitting(true);
+        setError('');
         try {
-            // Simulate submission — replace with actual API call
-            await new Promise(r => setTimeout(r, 1000));
+            await submitContactForm({ ...form, email, message, recaptchaToken });
             setSubmitted(true);
-        } catch {
-            setError('Something went wrong. Please try again.');
+        } catch (err) {
+            // Server messages are written for visitors (validation, rate limit, delivery failure).
+            setError(err.response?.data?.message || err.message || 'Something went wrong. Please try again.');
         } finally {
+            // A reCAPTCHA token is single-use — always require a fresh one.
+            resetRecaptcha();
             setSubmitting(false);
         }
     };
@@ -123,6 +163,16 @@ const Contact = () => {
                     .ct-name-row { grid-template-columns: 1fr; }
                 }
 
+                /* ── reCAPTCHA (304px widget — scale down on very narrow screens) ── */
+                .ct-captcha {
+                    display: flex;
+                    justify-content: center;
+                    overflow: hidden;
+                }
+                @media (max-width: 400px) {
+                    .ct-captcha > div { transform: scale(0.85); transform-origin: center top; }
+                }
+
                 /* ── Offices grid ── */
                 .ct-offices {
                     display: flex;
@@ -163,7 +213,7 @@ const Contact = () => {
                                 <p style={{ color:'#64748B', fontSize:'0.95rem', lineHeight:1.7, margin:'0 0 2rem', maxWidth:'400px', marginLeft:'auto', marginRight:'auto' }}>
                                     Thank you for reaching out. Our team will get back to you within 1–2 business days.
                                 </p>
-                                <button onClick={() => { setSubmitted(false); setForm({ firstName:'', lastName:'', email:'', organization:'', inquiry:'Membership Inquiry', message:'' }); }}
+                                <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM); setError(''); setRecaptchaToken(''); }}
                                     style={{ background:'#003366', color:'white', border:'none', padding:'0.75rem 2rem', borderRadius:10, fontWeight:700, fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)' }}>
                                     Send Another Message
                                 </button>
@@ -184,12 +234,12 @@ const Contact = () => {
                                     <div className="ct-name-row">
                                         <div>
                                             <FieldLabel required>First Name</FieldLabel>
-                                            <input name="firstName" value={form.firstName} onChange={handleChange} placeholder="Jane" disabled={submitting}
+                                            <input name="firstName" value={form.firstName} onChange={handleChange} placeholder="Jane" disabled={submitting} maxLength={LIMITS.name} autoComplete="given-name"
                                                 style={inputBase} onFocus={focusStyle} onBlur={blurStyle}/>
                                         </div>
                                         <div>
                                             <FieldLabel>Last Name</FieldLabel>
-                                            <input name="lastName" value={form.lastName} onChange={handleChange} placeholder="Smith" disabled={submitting}
+                                            <input name="lastName" value={form.lastName} onChange={handleChange} placeholder="Smith" disabled={submitting} maxLength={LIMITS.name} autoComplete="family-name"
                                                 style={inputBase} onFocus={focusStyle} onBlur={blurStyle}/>
                                         </div>
                                     </div>
@@ -197,14 +247,14 @@ const Contact = () => {
                                     {/* Email */}
                                     <div>
                                         <FieldLabel required>Email Address</FieldLabel>
-                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@company.com" disabled={submitting}
+                                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@company.com" disabled={submitting} maxLength={LIMITS.email} autoComplete="email"
                                             style={inputBase} onFocus={focusStyle} onBlur={blurStyle}/>
                                     </div>
 
                                     {/* Organisation */}
                                     <div>
                                         <FieldLabel>Organisation</FieldLabel>
-                                        <input name="organization" value={form.organization} onChange={handleChange} placeholder="Your company or institution" disabled={submitting}
+                                        <input name="organization" value={form.organization} onChange={handleChange} placeholder="Your company or institution" disabled={submitting} maxLength={LIMITS.organization} autoComplete="organization"
                                             style={inputBase} onFocus={focusStyle} onBlur={blurStyle}/>
                                     </div>
 
@@ -220,9 +270,24 @@ const Contact = () => {
                                     {/* Message */}
                                     <div>
                                         <FieldLabel required>Message</FieldLabel>
-                                        <textarea name="message" value={form.message} onChange={handleChange} rows={5} placeholder="Tell us how we can help you…" disabled={submitting}
+                                        <textarea name="message" value={form.message} onChange={handleChange} rows={5} placeholder="Tell us how we can help you…" disabled={submitting} maxLength={LIMITS.message}
                                             style={{ ...inputBase, resize:'vertical', minHeight:'120px' }} onFocus={focusStyle} onBlur={blurStyle}/>
                                     </div>
+
+                                    {/* Honeypot — invisible to people, bots fill it in. Must stay empty. */}
+                                    <div aria-hidden="true" style={{ position:'absolute', left:'-10000px', width:1, height:1, overflow:'hidden' }}>
+                                        <label>Website
+                                            <input name="website" value={form.website} onChange={handleChange} tabIndex={-1} autoComplete="off"/>
+                                        </label>
+                                    </div>
+
+                                    {RECAPTCHA_SITE_KEY && (
+                                        <div className="ct-captcha">
+                                            <ReCAPTCHA ref={recaptchaRef} sitekey={RECAPTCHA_SITE_KEY}
+                                                onChange={(token) => { setRecaptchaToken(token || ''); setError(''); }}
+                                                onExpired={() => setRecaptchaToken('')}/>
+                                        </div>
+                                    )}
 
                                     <button type="submit" disabled={submitting}
                                         style={{ width:'100%', padding:'0.88rem', background:submitting?'#94A3B8':'linear-gradient(135deg,#003366,#005099)', color:'white', border:'none', borderRadius:10, fontWeight:700, fontSize:'0.93rem', cursor:submitting?'not-allowed':'pointer', fontFamily:'var(--font-sans)', transition:'all 0.18s', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:submitting?'none':'0 4px 14px rgba(0,51,102,0.28)' }}

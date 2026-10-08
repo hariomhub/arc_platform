@@ -15,6 +15,9 @@
  *  SMTP_FROM_NAME   Display name (default: "AI Risk Council")
  *  SMTP_FROM_EMAIL  Sender email (default: value of SMTP_USER)
  *  APP_URL      Your public domain (default: Azure App Service URL)
+ *  CONTACT_RECEIVER_EMAIL  Where Contact-form messages are delivered. Optional;
+ *               comma-separated for several recipients
+ *               (default: support@riskaicouncil.org)
  *
  * Design:
  *  • All send functions are fire-and-forget — failures are logged but never
@@ -113,19 +116,39 @@ const buildGCalUrl = (title, dateStr, location) => {
 };
 
 // ── Fire-and-forget dispatcher ────────────────────────────────────────────────
+// Never throws. Resolves true when the message was accepted by the SMTP relay,
+// false when it was skipped (SMTP not configured) or failed. Most callers ignore
+// the result; callers that must know whether delivery happened can await it.
 const send = async (mailOptions) => {
   const transporter = getTransporter();
   if (!transporter) {
     console.warn(`[Email] SMTP not configured — skipped: "${mailOptions.subject}" → ${mailOptions.to}`);
-    return;
+    return false;
   }
   try {
     const info = await transporter.sendMail(mailOptions);
     console.info(`[Email] ✓ Sent "${mailOptions.subject}" → ${mailOptions.to} (${info.messageId})`);
+    return true;
   } catch (err) {
     console.error(`[Email] ✗ Failed "${mailOptions.subject}" → ${mailOptions.to}:`, err.message);
+    return false;
   }
 };
+
+// ── Untrusted-text helpers (for values typed by anonymous visitors) ───────────
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+// Collapse whitespace/newlines so a value is safe inside a subject line.
+const oneLine = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+// Escape first, then turn line breaks into <br> — never the other way round.
+const nl2br = (value) => escapeHtml(value).replace(/\r?\n/g, '<br>');
 
 // ── HTML component helpers ────────────────────────────────────────────────────
 const infoRow = (label, value) => {
@@ -162,7 +185,9 @@ const checkListItem = (text) =>
   `<tr><td style="padding:5px 0;font-size:13px;color:#475569;line-height:1.6;">${text}</td></tr>`;
 
 // ── Master layout ─────────────────────────────────────────────────────────────
-const layout = (bodyHtml, previewText = '') => `
+const DEFAULT_FOOTER_NOTE = 'You received this email because you have an account on the AI Risk Council platform.';
+
+const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) => `
 <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -236,7 +261,7 @@ const layout = (bodyHtml, previewText = '') => `
         <a href="${APP_URL()}/contact" style="color:#003366;text-decoration:none;font-weight:600;">Contact Us</a>
        </p>
        <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} AI Risk Council. All rights reserved.</p>
-       <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;">You received this email because you have an account on the AI Risk Council platform.</p>
+       <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;">${footerNote}</p>
       </td>
      </tr>
 
@@ -1314,6 +1339,128 @@ export const sendDeletionRejectedEmail = ({ name, email, reason }) => {
     from:    FROM(),
     to:      email,
     subject: 'Account Deletion Request Update — Risk AI Council',
+    html,
+  });
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// CONTACT FORM
+// Unlike the senders above, these RETURN the delivery result (Promise<boolean>)
+// so the Contact endpoint can tell the visitor honestly whether it worked.
+// All visitor-supplied text is HTML-escaped before it reaches a template.
+// ════════════════════════════════════════════════════════════════════════════════
+
+const CONTACT_RECEIVER = () =>
+  (process.env.CONTACT_RECEIVER_EMAIL || '').trim() || 'support@riskaicouncil.org';
+
+const messageBox = (label, message) => `
+    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">${label}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
+     <tr>
+      <td style="padding:18px 20px;font-size:14px;color:#334155;line-height:1.7;word-break:break-word;">${nl2br(message)}</td>
+     </tr>
+    </table>`;
+
+/**
+ * sendContactInquiryAdminEmail
+ * Delivers a Contact-form message to the team. Reply-To is the visitor, so
+ * hitting "Reply" in the mailbox answers them directly.
+ *
+ * @param {{ id?: number, firstName: string, lastName?: string, email: string,
+ *           organization?: string, inquiry: string, message: string, receivedAt?: Date }} opts
+ * @returns {Promise<boolean>} true if the SMTP relay accepted the message
+ */
+export const sendContactInquiryAdminEmail = ({
+  id, firstName, lastName, email, organization, inquiry, message, receivedAt = new Date(),
+}) => {
+  const fullName = oneLine(`${firstName} ${lastName || ''}`);
+  const receivedOn = [formatDate(receivedAt), formatTime(receivedAt)].filter(Boolean).join(' · ');
+  const replySubject = encodeURIComponent(`Re: ${oneLine(inquiry)}`);
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">New Contact Inquiry</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Someone submitted the Contact form on the website. Reply to this email to respond to
+      <strong>${escapeHtml(firstName)}</strong> directly.
+    </p>
+
+    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Sender Details</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+     ${infoRow('Reference',    id ? `#${id}` : '')}
+     ${infoRow('Name',         escapeHtml(fullName))}
+     ${infoRow('Email',        `<a href="mailto:${escapeHtml(email)}" style="color:#0066cc;">${escapeHtml(email)}</a>`)}
+     ${infoRow('Organisation', organization ? escapeHtml(organization) : '—')}
+     ${infoRow('Inquiry Type', badge(escapeHtml(inquiry)))}
+     ${infoRow('Received',     receivedOn)}
+    </table>
+
+    ${messageBox('Message', message)}
+
+    ${ctaButton(`Reply to ${escapeHtml(firstName)}`, `mailto:${escapeHtml(email)}?subject=${replySubject}`)}
+  `,
+  escapeHtml(`${fullName} — ${inquiry}: ${oneLine(message).slice(0, 90)}`),
+  'Internal notification — sent because Contact-form messages are routed to this address.');
+
+  return send({
+    from:    FROM(),
+    to:      CONTACT_RECEIVER(),
+    replyTo: { name: fullName, address: email },
+    subject: `New contact inquiry: ${oneLine(inquiry)} — ${fullName}`,
+    html,
+  });
+};
+
+/**
+ * sendContactConfirmationEmail
+ * Tells the visitor their message arrived and repeats it back for their records.
+ *
+ * @param {{ id?: number, firstName: string, email: string, inquiry: string, message: string }} opts
+ * @returns {Promise<boolean>} true if the SMTP relay accepted the message
+ */
+export const sendContactConfirmationEmail = ({ id, firstName, email, inquiry, message }) => {
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Message Received</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${escapeHtml(firstName)}, thank you for contacting Risk AI Council. We've received your message.
+    </p>
+
+    <!-- Confirmation banner -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d4ed8;">We'll be in touch</p>
+       <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
+        A member of our team will get back to you within 1–2 business days.
+       </p>
+      </td>
+     </tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+     ${infoRow('Reference',    id ? `#${id}` : '')}
+     ${infoRow('Inquiry Type', badge(escapeHtml(inquiry)))}
+    </table>
+
+    ${messageBox('Your Message', message)}
+
+    ${ctaButton('Back to the Platform', APP_URL())}
+
+    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Need to add something? Just reply to this email or write to
+      <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
+    </p>
+  `,
+  'We\'ve received your message — our team will reply within 1–2 business days.',
+  'You received this email because this address was used to submit the Contact form on the AI Risk Council website. If that wasn\'t you, you can safely ignore it.');
+
+  return send({
+    from:    FROM(),
+    to:      email,
+    replyTo: CONTACT_RECEIVER(),
+    subject: 'We\'ve received your message — Risk AI Council',
     html,
   });
 };
