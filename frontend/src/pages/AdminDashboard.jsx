@@ -10,10 +10,11 @@ import {
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
+import ContactMessagesManagement from '../components/admin/ContactMessagesManagement.jsx';
 import AutomatedNewsManagement from '../components/AutomatedNewsManagement.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
-import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade } from '../api/admin.js';
+import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade, getContactMessages } from '../api/admin.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
@@ -41,6 +42,7 @@ const TABS = [
     { key: 'product_reviews', label: 'Product Reviews', icon: ShieldCheck },
     { key: 'nominations', label: 'Nominations', icon: Trophy },
     { key: 'framework', label: 'Framework Content', icon: Shield },
+    { key: 'contact', label: 'Contact Messages', icon: Mail },
     { key: 'users', label: 'Manage Users', icon: Users },
 ];
 
@@ -2269,6 +2271,7 @@ const AdminDashboard = () => {
     const [pendingCount, setPendingCount] = useState(0);
     const [pendingResourcesCount, setPendingResourcesCount] = useState(0);
     const [pendingNewsCount, setPendingNewsCount] = useState(0);
+    const [contactNewCount, setContactNewCount] = useState(0);
 
     useEffect(() => { document.title = 'Admin Dashboard | ARC'; }, []);
 
@@ -2296,10 +2299,15 @@ const AdminDashboard = () => {
         catch { setPendingNewsCount(0); }
     }, []);
 
+    const refreshContactCount = useCallback(async () => {
+        try { const res = await getContactMessages({ limit: 1 }); setContactNewCount(res.data?.counts?.new ?? 0); }
+        catch { setContactNewCount(0); }
+    }, []);
+
     useEffect(() => {
-        if (user?.role === 'founding_member') { refreshPending(); refreshPendingResources(); refreshPendingNews(); }
+        if (user?.role === 'founding_member') { refreshPending(); refreshPendingResources(); refreshPendingNews(); refreshContactCount(); }
         else if (user?.role === 'council_member') { refreshPendingResources(); refreshPendingNews(); }
-    }, [user, refreshPending, refreshPendingResources, refreshPendingNews]);
+    }, [user, refreshPending, refreshPendingResources, refreshPendingNews, refreshContactCount]);
 
     if (!user || (user.role !== 'founding_member' && user.role !== 'council_member')) return null;
 
@@ -2348,6 +2356,19 @@ const AdminDashboard = () => {
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                                         <span style={{ fontSize: '1.8rem', fontWeight: '800', color: pendingCount > 0 ? '#F87171' : '#475569', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{pendingCount > 0 ? pendingCount : '0'}</span>
                                         {pendingCount > 0 && <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#F87171', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Action needed</span>}
+                                    </div>
+                                </div>
+                            )}
+
+                            {isFoundingMember && (
+                                <div className="adm-stat-card" onClick={() => setTab('contact')} style={{ flex: '0 0 auto', paddingRight: '2rem', marginRight: '2rem', borderRight: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: contactNewCount > 0 ? '#3B82F6' : '#334155', flexShrink: 0 }} />
+                                        <span style={{ fontSize: '0.67rem', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' }}>New Messages</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '1.8rem', fontWeight: '800', color: contactNewCount > 0 ? '#60A5FA' : '#475569', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{contactNewCount}</span>
+                                        {contactNewCount > 0 && <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#60A5FA', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Awaiting reply</span>}
                                     </div>
                                 </div>
                             )}
@@ -2403,6 +2424,7 @@ const AdminDashboard = () => {
                                         {label}
                                         {key === 'pending' && pendingCount > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '0.6rem', fontWeight: '800', padding: '1px 5px', borderRadius: '100px', lineHeight: '1.6', marginLeft: '1px' }}>{pendingCount}</span>}
                                         {key === 'pending_resources' && pendingResourcesCount > 0 && <span style={{ background: '#F59E0B', color: 'white', fontSize: '0.6rem', fontWeight: '800', padding: '1px 5px', borderRadius: '100px', lineHeight: '1.6', marginLeft: '1px' }}>{pendingResourcesCount}</span>}
+                                        {key === 'contact' && contactNewCount > 0 && <span style={{ background: '#2563EB', color: 'white', fontSize: '0.6rem', fontWeight: '800', padding: '1px 5px', borderRadius: '100px', lineHeight: '1.6', marginLeft: '1px' }}>{contactNewCount}</span>}
                                     </button>
                                 );
                             })}
@@ -2424,6 +2446,7 @@ const AdminDashboard = () => {
                 {tab === 'workshops' && <WorkshopsTab showToast={showToast} />}
                 {tab === 'nominations' && <AdminNominees embedded />}
                 {tab === 'framework' && <FrameworkManagement />}
+                {tab === 'contact' && isFoundingMember && <ContactMessagesManagement showToast={showToast} onCountChange={setContactNewCount} />}
             </div>
 
             <style>{`

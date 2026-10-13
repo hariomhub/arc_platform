@@ -3,9 +3,14 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Base path: /api/contact
  *
- *   POST /   — Submit a Contact-form message (public, no login required)
+ *   POST /                  — Submit a Contact-form message (public; if the sender
+ *                             is logged in the message is linked to their account)
+ *   GET  /mine              — (login) my messages + the replies to them
+ *   POST /mine/:id/read     — (login) mark the replies on one of my messages read
  *
- * Middleware order matters:
+ * Admin side (list / reply / triage) lives in routes/adminContact.js.
+ *
+ * POST / middleware order matters:
  *   1. rate limit        — cheapest check first, caps abuse per IP
  *   2. honeypot          — bots that fill the hidden field are dropped silently
  *   3. validation        — before reCAPTCHA, because a reCAPTCHA token is
@@ -15,8 +20,10 @@
  */
 
 import { Router } from 'express';
-import { body, validationResult } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import { rateLimit } from 'express-rate-limit';
+import auth from '../middleware/auth.js';
+import optionalAuth from '../middleware/optionalAuth.js';
 import { verifyRecaptchaMiddleware } from '../middleware/verifyRecaptcha.js';
 import * as ctrl from '../controllers/contactController.js';
 
@@ -95,10 +102,23 @@ router.post(
     '/',
     contactLimiter,
     honeypot,
+    optionalAuth,            // sets req.user when logged in → message is linked to the account
     contactValidation,
     validate,
     verifyRecaptchaMiddleware,
     ctrl.submitContactMessage
+);
+
+// GET /api/contact/mine
+router.get('/mine', auth, ctrl.getMyMessages);
+
+// POST /api/contact/mine/:id/read
+router.post(
+    '/mine/:id/read',
+    auth,
+    param('id').isInt({ min: 1 }).withMessage('Invalid message id.'),
+    validate,
+    ctrl.markMyMessageRead
 );
 
 export default router;

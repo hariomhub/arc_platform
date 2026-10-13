@@ -48,6 +48,12 @@ const getTransporter = () => {
     maxMessages:  100,
     rateDelta:   1000,    // per second
     rateLimit:   10,     // max 10 msgs/s
+    // Fail fast when the SMTP host is unreachable. Nodemailer's defaults are
+    // 2 min (connect) / 10 min (socket), which would leave a request that
+    // awaits an email — e.g. the Contact form — hanging on "Sending…".
+    connectionTimeout: 10000,
+    greetingTimeout:  10000,
+    socketTimeout:   30000,
   });
 
   return _transporter;
@@ -1413,6 +1419,48 @@ export const sendContactInquiryAdminEmail = ({
 };
 
 /**
+ * sendContactReplyEmail
+ * Delivers an admin's dashboard reply to the person who wrote in, quoting their
+ * original message. Replies to this email go to the shared support inbox.
+ *
+ * @param {{ firstName: string, email: string, inquiry: string, originalMessage: string,
+ *           replyBody: string, hasAccount?: boolean }} opts
+ * @returns {Promise<boolean>} true if the SMTP relay accepted the message
+ */
+export const sendContactReplyEmail = ({ firstName, email, inquiry, originalMessage, replyBody, hasAccount = false }) => {
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Reply to Your Message</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
+      Hi ${escapeHtml(firstName)}, our team has replied to your <strong>${escapeHtml(inquiry)}</strong> message.
+    </p>
+
+    ${messageBox('Our Reply', replyBody)}
+
+    <div style="height:20px;"></div>
+    ${messageBox('Your Original Message', originalMessage)}
+
+    ${hasAccount
+      ? ctaButton('View in Your Dashboard', `${APP_URL()}/user/dashboard#messages`)
+      : ctaButton('Visit Risk AI Council', APP_URL())}
+
+    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Want to follow up? Just reply to this email or write to
+      <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
+    </p>
+  `,
+  escapeHtml(`Our team replied to your ${oneLine(inquiry)} message: ${oneLine(replyBody).slice(0, 90)}`),
+  'You received this email because this address was used to contact the AI Risk Council team through our website.');
+
+  return send({
+    from:    FROM(),
+    to:      email,
+    replyTo: CONTACT_RECEIVER(),
+    subject: `Re: ${oneLine(inquiry)} — Risk AI Council`,
+    html,
+  });
+};
+
+/**
  * sendContactConfirmationEmail
  * Tells the visitor their message arrived and repeats it back for their records.
  *
@@ -1463,4 +1511,86 @@ export const sendContactConfirmationEmail = ({ id, firstName, email, inquiry, me
     subject: 'We\'ve received your message — Risk AI Council',
     html,
   });
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// EMAIL DIAGNOSTICS (admin dashboard)
+// Production secrets live in Azure App Settings and cannot be inspected from the
+// repo, so the admin dashboard calls these to find out — from the live server —
+// whether email can actually be sent, and why not. Never returns SMTP_PASS.
+// ════════════════════════════════════════════════════════════════════════════════
+
+const describeSmtpError = (err) => {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT || '587';
+  if (err.code === 'EAUTH' || err.responseCode === 535) {
+    return 'The mail server rejected the login. Check SMTP_USER and SMTP_PASS (for GoDaddy / Microsoft 365, SMTP authentication must be enabled for the mailbox).';
+  }
+  if (['ETIMEDOUT', 'ECONNECTION', 'ECONNREFUSED', 'ESOCKET', 'ENOTFOUND', 'EDNS'].includes(err.code)) {
+    return `Cannot reach the mail server at ${host}:${port} (${err.code}). Check SMTP_HOST / SMTP_PORT / SMTP_SECURE, and that this server is allowed to make outbound connections on that port.`;
+  }
+  return `${err.code ? `${err.code}: ` : ''}${err.message}`;
+};
+
+/**
+ * getEmailHealth
+ * Connects and authenticates to the SMTP server WITHOUT sending anything.
+ * @returns {Promise<{ configured: boolean, ok: boolean, error: string|null,
+ *                     host: string|null, port: number, secure: boolean,
+ *                     user: string|null, from: string, receiver: string }>}
+ */
+export const getEmailHealth = async () => {
+  const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].filter((k) => !process.env[k]);
+  const info = {
+    host:     process.env.SMTP_HOST || null,
+    port:     parseInt(process.env.SMTP_PORT || '587', 10),
+    secure:   process.env.SMTP_SECURE === 'true',
+    user:     process.env.SMTP_USER || null,
+    from:     process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || null,
+    receiver: CONTACT_RECEIVER(),
+  };
+
+  if (missing.length) {
+    return { ...info, configured: false, ok: false, error: `Email is not configured on this server. Missing setting(s): ${missing.join(', ')}.` };
+  }
+  try {
+    await getTransporter().verify();
+    return { ...info, configured: true, ok: true, error: null };
+  } catch (err) {
+    console.error('[Email] Health check failed:', err.message);
+    return { ...info, configured: true, ok: false, error: describeSmtpError(err) };
+  }
+};
+
+/**
+ * sendTestEmail
+ * Sends one real test message so an admin can confirm delivery end-to-end
+ * (including that it does not land in spam).
+ * @param {string} to
+ * @returns {Promise<{ ok: boolean, error: string|null }>}
+ */
+export const sendTestEmail = async (to) => {
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { ok: false, error: 'Email is not configured on this server (SMTP_HOST / SMTP_USER / SMTP_PASS).' };
+  }
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Email is working</h2>
+    <p style="margin:0;font-size:15px;color:#64748b;line-height:1.65;">
+      This is a test message sent from the admin dashboard to confirm that Risk AI Council can deliver email.
+      If you can read this, outgoing email is set up correctly.
+    </p>
+  `,
+  'Test email from the Risk AI Council admin dashboard',
+  'Test message requested from the admin dashboard.');
+
+  try {
+    const info = await transporter.sendMail({ from: FROM(), to, subject: 'Test email — Risk AI Council', html });
+    console.info(`[Email] ✓ Sent test email → ${to} (${info.messageId})`);
+    return { ok: true, error: null };
+  } catch (err) {
+    console.error(`[Email] ✗ Test email failed → ${to}:`, err.message);
+    return { ok: false, error: describeSmtpError(err) };
+  }
 };

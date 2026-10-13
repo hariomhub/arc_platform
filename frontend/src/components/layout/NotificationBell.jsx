@@ -15,6 +15,7 @@ const TYPE_META = {
     membership_approved:    { color: '#059669', bg: '#F0FDF4', label: 'Mem' },
     membership_rejected:    { color: '#DC2626', bg: '#FEF2F2', label: 'Mem' },
     qna_answered:           { color: '#003366', bg: '#EFF6FF', label: 'Q&A' },
+    contact_reply:          { color: '#1D4ED8', bg: '#EFF6FF', label: 'Msg' },
     membership_expiring_7:  { color: '#D97706', bg: '#FFFBEB', label: 'Exp' },
     membership_expiring_15: { color: '#D97706', bg: '#FFFBEB', label: 'Exp' },
     membership_expired:     { color: '#DC2626', bg: '#FEF2F2', label: 'End' },

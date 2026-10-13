@@ -20,6 +20,7 @@ const TYPE_CONFIG = {
     membership_approved:    { label: 'Membership', color: '#059669', bg: '#F0FDF4', Icon: Users },
     membership_rejected:    { label: 'Membership', color: '#DC2626', bg: '#FEF2F2', Icon: Users },
     qna_answered:           { label: 'Q&A',        color: '#003366', bg: '#EFF6FF', Icon: MessageSquare },
+    contact_reply:          { label: 'Message',    color: '#1D4ED8', bg: '#EFF6FF', Icon: MessageSquare },
     membership_expiring_7:  { label: 'Expiry',     color: '#D97706', bg: '#FFFBEB', Icon: Clock },
     membership_expiring_15: { label: 'Expiry',     color: '#D97706', bg: '#FFFBEB', Icon: Clock },
     membership_expired:     { label: 'Expired',    color: '#DC2626', bg: '#FEF2F2', Icon: AlertCircle },

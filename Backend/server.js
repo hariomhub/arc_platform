@@ -47,6 +47,7 @@ import membershipRoutes   from './routes/membership.js';
 import workshopsRoutes    from './routes/workshops.js';
 import accountDeletionRoutes from './routes/accountDeletion.js';
 import contactRoutes         from './routes/contact.js';
+import adminContactRoutes    from './routes/adminContact.js';
 
 // ─── Cron Job Imports ─────────────────────────────────────────────────────────
 import { initNewsFetchCron }        from './jobs/newsFetchJob.js';
@@ -145,6 +146,7 @@ app.use('/api/team',            teamRoutes);
 app.use('/api/qna',             qnaRoutes);          // ← feed routes (repurposed)
 app.use('/api/news',            newsRoutes);
 app.use('/api/admin/auto-news', autoNewsRoutes);
+app.use('/api/admin/contact-messages', adminContactRoutes);
 app.use('/api/admin',           adminRoutes);
 app.use('/api/profile',         profileRoutes);
 app.use('/api/product-reviews', productReviewsRoutes);

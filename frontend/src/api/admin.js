@@ -18,6 +18,14 @@ export const getMembershipApplications    = (params)            => api.get('/adm
 export const approveMembershipApplication = (id, data)          => api.patch(`/admin/membership-applications/${id}/approve`, data);
 export const rejectMembershipApplication  = (id, adminNotes)   => api.patch(`/admin/membership-applications/${id}/reject`, { admin_notes: adminNotes });
 
+// Contact-form messages (founding members only)
+export const getContactMessages    = (params)       => api.get('/admin/contact-messages', { params });
+export const getContactMessage     = (id)           => api.get(`/admin/contact-messages/${id}`);
+export const replyToContactMessage = (id, body)     => api.post(`/admin/contact-messages/${id}/reply`, { body });
+export const setContactMessageStatus = (id, status) => api.patch(`/admin/contact-messages/${id}/status`, { status });
+export const getEmailHealth        = ()             => api.get('/admin/contact-messages/email-health');
+export const sendTestEmail         = ()             => api.post('/admin/contact-messages/email-test');
+
 // Sub-type upgrade requests: final_year_undergrad → working_professional
 export const getPendingSubTypeUpgrades  = (params) => api.get('/admin/sub-type-upgrades', { params });
 export const approveSubTypeUpgrade      = (id, data) => api.patch(`/admin/sub-type-upgrades/${id}/approve`, data);

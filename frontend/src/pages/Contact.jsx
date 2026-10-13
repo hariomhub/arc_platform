@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { Mail, Phone, MapPin, Send, CheckCircle, AlertCircle, Loader2, Globe, Building } from 'lucide-react';
 import { submitContactForm } from '../api/contact.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -15,6 +17,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // `website` is a honeypot: hidden from people, filled in by bots.
 const EMPTY_FORM = { firstName: '', lastName: '', email: '', organization: '', inquiry: INQUIRY_TYPES[0], message: '', website: '' };
+
+// Name/email taken from a logged-in member's account (nothing when logged out).
+const profileFields = (user) => {
+    if (!user) return { firstName: '', lastName: '', email: '' };
+    const [first = '', ...rest] = String(user.name || '').trim().split(/\s+/);
+    return { firstName: first, lastName: rest.join(' '), email: user.email || '' };
+};
 
 const OFFICES = [
     {
@@ -56,6 +65,9 @@ const FieldLabel = ({ children, required }) => (
 );
 
 const Contact = () => {
+    const { user, isAdmin } = useAuth();
+    // Admins are redirected from the member dashboard, so only members get the "My Messages" pointer.
+    const hasMemberDashboard = !!user && !isAdmin?.();
     const [form, setForm] = useState(EMPTY_FORM);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -68,6 +80,19 @@ const Contact = () => {
         setForm(p => ({ ...p, [name]: value }));
         setError('');
     };
+
+    // Logged-in members: pre-fill their details (only into empty fields) so their
+    // message is easy to send and lands in their own "My Messages".
+    useEffect(() => {
+        if (!user) return;
+        const p = profileFields(user);
+        setForm((f) => ({
+            ...f,
+            firstName: f.firstName || p.firstName,
+            lastName:  f.lastName  || p.lastName,
+            email:     f.email     || p.email,
+        }));
+    }, [user]);
 
     const resetRecaptcha = () => {
         recaptchaRef.current?.reset();
@@ -212,8 +237,11 @@ const Contact = () => {
                                 <h2 style={{ margin:'0 0 0.75rem', fontSize:'clamp(1.25rem,3vw,1.6rem)', fontWeight:800, color:'#1E293B' }}>Message Sent!</h2>
                                 <p style={{ color:'#64748B', fontSize:'0.95rem', lineHeight:1.7, margin:'0 0 2rem', maxWidth:'400px', marginLeft:'auto', marginRight:'auto' }}>
                                     Thank you for reaching out. Our team will get back to you within 1–2 business days.
+                                    {hasMemberDashboard
+                                        ? <> You'll get an email, and the reply will also appear in <Link to="/user/dashboard#messages" style={{ color:'#003366', fontWeight:700 }}>My Messages</Link> on your dashboard.</>
+                                        : <> We'll reply to the email address you provided.</>}
                                 </p>
-                                <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM); setError(''); setRecaptchaToken(''); }}
+                                <button onClick={() => { setSubmitted(false); setForm({ ...EMPTY_FORM, ...profileFields(user) }); setError(''); setRecaptchaToken(''); }}
                                     style={{ background:'#003366', color:'white', border:'none', padding:'0.75rem 2rem', borderRadius:10, fontWeight:700, fontSize:'0.9rem', cursor:'pointer', fontFamily:'var(--font-sans)' }}>
                                     Send Another Message
                                 </button>

@@ -35,6 +35,7 @@ export const NOTIF_TYPES = {
     MEMBERSHIP_REJECTED:       'membership_rejected',
     MEMBERSHIP_EXPIRING_7:     'membership_expiring_7',
     MEMBERSHIP_EXPIRED:        'membership_expired',
+    CONTACT_REPLY:             'contact_reply',
 
     // ── Feed — immediate ──────────────────────────────────────────────────────
     FEED_POST_COMMENTED:       'feed_post_commented',
@@ -63,6 +64,7 @@ const IMMEDIATE_TYPES = new Set([
     NOTIF_TYPES.MEMBERSHIP_REJECTED,
     NOTIF_TYPES.MEMBERSHIP_EXPIRING_7,
     NOTIF_TYPES.MEMBERSHIP_EXPIRED,
+    NOTIF_TYPES.CONTACT_REPLY,
     // Feed immediate
     NOTIF_TYPES.FEED_POST_COMMENTED,
     NOTIF_TYPES.FEED_COMMENT_REPLIED,

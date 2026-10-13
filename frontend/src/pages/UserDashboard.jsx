@@ -13,6 +13,7 @@ import { getMyDownloadUsage } from '../api/resources.js';
 import { getMyPosts } from '../api/feed.js';
 import MyPostsModal from '../components/modals/MyPostsModal.jsx';
 import MyStatsModal from '../components/modals/MyStatsModal.jsx';
+import MyContactMessages from '../components/dashboard/MyContactMessages.jsx';
 
 const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Chapter Lead', executive: 'Chapter Lead', professional: 'Professional' };
 const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#B45309', executive: '#B45309', professional: '#0369A1' };
@@ -433,6 +434,9 @@ const UserDashboard = () => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* My Messages — replies from the team to the user's Contact-form messages */}
+                            <MyContactMessages />
 
                             {/* Stats */}
                             <div className="dash-card">

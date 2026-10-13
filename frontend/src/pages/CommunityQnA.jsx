@@ -59,7 +59,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                             {[
                                 { v: totalCount > 0 ? totalCount : '—', l: 'Posts' },
-                                { v: '1,200+', l: 'Members' },
+                                { v: '50+', l: 'Members' },
                             ].map(({ v, l }) => (
                                 <div key={l} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.07)' }}>
                                     <p style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'white', lineHeight: 1 }}>{v}</p>
@@ -311,7 +311,7 @@ const CommunityQnA = () => {
                         <div style={{ display:'flex', gap:'clamp(1rem,2.5vw,2rem)', flexWrap:'wrap' }}>
                             {[
                                 { v: totalCount > 0 ? totalCount : '—', l: 'Posts' },
-                                { v: '1,200+', l: 'Members' },
+                                { v: '50+', l: 'Members' },
                                 { v: '50+',    l: 'Topics' },
                             ].map(({ v, l }) => (
                                 <div key={l}>
