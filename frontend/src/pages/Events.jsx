@@ -15,13 +15,14 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import {
     getEvents, createEvent, updateEvent, deleteEvent,
-    registerForEvent, cancelEventRegistration,
+    registerForEvent, cancelEventRegistration, getMyRegistrations,
     uploadEventThumbnail, uploadSpeakerPhoto,
 } from '../api/events.js';
 import { getNominees, getMyVotes, castVote } from '../api/nominations.js';
 import { getWorkshops } from '../api/workshops.js';
 import { formatDate } from '../utils/dateFormatter.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import { trackView } from '../api/views.js';
 import Pagination from '../components/common/Pagination.jsx';
 
 // ─── Body scroll lock hook ────────────────────────────────────────────────────
@@ -510,8 +511,8 @@ const NominationsSection = () => {
     );
 
     return (
-        <section style={{ background: '#F8FAFC', padding: 'clamp(1rem,2vw,1.5rem) 0 clamp(1.5rem,3vw,2.5rem)', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 clamp(1rem,4vw,2rem)' }}>
+        <section style={{ background: '#F8FAFC', padding: 'clamp(1rem,2vw,1.5rem) clamp(1rem,2.2vw,1.5rem) clamp(1.5rem,3vw,2.5rem)', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+            <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
                 <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '5px 16px', marginBottom: '1rem', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                         <Trophy size={13} color="#D97706" /><span style={{ color: '#64748B', fontWeight: '700', fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Awards & Nominations</span>
@@ -627,6 +628,13 @@ const EventCard = ({ ev, isAdmin, onEdit, onDelete, onViewDetail }) => {
                     </div>
                 )}
 
+                {ev.hosts?.length > 0 && (
+                    <p style={{ margin: '0 0 0.6rem', fontSize: '0.72rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Mic2 size={11} color={meta.color} />
+                        <span>Hosted by <strong style={{ color: '#1E293B' }}>{ev.hosts.map(h => h.name).join(', ')}</strong></span>
+                    </p>
+                )}
+
                 {ev.description && (
                     <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: '1.6', flexGrow: 1, marginBottom: '0.85rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 0 }}>
                         {ev.description.replace(/^[-•*]\s+/gm, '').replace(/\r?\n/g, ' ')}
@@ -711,6 +719,9 @@ const EventDetailModal = ({ ev, onClose, isAuthenticated }) => {
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
     }, [onClose]);
+
+    // Chapter Leads see how many people opened their podcast / event page.
+    useEffect(() => { trackView('event', ev.id); }, [ev.id]);
 
     const speakerInitials = ev.speaker_name
         ? ev.speaker_name.split(' ').map(w => w[0]).slice(0, 2).join('')
@@ -895,6 +906,7 @@ const EventDetailModal = ({ ev, onClose, isAuthenticated }) => {
                             <>
                                 {ev.recording_url && (
                                     <a href={ev.recording_url} target="_blank" rel="noopener noreferrer"
+                                        onClick={() => trackView('event', ev.id, 'recording_click')}
                                         style={{ flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: '#003366', color: 'white', padding: '0.8rem 1.25rem', borderRadius: '10px', fontWeight: '700', fontSize: '0.875rem', textDecoration: 'none', transition: 'background 0.15s' }}
                                         onMouseOver={e => e.currentTarget.style.background = '#002147'}
                                         onMouseOut={e => e.currentTarget.style.background = '#003366'}>
@@ -1302,8 +1314,8 @@ const FeaturedWorkshopsSection = () => {
     if (loading || workshops.length === 0) return null;
 
     return (
-        <section id="featured-workshops" style={{ padding: 'clamp(2rem,4vw,3.5rem) clamp(1rem,4vw,3rem)', background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ maxWidth: '1100px', margin: '0 auto', position: 'relative' }}>
+        <section id="featured-workshops" style={{ padding: 'clamp(2rem,4vw,3.5rem) clamp(1rem,2.2vw,1.5rem)', background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)', borderBottom: '1px solid #E2E8F0' }}>
+            <div style={{ maxWidth: '1240px', margin: '0 auto', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F5F3FF', border: '1px solid #EDE9FE', borderRadius: '20px', padding: '4px 12px', marginBottom: '0.75rem', color: '#7C3AED', fontSize: '0.65rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -1344,6 +1356,16 @@ const Events = () => {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting]        = useState(false);
     const [detailEvent, setDetailEvent]  = useState(null);
+    // The signed-in user's registrations, for the hero panel: undefined = loading, null = signed out or failed.
+    const userId = user?.id;
+    const [myRegs, setMyRegs] = useState(undefined);
+    useEffect(() => {
+        if (!userId) { setMyRegs(null); return undefined; }
+        let live = true;
+        setMyRegs(undefined);
+        getMyRegistrations().then(res => { if (live) setMyRegs(res.data?.data ?? []); }).catch(() => { if (live) setMyRegs(null); });
+        return () => { live = false; };
+    }, [userId]);
 
     useEffect(() => { document.title = 'Events | Risk AI Council (RAC)'; }, []);
 
@@ -1383,6 +1405,17 @@ const Events = () => {
         finally { setDeleting(false); }
     }, [deleteTarget, showToast, fetchData]);
 
+    const fmtShort = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const myUpcoming = Array.isArray(myRegs) ? myRegs.filter(r => r.is_upcoming).sort((a, b) => new Date(a.event_date) - new Date(b.event_date)) : [];
+    // "Next up" tile in the hero: the soonest event in the list being shown (upcoming tab only).
+    const nextEvent = tab === 'upcoming' && !loading
+        ? events.filter(e => e.date).reduce((best, e) => (!best || new Date(e.date) < new Date(best.date) ? e : best), null)
+        : null;
+    const daysToNext = nextEvent ? Math.ceil((new Date(nextEvent.date).getTime() - Date.now()) / 86400000) : 0;
+    const nextWhen = nextEvent
+        ? `${new Date(nextEvent.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${daysToNext > 1 ? ` · in ${daysToNext} days` : daysToNext === 1 ? ' · tomorrow' : daysToNext === 0 ? ' · today' : ''}`
+        : '';
+
     return (
         <div style={{ background: '#F8FAFC', minHeight: '100vh' }}>
             <style>{`
@@ -1419,15 +1452,35 @@ const Events = () => {
                     margin-top: 2.5rem;
                     flex-wrap: wrap;
                 }
+                /* Hero: text on the left, a glass panel on the right (hidden on small screens) */
+                .ev-hero-row { display: flex; align-items: center; justify-content: space-between; gap: 2rem; }
+                .ev-hero-main { flex: 1 1 460px; min-width: 0; }
+                .ev-hero-panel { flex: 0 0 340px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 1rem 1.1rem; backdrop-filter: blur(6px); }
+                .ev-panel-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 0.6rem; }
+                .ev-panel-text { margin: 0 0 0.7rem; font-size: 0.88rem; line-height: 1.55; color: #E2E8F0; }
+                .ev-panel-count { font-size: 0.88rem; color: #CBD5E1; margin-bottom: 0.55rem; }
+                .ev-panel-count strong { font-size: 1.7rem; font-weight: 800; color: white; margin-right: 6px; vertical-align: -2px; }
+                .ev-panel-row { display: flex; flex-direction: column; gap: 2px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 0.55rem 0.75rem; margin-bottom: 0.7rem; }
+                .ev-panel-row span { font-size: 0.8rem; color: #CBD5E1; }
+                .ev-panel-row strong { font-size: 0.95rem; color: white; line-height: 1.35; }
+                .ev-panel-link { display: inline-flex; align-items: center; gap: 5px; font-size: 0.88rem; font-weight: 700; color: #FBBF24; text-decoration: none; }
+                .ev-panel-link:hover { color: #FCD34D; }
+                .ev-panel-divider { height: 1px; background: rgba(255,255,255,0.14); margin: 0.9rem 0; }
+                .ev-panel-next { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 0.6rem 0.75rem; cursor: pointer; color: white; font-family: inherit; transition: background 0.15s; }
+                .ev-panel-next:hover { background: rgba(255,255,255,0.18); }
+                .ev-panel-next strong { font-size: 0.98rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .ev-panel-next span { font-size: 0.82rem; color: #CBD5E1; }
+                @media (max-width: 900px) { .ev-hero-panel { display: none; } }
                 .ws-carousel-hide-scroll::-webkit-scrollbar { display: none; }
                 .ws-carousel-hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
 
             {/* Hero */}
-            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,3rem)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 55%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(1rem,2.2vw,1.5rem)', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '360px', height: '360px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
                 <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
-                <div style={{ maxWidth: '1100px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                <div className="ev-hero-row" style={{ maxWidth: '1240px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                    <div className="ev-hero-main">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                         <Calendar size={22} color="#60A5FA" />
                         <span style={{ color: '#93C5FD', fontWeight: '700', fontSize: '0.82rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Events &amp; Learning</span>
@@ -1446,12 +1499,48 @@ const Events = () => {
                             Join the Council
                         </Link>
                     </div>
+                    </div>
+
+                    <aside className="ev-hero-panel" aria-label="Your events">
+                        {nextEvent && (
+                            <>
+                                <div className="ev-panel-label">Next up</div>
+                                <button type="button" className="ev-panel-next" onClick={() => setDetailEvent(nextEvent)}>
+                                    <strong>{nextEvent.title}</strong>
+                                    <span>{nextWhen}</span>
+                                </button>
+                                <div className="ev-panel-divider" />
+                            </>
+                        )}
+                        <div className="ev-panel-label">Your events</div>
+                        {!user ? (
+                            <>
+                                <p className="ev-panel-text">Sign in to see the events you have registered for.</p>
+                                <Link to="/login?redirect=/events" className="ev-panel-link">Sign in <ArrowRight size={13} /></Link>
+                            </>
+                        ) : myRegs === undefined ? (
+                            <p className="ev-panel-text">Loading your events…</p>
+                        ) : myRegs === null ? (
+                            <p className="ev-panel-text">Your registrations are not available right now.</p>
+                        ) : myUpcoming.length === 0 ? (
+                            <p className="ev-panel-text">You have no upcoming registrations yet. Pick an event below to save your seat.</p>
+                        ) : (
+                            <>
+                                <div className="ev-panel-count"><strong>{myUpcoming.length}</strong>upcoming registration{myUpcoming.length === 1 ? '' : 's'}</div>
+                                <div className="ev-panel-row">
+                                    <span>{fmtShort(myUpcoming[0].event_date)}</span>
+                                    <strong>{myUpcoming[0].event_title}</strong>
+                                </div>
+                                <Link to="/user/dashboard" className="ev-panel-link">View in your dashboard <ArrowRight size={13} /></Link>
+                            </>
+                        )}
+                    </aside>
                 </div>
             </div>
 
             {/* All Events */}
-            <div id="all-events" style={{ padding: 'clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,3rem)' }}>
-                <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div id="all-events" style={{ padding: 'clamp(1.5rem,4vw,3rem) clamp(1rem,2.2vw,1.5rem)' }}>
+                <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
                     <div className="ev-toolbar">
                         <div className="ev-filters">
                             {/* Tab bar */}
@@ -1540,7 +1629,7 @@ const Events = () => {
             <NominationsSection />
 
             {/* CTA */}
-            <div style={{ background: '#1E293B', padding: 'clamp(2rem,5vw,4rem) clamp(1rem,4vw,2rem)', textAlign: 'center' }}>
+            <div style={{ background: '#1E293B', padding: 'clamp(2rem,5vw,4rem) clamp(1rem,2.2vw,1.5rem)', textAlign: 'center' }}>
                 <div style={{ maxWidth: '680px', margin: '0 auto' }}>
                     <h2 style={{ color: 'white', fontSize: 'clamp(1.3rem,3vw,1.9rem)', fontWeight: '800', marginBottom: '0.9rem' }}>Never Miss an Event</h2>
                     <p style={{ color: '#94A3B8', fontSize: 'clamp(0.875rem,1.5vw,1rem)', lineHeight: '1.7', marginBottom: '2rem' }}>

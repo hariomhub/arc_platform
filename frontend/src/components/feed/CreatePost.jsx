@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     Image, FileText, Youtube, Tag, X, Send, Loader2, AlertCircle, Plus,
     Bot, BarChart2, CalendarDays, Wrench, MessageSquare, ChevronLeft,
@@ -51,7 +51,7 @@ const POST_TYPES = [
 
 const POST_TYPE_LABELS = { ai_product: 'AI Product', poll: 'Poll', event: 'Event', troubleshooting: 'Troubleshooting', general: 'General', tech_meme: 'Tech Meme' };
 
-const CreatePost = ({ onPostCreated }) => {
+const CreatePost = ({ onPostCreated, openSignal = 0 }) => {
     const { user }      = useAuth();
     const { showToast } = useToast();
     const [typeStep,   setTypeStep]   = useState(false);   // show type selector
@@ -73,6 +73,19 @@ const CreatePost = ({ onPostCreated }) => {
     const [error,      setError]      = useState('');
     const fileRef  = useRef(null);
     const textRef  = useRef(null);
+    const wrapRef  = useRef(null);
+    // `openSignal` lets the page open the composer from outside (e.g. the "Write a post" button in the page header):
+    // each time it goes up, show the post-type step, exactly like clicking "New Post".
+    const expandedRef   = useRef(false);
+    const handledSignal = useRef(openSignal);
+    useEffect(() => { expandedRef.current = expanded; });
+    useEffect(() => {
+        if (!openSignal || openSignal === handledSignal.current) return;
+        handledSignal.current = openSignal;
+        if (expandedRef.current) textRef.current?.focus();
+        else setTypeStep(true);
+        wrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [openSignal]);
     const roleMeta = ROLE_META[user?.role] || ROLE_META.professional;
     const mediaCount = files.length + (videoUrl ? 1 : 0);
     const charsLeft  = MAX_CHARS - content.length;
@@ -262,7 +275,7 @@ const CreatePost = ({ onPostCreated }) => {
                 }
             `}</style>
 
-            <div className="cp-wrap">
+            <div className="cp-wrap" ref={wrapRef}>
                 {/* ── Collapsed trigger ── */}
                 {!expanded && !typeStep && (
                     <div className="cp-trigger" onClick={() => setTypeStep(true)}>

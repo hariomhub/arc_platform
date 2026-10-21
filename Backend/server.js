@@ -48,10 +48,16 @@ import workshopsRoutes    from './routes/workshops.js';
 import accountDeletionRoutes from './routes/accountDeletion.js';
 import contactRoutes         from './routes/contact.js';
 import adminContactRoutes    from './routes/adminContact.js';
+import chapterLeadRoutes     from './routes/chapterLead.js';
+import chaptersRoutes         from './routes/chapters.js';
+import blogsRoutes            from './routes/blogs.js';
+import viewsRoutes            from './routes/views.js';
+import adminChapterLeadRoutes from './routes/adminChapterLeads.js';
 
 // ─── Cron Job Imports ─────────────────────────────────────────────────────────
 import { initNewsFetchCron }        from './jobs/newsFetchJob.js';
 import { initMembershipExpiryCron } from './jobs/membershipExpiryJob.js';
+import { initChapterLeadCron }      from './jobs/chapterLeadJob.js';
 
 // ─── Serve React Frontend in Production ──────────────────────────────────────
 import { fileURLToPath } from 'url';
@@ -147,6 +153,7 @@ app.use('/api/qna',             qnaRoutes);          // ← feed routes (repurpo
 app.use('/api/news',            newsRoutes);
 app.use('/api/admin/auto-news', autoNewsRoutes);
 app.use('/api/admin/contact-messages', adminContactRoutes);
+app.use('/api/admin/chapter-leads', adminChapterLeadRoutes);
 app.use('/api/admin',           adminRoutes);
 app.use('/api/profile',         profileRoutes);
 app.use('/api/product-reviews', productReviewsRoutes);
@@ -158,6 +165,10 @@ app.use('/api/workshops',       workshopsRoutes);
 app.use('/api/notifications',   notificationsRoutes);
 app.use('/api/account-deletion',accountDeletionRoutes);
 app.use('/api/contact',         contactRoutes);
+app.use('/api/chapter-lead',     chapterLeadRoutes);
+app.use('/api/chapters',        chaptersRoutes);
+app.use('/api/blogs',           blogsRoutes);
+app.use('/api/views',           viewsRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -200,4 +211,7 @@ app.listen(PORT, () => {
 
     initFeedLikeDigestCron();
     console.log('❤️  Feed like digest cron initialized');
+
+    initChapterLeadCron();
+    console.log('🏛️  Chapter Lead daily job initialized');
 });

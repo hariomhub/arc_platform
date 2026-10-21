@@ -5,6 +5,9 @@
  *  POST /api/membership/apply/council   — apply for Council Member upgrade
  *  POST /api/membership/apply/executive — legacy alias for the above
  *
+ * Applying requires ticking the Privacy Policy + Terms agreement. The acceptance is
+ * stored (versioned) in policy_acceptances, separate from the application row.
+ *
  * Founding Member is admin-only — created directly in DB, no public application.
  */
 
@@ -13,6 +16,8 @@ import {
     sendCouncilApplicationAdminEmail,
     sendMembershipApplicationReceivedEmail,
 } from '../services/emailService.js';
+import { recordPolicyAcceptance } from '../services/chapterLeadService.js';
+import { isCountryCode } from '../utils/chapterLeadRules.js';
 
 // ── Helper: notify all founding_member admins ─────────────────────────────────
 const notifyAdmins = async (applicationRow) => {
@@ -66,26 +71,71 @@ export const applyCouncil = async (req, res, next) => {
         const {
             organization_name, job_title, linkedin_url, phone,
             professional_bio, areas_of_expertise, why_council_member,
+            accept_privacy, country_code, chapter_id,
         } = req.body;
 
-        const [result] = await pool.query(
-            `INSERT INTO membership_applications
-             (user_id, requested_role, full_name, email, organization_name, job_title, linkedin_url, phone,
-              professional_bio, areas_of_expertise, why_founding_member, payment_reference, amount_paid)
-             VALUES (?, 'council_member', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APP-ONLY', 0.00)`,
-            [
-                userId,
-                req.user.name,
-                req.user.email,
-                organization_name    || null,
-                job_title            || null,
-                linkedin_url         || null,
-                phone                || null,
-                professional_bio     || null,
-                areas_of_expertise   || null,
-                why_council_member   || null,
-            ]
-        );
+        // The agreement tick is enforced here, not only in the form.
+        if (accept_privacy !== true) {
+            return res.status(422).json({
+                success: false,
+                message: 'You must agree to the Privacy Policy and Terms to apply as a Chapter Lead.',
+            });
+        }
+        if (!isCountryCode(country_code)) {
+            return res.status(422).json({ success: false, message: 'Please select your country.' });
+        }
+        const country = country_code.trim().toUpperCase();
+
+        // Optional chapter: must exist, be active and belong to the chosen country.
+        let requestedChapterId = null;
+        if (chapter_id !== undefined && chapter_id !== null && chapter_id !== '') {
+            const [[chapter]] = await pool.query(
+                `SELECT id, country_code FROM chapters WHERE id = ? AND status = 'active'`,
+                [parseInt(chapter_id, 10) || 0]
+            );
+            if (!chapter || chapter.country_code !== country) {
+                return res.status(422).json({ success: false, message: 'Please choose a valid chapter for your country.' });
+            }
+            requestedChapterId = chapter.id;
+        }
+
+        const conn = await pool.getConnection();
+        let result;
+        try {
+            await conn.beginTransaction();
+            [result] = await conn.query(
+                `INSERT INTO membership_applications
+                 (user_id, requested_role, full_name, email, organization_name, job_title, linkedin_url, phone,
+                  professional_bio, areas_of_expertise, why_founding_member, payment_reference, amount_paid,
+                  requested_country_code, requested_chapter_id)
+                 VALUES (?, 'council_member', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APP-ONLY', 0.00, ?, ?)`,
+                [
+                    userId,
+                    req.user.name,
+                    req.user.email,
+                    organization_name    || null,
+                    job_title            || null,
+                    linkedin_url         || null,
+                    phone                || null,
+                    professional_bio     || null,
+                    areas_of_expertise   || null,
+                    why_council_member   || null,
+                    country,
+                    requestedChapterId,
+                ]
+            );
+            await recordPolicyAcceptance(conn, userId, { ip: req.ip, context: 'chapter_lead_application' });
+            await conn.query(
+                'UPDATE users SET country_code = COALESCE(country_code, ?) WHERE id = ?',
+                [country, userId]
+            );
+            await conn.commit();
+        } catch (txErr) {
+            await conn.rollback().catch(() => {});
+            throw txErr;
+        } finally {
+            conn.release();
+        }
 
         const applicationRow = {
             id:                result.insertId,

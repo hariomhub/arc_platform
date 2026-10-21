@@ -2,18 +2,27 @@ import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sendWelcomeEmail, sendVerificationEmail } from '../services/emailService.js';
+import {
+    attachReferral, findActiveProfileByCode, extendLeadTermIfDue, needsPolicyAcceptance,
+} from '../services/chapterLeadService.js';
+import { normalizeReferralCode, isCountryCode, POLICY_VERSION } from '../utils/chapterLeadRules.js';
+import { COOKIE_OPTIONS, completeLogin } from '../services/sessionService.js';
 
-const COOKIE_OPTIONS = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',  // 'lax' required for OAuth redirects — 'strict' blocks cookie on cross-site redirects
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+// Validates an optional chapter against the chosen country. Returns the chapter id,
+// null (none chosen) or false (invalid).
+const resolveSignupChapter = async (rawChapterId, countryCode) => {
+    if (rawChapterId === undefined || rawChapterId === null || rawChapterId === '') return null;
+    const [[chapter]] = await pool.query(
+        `SELECT id, country_code FROM chapters WHERE id = ? AND status = 'active'`,
+        [parseInt(rawChapterId, 10) || 0]
+    );
+    return chapter && chapter.country_code === countryCode ? chapter.id : false;
 };
 
 // POST /api/auth/register
 export const register = async (req, res, next) => {
     try {
-        const { name, email, password, role, organization_name, linkedin_url, professional_sub_type } = req.body;
+        const { name, email, password, role, organization_name, linkedin_url, professional_sub_type, ref_code, country_code, chapter_id } = req.body;
 
         // Only professional can self-register; council_member and founding_member are assigned by admin
         const allowedSelfRoles = ['professional'];
@@ -36,6 +45,27 @@ export const register = async (req, res, next) => {
 
         const subType = assignedRole === 'professional' ? professional_sub_type : null;
 
+        // Geography (needed to attribute members to a chapter) and the optional referral code
+        if (!isCountryCode(country_code)) {
+            return res.status(400).json({ success: false, message: 'Please select your country.' });
+        }
+        const country = country_code.trim().toUpperCase();
+        const chapterId = await resolveSignupChapter(chapter_id, country);
+        if (chapterId === false) {
+            return res.status(400).json({ success: false, message: 'Please choose a valid chapter for your country.' });
+        }
+        let referralCode = null;
+        if (ref_code && String(ref_code).trim()) {
+            const lead = await findActiveProfileByCode(ref_code);
+            if (!lead) {
+                return res.status(422).json({
+                    success: false,
+                    message: 'That referral code is not valid or is no longer active. Check it, or clear the field to continue without one.',
+                });
+            }
+            referralCode = lead.referral_code;
+        }
+
         const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
             return res.status(409).json({ success: false, message: 'This email address is already registered.' });
@@ -48,12 +78,26 @@ export const register = async (req, res, next) => {
 
         const password_hash = await bcrypt.hash(password, 12);
 
-        const [result] = await pool.query(
-            `INSERT INTO users (name, email, password_hash, role, professional_sub_type, status, organization_name, linkedin_url)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
-            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, subType, organization_name || null, linkedin_url || null]
-        );
-
+        // User + referral are written together so a referral is never half-recorded.
+        const conn = await pool.getConnection();
+        let result;
+        try {
+            await conn.beginTransaction();
+            [result] = await conn.query(
+                `INSERT INTO users (name, email, password_hash, role, professional_sub_type, status, organization_name, linkedin_url, country_code, chapter_id)
+                 VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+                [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, subType, organization_name || null, linkedin_url || null, country, chapterId]
+            );
+            if (referralCode) {
+                await attachReferral(conn, { referredUserId: result.insertId, code: referralCode });
+            }
+            await conn.commit();
+        } catch (txErr) {
+            await conn.rollback().catch(() => {});
+            throw txErr;
+        } finally {
+            conn.release();
+        }
 
         // Fire-and-forget welcome email — never blocks the API response
         sendWelcomeEmail({
@@ -174,35 +218,7 @@ export const login = async (req, res, next) => {
             return res.status(401).json({ success: false, message: 'Invalid email or password.' });
         }
 
-        if (user.status === 'pending') {
-            return res.status(403).json({ success: false, message: 'Your account is pending admin approval.' });
-        }
-
-        if (user.status === 'rejected') {
-            return res.status(403).json({ success: false, message: 'Your account application has been rejected.' });
-        }
-
-
-
-        // Check membership expiry (founding_member has NULL = lifetime)
-        if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
-            return res.status(403).json({ success: false, message: 'Your membership has expired. Please renew to continue.' });
-        }
-
-        const token = jwt.sign(
-            { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.cookie('arc_token', token, COOKIE_OPTIONS);
-
-        return res.json({
-            success: true,
-            data: {
-                user: { id: user.id, name: user.name, email: user.email, role: user.role, professional_sub_type: user.professional_sub_type || null },
-            },
-        });
+        return completeLogin(res, user);
     } catch (err) {
         next(err);
     }
@@ -223,7 +239,7 @@ export const getMe = async (req, res, next) => {
         }
 
         const [rows] = await pool.query(
-            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, linkedin_id, organization_name, profile_badge, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, role, professional_sub_type, pending_sub_type_upgrade, status, bio, photo_url, linkedin_url, linkedin_id, organization_name, profile_badge, created_at, (password_hash IS NOT NULL AND CHAR_LENGTH(password_hash) > 0) AS has_password FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -231,7 +247,19 @@ export const getMe = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        return res.json({ success: true, data: rows[0] });
+        // Active Chapter Leads must accept the current Privacy Policy + Terms version.
+        // A failure here must never break session restore, so it degrades to "no prompt".
+        let needsPolicy = false;
+        try {
+            needsPolicy = await needsPolicyAcceptance(rows[0].id, rows[0].role);
+        } catch (err) {
+            console.error('[getMe] policy acceptance check failed:', err.message);
+        }
+
+        return res.json({
+            success: true,
+            data: { ...rows[0], has_password: !!rows[0].has_password, needs_policy_acceptance: needsPolicy, policy_version: POLICY_VERSION },
+        });
     } catch (err) {
         next(err);
     }
@@ -240,6 +268,11 @@ export const getMe = async (req, res, next) => {
 // GET /api/auth/linkedin/callback  (called by Passport after LinkedIn redirects back)
 export const linkedinCallback = async (req, res, next) => {
     try {
+        // A referral code stashed by GET /api/auth/linkedin?ref=... (a cookie, because the
+        // OAuth round-trip regenerates the session). Read once, then always cleared.
+        const referralCookie = normalizeReferralCode(req.cookies?.arc_ref);
+        res.clearCookie('arc_ref', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
+
         const { id: linkedinId, displayName, emails, photos } = req.linkedinProfile;
         const email = emails?.[0]?.value?.trim().toLowerCase() || null;
         const name = displayName?.trim() || 'LinkedIn User';
@@ -307,6 +340,15 @@ export const linkedinCallback = async (req, res, next) => {
             );
             user = newRows[0];
 
+            if (referralCookie) {
+                try {
+                    await attachReferral(pool, { referredUserId: result.insertId, code: referralCookie });
+                } catch (refErr) {
+                    // Never block a sign-up over attribution.
+                    console.error('[LinkedIn] Could not record referral:', refErr.message);
+                }
+            }
+
             // Issue a short-lived temp token ONLY to allow the complete-profile PATCH call.
             // This token expires in 1h and the cookie is cleared after profile completion.
             const tempToken = jwt.sign(
@@ -328,7 +370,15 @@ export const linkedinCallback = async (req, res, next) => {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=pending`);
         }
 
-        if (user.membership_expires_at && new Date(user.membership_expires_at) < new Date()) {
+        let linkedinExpiry = user.membership_expires_at;
+        if (user.role === 'council_member' && linkedinExpiry && new Date(linkedinExpiry) < new Date()) {
+            try {
+                linkedinExpiry = (await extendLeadTermIfDue(user.id)) || linkedinExpiry;
+            } catch (err) {
+                console.error('[LinkedIn] Chapter Lead term check failed:', err.message);
+            }
+        }
+        if (linkedinExpiry && new Date(linkedinExpiry) < new Date()) {
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=expired`);
         }
 
@@ -356,7 +406,16 @@ export const completeProfile = async (req, res, next) => {
         if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated.' });
 
         const allowedSubTypes = ['working_professional', 'final_year_undergrad'];
-        const { professional_sub_type, organization_name } = req.body;
+        const { professional_sub_type, organization_name, country_code, chapter_id } = req.body;
+
+        if (!isCountryCode(country_code)) {
+            return res.status(400).json({ success: false, message: 'Please select your country.' });
+        }
+        const country = country_code.trim().toUpperCase();
+        const chapterId = await resolveSignupChapter(chapter_id, country);
+        if (chapterId === false) {
+            return res.status(400).json({ success: false, message: 'Please choose a valid chapter for your country.' });
+        }
 
         if (!allowedSubTypes.includes(professional_sub_type)) {
             return res.status(400).json({ success: false, message: 'Invalid sub-category. Choose working_professional or final_year_undergrad.' });
@@ -367,8 +426,8 @@ export const completeProfile = async (req, res, next) => {
         }
 
         await pool.query(
-            `UPDATE users SET professional_sub_type = ?, organization_name = ? WHERE id = ?`,
-            [professional_sub_type, organization_name.trim(), userId]
+            `UPDATE users SET professional_sub_type = ?, organization_name = ?, country_code = ?, chapter_id = ? WHERE id = ?`,
+            [professional_sub_type, organization_name.trim(), country, chapterId, userId]
         );
 
         // Fetch user details to send the welcome email now that profile is complete
@@ -426,6 +485,22 @@ export const requestSubTypeUpgrade = async (req, res, next) => {
         );
 
         return res.json({ success: true, data: { message: 'Upgrade request submitted. An admin will review it within 24–48 hours.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/auth/referral/:code
+// Lets the sign-up form confirm a referral code before the user submits. Public.
+// Returns only the lead's first name — enough to reassure, nothing more.
+export const checkReferralCode = async (req, res, next) => {
+    try {
+        const lead = await findActiveProfileByCode(req.params.code);
+        if (!lead) return res.json({ success: true, data: { valid: false } });
+        return res.json({
+            success: true,
+            data: { valid: true, code: lead.referral_code, lead_first_name: String(lead.lead_name || '').split(' ')[0] || null },
+        });
     } catch (err) {
         next(err);
     }

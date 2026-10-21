@@ -4,7 +4,7 @@ import {
     Menu, X, LogOut, User, ChevronDown, Shield,
     BookOpen, LayoutDashboard, Home, Calendar,
     Settings, FileText, HelpCircle, Info, Phone, Award,
-    MessageSquare,
+    MessageSquare, PenSquare,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import NotificationBell from './NotificationBell.jsx';
@@ -16,6 +16,7 @@ const PUBLIC_NAV = [
     { label: 'Services',             path: '/services',      icon: Settings },
     { label: 'Community Feed',        path: '/community-qna', icon:  MessageSquare },
     { label: 'Research & Resources', path: '/resources',     icon: BookOpen },
+    { label: 'Blog',                 path: '/blog',          icon: PenSquare },
     { label: 'Certifications',       path: '/certification', icon: Award },
     { label: 'About Us',             path: '/about',         icon: Info },
     { label: 'Contact Us',           path: '/contact',       icon: Phone },

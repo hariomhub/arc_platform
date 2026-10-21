@@ -180,7 +180,7 @@ const Certifications = () => {
             `}</style>
 
             {/* ── Hero ── */}
-            <div style={{ background:'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding:'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)', position:'relative', overflow:'hidden' }}>
+            <div style={{ background:'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding:'clamp(1.5rem,2.5vw,2rem) clamp(0.75rem,1.6vw,1rem)', position:'relative', overflow:'hidden' }}>
                 <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
                 <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
                 <div style={{ maxWidth:'860px', margin:'0 auto', textAlign:'center', position:'relative', zIndex:1 }}>
@@ -198,7 +198,7 @@ const Certifications = () => {
             </div>
 
             {/* ── Tier tabs ── */}
-            <div style={{ background:'white', borderBottom:'1px solid #E8EDF3', padding:'0 clamp(1rem,3vw,2rem)', position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+            <div style={{ background:'white', borderBottom:'1px solid #E8EDF3', padding:'0 clamp(0.75rem,1.6vw,1rem)', position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
                 <div style={{ maxWidth:'900px', margin:'0 auto' }}>
                     <div className="cert-tabs">
                         {TIERS.map((tier,i) => {
@@ -218,8 +218,8 @@ const Certifications = () => {
             </div>
 
             {/* ── Cards ── */}
-            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,4vw,2rem) clamp(1rem,4vw,2rem)', borderBottom:'1px solid #E8EDF3' }}>
-                <div style={{ maxWidth:'1100px', margin:'0 auto' }}>
+            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,4vw,2rem) clamp(0.75rem,1.6vw,1rem)', borderBottom:'1px solid #E8EDF3' }}>
+                <div style={{ maxWidth:'1320px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'3.5rem' }}>
                         <span style={{ display:'inline-block', background:'#EFF6FF', color:'#003366', fontSize:'0.68rem', fontWeight:'700', letterSpacing:'0.1em', textTransform:'uppercase', padding:'4px 14px', borderRadius:'100px', marginBottom:'0.75rem' }}>Three Levels</span>
                         <h2 style={{ fontSize:'clamp(1.4rem,3vw,2.2rem)', fontWeight:'800', color:'#1E293B', margin:'0 0 1rem', letterSpacing:'-0.02em' }}>Choose Your Certification Path</h2>
@@ -248,7 +248,7 @@ const Certifications = () => {
             </div>
 
             {/* ── How it works ── */}
-            <div style={{ background:'white', padding:'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', borderBottom:'1px solid #E8EDF3' }}>
+            <div style={{ background:'white', padding:'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)', borderBottom:'1px solid #E8EDF3' }}>
                 <div style={{ maxWidth:'960px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'3.5rem' }}>
                         <span style={{ display:'inline-block', background:'#EFF6FF', color:'#003366', fontSize:'0.68rem', fontWeight:'700', letterSpacing:'0.1em', textTransform:'uppercase', padding:'4px 14px', borderRadius:'100px', marginBottom:'0.75rem' }}>Process</span>
@@ -273,7 +273,7 @@ const Certifications = () => {
             </div>
 
             {/* ── Comparison table ── */}
-            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', borderBottom:'1px solid #E8EDF3' }}>
+            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)', borderBottom:'1px solid #E8EDF3' }}>
                 <div style={{ maxWidth:'860px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'3rem' }}>
                         <span style={{ display:'inline-block', background:'#EFF6FF', color:'#003366', fontSize:'0.68rem', fontWeight:'700', letterSpacing:'0.1em', textTransform:'uppercase', padding:'4px 14px', borderRadius:'100px', marginBottom:'0.75rem' }}>Compare</span>
@@ -296,7 +296,7 @@ const Certifications = () => {
             </div>
 
             {/* ── CTA ── */}
-            <div style={{ background:'linear-gradient(135deg,#001a33 0%,#003366 100%)', padding:'clamp(2.5rem,5vw,3rem) clamp(1rem,4vw,2rem)', textAlign:'center', position:'relative', overflow:'hidden' }}>
+            <div style={{ background:'linear-gradient(135deg,#001a33 0%,#003366 100%)', padding:'clamp(2.5rem,5vw,3rem) clamp(0.75rem,1.6vw,1rem)', textAlign:'center', position:'relative', overflow:'hidden' }}>
                 <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)', backgroundSize:'28px 28px', pointerEvents:'none' }}/>
                 <div style={{ maxWidth:'580px', margin:'0 auto', position:'relative', zIndex:1 }}>
                     <div style={{ width:'60px', height:'60px', borderRadius:'50%', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.5rem' }}><Zap size={26} color="#FCD34D"/></div>

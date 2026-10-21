@@ -3,6 +3,14 @@ import { Link } from 'react-router-dom';
 import { FileText, ChevronRight, Info, CheckCircle, Calendar, Globe, Smartphone } from 'lucide-react';
 import { COMPLIMENTARY_MONTHS, MARKETS } from '../config/pricing.js';
 import { OPERATOR_LEGAL_NAME, operatorLine } from '../config/brand.js';
+import { getChapterLeadPolicy } from '../api/chapterLead.js';
+
+// Shown until the live policy loads (and if it cannot be fetched). These mirror the programme defaults.
+const DEFAULT_POLICY = {
+  targets: { members: 20, podcasts: 3, posts_min: 10, posts_max: 15, blogs: 3 },
+  min_goals_met: 3, consecutive_miss_limit: 3, term_months: 18,
+  rates: { term1: 3, term2: 5, term3: 7, direct_commission: 10 },
+};
 
 const SECTIONS = [
   { id: 'about',        label: 'About These Terms' },
@@ -82,6 +90,21 @@ export default function Terms() {
     return () => obs.current?.disconnect();
   }, []);
 
+  // The Chapter Lead section reads its numbers from the live programme rules, so the
+  // text can never drift from what is actually tracked.
+  const [pol, setPol] = useState(DEFAULT_POLICY);
+  useEffect(() => {
+    getChapterLeadPolicy().then((res) => { if (res.data?.data) setPol(res.data.data); }).catch(() => {});
+  }, []);
+
+  // Deep links such as /terms#chapter-lead land on the right section.
+  useEffect(() => {
+    const id = window.location.hash.replace('#', '');
+    if (!id) return undefined;
+    const t = setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 250);
+    return () => clearTimeout(t);
+  }, []);
+
   const inr = MARKETS.IN;
   const usd = MARKETS.US;
 
@@ -113,7 +136,7 @@ export default function Terms() {
             The rules for using Risk AI Council, including how your complimentary membership and renewal work.
           </p>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center', fontSize: '0.8rem', color: '#94A3B8' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Calendar size={13} /> Last updated: September 29, 2026</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Calendar size={13} /> Last updated: October 17, 2026</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Globe size={13} /> riskaicouncil.org</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Smartphone size={13} /> Web &amp; Mobile App</span>
           </div>
@@ -168,9 +191,18 @@ export default function Terms() {
 
             <SectionCard id="chapter-lead" title="4. Chapter Lead Role">
               <Row label="Application-based">Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution.</Row>
-              <Row label="No fee">There is no separate subscription fee for the Chapter Lead role.</Row>
-              <Row label="Moderation">Events, news, and workshops created by Chapter Leads are saved as drafts and reviewed by a Founding Member admin before they go public. Uploaded resources are reviewed before publication, and top-level community posts are subject to moderation.</Row>
-              <Row label="Ending the role">We may end the role if contributions break these Terms.</Row>
+              <Row label="No fee">There is no subscription fee for the Chapter Lead role.</Row>
+              <Row label="Your agreement">By applying you confirm you have read and agree to these Terms (including this section) and the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>. Existing Chapter Leads are asked to confirm the same when these terms take effect.</Row>
+              <Row label="Terms of office">Each term lasts {pol.term_months} months and continues into the next term automatically unless the role ends. Term 1 is months 1&ndash;{pol.term_months}, term 2 is months {pol.term_months + 1}&ndash;{pol.term_months * 2}, and every later term follows after that.</Row>
+              <Row label="Quarterly goals">In each calendar quarter a Chapter Lead is expected to: bring in <strong>{pol.targets.members}</strong> new active members (members who register with their referral code and are approved by an admin); host or facilitate <strong>{pol.targets.podcasts}</strong> podcasts (counted once an admin marks them conducted); publish <strong>{pol.targets.posts_min}&ndash;{pol.targets.posts_max}</strong> posts in the community feed; and write <strong>{pol.targets.blogs}</strong> blogs (counted once published after review). A lead's first part-quarter is not scored. Progress is shown on the Chapter Lead dashboard.</Row>
+              <Row label="Minimum performance">A quarter counts as met when at least {pol.min_goals_met} of the 4 goals are reached. If a Chapter Lead does not meet the minimum for {pol.consecutive_miss_limit} consecutive quarters, they may be removed from the role. Removal is decided by a Founding Member admin; meeting the minimum in any quarter resets the count.</Row>
+              <Row label="Referral code">Each Chapter Lead receives a unique referral code that links the members they bring in to them. Codes must not be used to register yourself, to create fake or duplicate accounts, or in any misleading way. Misuse can lead to referrals being voided and to removal from the role.</Row>
+              <Row label="Revenue share">Revenue generated from a Chapter Lead's designated geographical area is shared with them at <strong>{pol.rates.term1}%</strong> in their first term, <strong>{pol.rates.term2}%</strong> in their second term and <strong>{pol.rates.term3}%</strong> in later terms. Revenue sources are membership fees, workshops, exhibitions and events, certifications, and product testing.</Row>
+              <Row label="Direct contributions">Chapter Leads receive a <strong>{pol.rates.direct_commission}%</strong> commission on direct value they bring to the organisation, including new members, hosted workshops and secured sponsorships. Where both the area share and the direct commission would apply to the same payment and the same Chapter Lead, the higher of the two is paid, not both.</Row>
+              <Row label="How earnings are calculated">Revenue share and commission are calculated on revenue actually received by Risk AI Council, after taxes and refunds. They are recorded as revenue is tracked on the Platform and are paid under the payout process we communicate when online payment tracking is enabled. No amounts are payable before then.</Row>
+              <Row label="Workshops & podcasts">Chapter Leads may submit requests to host podcasts or conduct workshops. Leads are financially compensated for delivering workshops; the terms are confirmed when a workshop is approved.</Row>
+              <Row label="Moderation">Events, news, workshops and blogs created by Chapter Leads are saved as drafts and reviewed by a Founding Member admin before they go public. Uploaded resources are reviewed before publication, and top-level community posts are subject to moderation.</Row>
+              <Row label="Ending the role">The role ends if a Founding Member removes you (under the minimum-performance rule above, or for breaking these Terms), if you step down, or if you delete your account. Your referral code then stops accepting new sign-ups. How earnings recorded before the role ended are handled is set out in the payout process we communicate when payments are enabled.</Row>
             </SectionCard>
 
             <SectionCard id="conduct" title="5. Community Conduct & Content">
@@ -199,7 +231,7 @@ export default function Terms() {
             </SectionCard>
 
             <SectionCard id="deletion" title="9. Account Deletion">
-              <P last>You can delete your account yourself at any time from the <Link to="/delete-account" style={linkStyle}>Delete Account page</Link>; deletion is immediate. Posts made while you held the Chapter Lead or Founding Member role may remain, attributed to "Former Chapter Lead," as described in the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>.</P>
+              <P last>You can delete your account yourself at any time from the <Link to="/delete-account" style={linkStyle}>Delete Account page</Link>; deletion is immediate. Posts made while you held the Chapter Lead or Founding Member role may remain, attributed to "Former Chapter Lead," as described in the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>. If you are a Chapter Lead, your role ends immediately, your referral code stops working, and your referral and quarter records are kept in anonymised form.</P>
             </SectionCard>
 
             <SectionCard id="changes" title="10. Changes to These Terms">

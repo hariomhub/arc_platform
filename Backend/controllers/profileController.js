@@ -1,6 +1,8 @@
 import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
 import { uploadToBlob } from '../services/azureBlobService.js';
+import { setSessionCookie, storePasswordHash } from '../services/sessionService.js';
+import { sendPasswordChangedEmail } from '../services/emailService.js';
 
 // GET /api/profile
 export const getProfile = async (req, res, next) => {
@@ -71,18 +73,35 @@ export const changePassword = async (req, res, next) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
-        const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
+        const [rows] = await pool.query(
+            'SELECT id, name, email, role, professional_sub_type, password_hash FROM users WHERE id = ?',
+            [req.user.id]
+        );
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
+        const user = rows[0];
 
-        const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
+        // Accounts created with LinkedIn have no password until they set one.
+        if (!user.password_hash) {
+            return res.status(400).json({
+                success: false,
+                message: 'Your account signs in with LinkedIn and has no password yet. Use "Forgot password" on the sign-in page to create one.',
+            });
+        }
+
+        const valid = await bcrypt.compare(currentPassword, user.password_hash);
         if (!valid) {
             return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
         }
 
         const newHash = await bcrypt.hash(newPassword, 12);
-        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+        await storePasswordHash(user.id, newHash);
+
+        // The change signs every device out. Give this one a fresh session so the person is not
+        // thrown out of the page they are on.
+        setSessionCookie(res, user);
+        sendPasswordChangedEmail({ name: user.name, email: user.email });
 
         return res.json({ success: true, data: { message: 'Password changed successfully.' } });
     } catch (err) {

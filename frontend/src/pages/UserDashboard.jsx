@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Navigate, Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
 import {
     User, Calendar, BookOpen, ArrowRight, ExternalLink, LogOut,
     MessageSquare, HelpCircle, Star, ClipboardList, MapPin,
     CheckCircle, Lock, Zap, Users, Award, Newspaper, Bell,
-    FileText, ChevronRight, Shield, Heart, Bookmark, BarChart2, Download,
+    FileText, ChevronRight, Shield, Heart, Bookmark, BarChart2, Download, PenSquare, Mic,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
+import { useToast } from '../hooks/useToast.js';
+import { getLeadDashboard } from '../api/chapterLead.js';
+import { getErrorMessage } from '../utils/apiHelpers.js';
 import { getEvents, getMyRegistrations } from '../api/events.js';
 import { getMyStats } from '../api/feed.js';
 import { getMyDownloadUsage } from '../api/resources.js';
@@ -14,6 +17,10 @@ import { getMyPosts } from '../api/feed.js';
 import MyPostsModal from '../components/modals/MyPostsModal.jsx';
 import MyStatsModal from '../components/modals/MyStatsModal.jsx';
 import MyContactMessages from '../components/dashboard/MyContactMessages.jsx';
+import {
+    LEAD_TAB_KEYS, leadHeroStats, leadAccountRows,
+    LeadProgrammeTop, LeadSidebar, LeadTabBar, LeadTabPanel, LeadUnavailable,
+} from '../components/chapterLead/LeadProgramme.jsx';
 
 const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Chapter Lead', executive: 'Chapter Lead', professional: 'Professional' };
 const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#B45309', executive: '#B45309', professional: '#0369A1' };
@@ -44,6 +51,29 @@ const UserDashboard = () => {
     const [showPostsModal, setShowPostsModal] = useState(false);
     const [showStatsModal, setShowStatsModal] = useState(false);
 
+    // ── Chapter Lead programme (only Chapter Leads load or see any of this) ──
+    const { showToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const isLead = !!isCouncilMember?.();
+    const [lead, setLead] = useState({ data: null, loading: isLead, error: '', noProfile: false });
+
+    const loadLead = useCallback(async () => {
+        try {
+            const res = await getLeadDashboard();
+            setLead({ data: res.data?.data || null, loading: false, error: '', noProfile: false });
+        } catch (err) {
+            const status = err?.response?.status;
+            setLead({ data: null, loading: false, noProfile: status === 404, error: status === 404 ? '' : getErrorMessage(err) });
+        }
+    }, []);
+    useEffect(() => { if (isLead) loadLead(); }, [isLead, loadLead]);
+    useEffect(() => { document.title = isLead ? 'Chapter Lead Dashboard | Risk AI Council' : 'Dashboard | Risk AI Council'; }, [isLead]);
+
+    // /user/dashboard?tab=requests opens that tab directly (used by notifications and tiles).
+    const requestedTab = searchParams.get('tab');
+    const tab = isLead && LEAD_TAB_KEYS.includes(requestedTab) ? requestedTab : 'overview';
+    const setTab = (next) => setSearchParams(next === 'overview' ? {} : { tab: next }, { replace: true });
+
     const timeAgo = (dateString) => {
         const diff = Date.now() - new Date(dateString).getTime();
         const minutes = Math.floor(diff / 60000);
@@ -58,7 +88,6 @@ const UserDashboard = () => {
     };
 
     useEffect(() => {
-        document.title = 'Dashboard | Risk AI Council';
         Promise.allSettled([
             getEvents({ is_upcoming: true, limit: 4 }),
             getMyRegistrations(),
@@ -91,6 +120,8 @@ const UserDashboard = () => {
     ];
 
     const PLATFORM_FEATURES = [
+        { icon: PenSquare,  label: 'Write a Blog',      desc: 'Share your expertise (reviewed before it goes live)', path: '/chapter-lead/blog/new', allowed: isCouncilMember?.(), lockMsg: 'Chapter Lead only' },
+        { icon: Mic,        label: 'Request to Host',   desc: 'Ask to host a podcast or workshop',     path: '/user/dashboard?tab=requests',           allowed: isCouncilMember?.(), lockMsg: 'Chapter Lead only' },
         { icon: Newspaper,  label: 'Manage News',       desc: 'Create & publish news articles',        path: '/news',                                  allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
         { icon: Calendar,   label: 'Manage Events',     desc: 'Create & publish events',               path: '/events',                                allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
         { icon: BookOpen,   label: 'Auto-News',         desc: 'Approve automated news feed',           path: '/admin-dashboard?tab=auto_news',         allowed: isAdmin?.() || isCouncilMember?.(), lockMsg: 'Chapter Lead / Founding Member only' },
@@ -114,15 +145,16 @@ const UserDashboard = () => {
                 /* ─ Hero ─ */
                 .dash-hero {
                     background: linear-gradient(135deg,#001a33 0%,#003366 60%,#004d99 100%);
-                    padding: clamp(1.5rem,4vw,2.5rem) clamp(1rem,4vw,2rem);
+                    padding: clamp(1.5rem,4vw,2.5rem) clamp(0.75rem,1.6vw,1rem);
                     position: relative; overflow: hidden;
                 }
 
                 /* ─ Content area ─ */
                 .dash-body {
-                    max-width: 1200px;
+                    box-sizing: content-box;
+                    max-width: 1320px;
                     margin: 0 auto;
-                    padding: clamp(1rem,3vw,1.5rem) clamp(1rem,3vw,1.5rem) 3rem;
+                    padding: clamp(0.75rem,2vw,1.25rem) clamp(0.75rem,1.6vw,1rem) 3rem;
                 }
 
                 /* ─ Main grid ─ */
@@ -210,7 +242,7 @@ const UserDashboard = () => {
                     <div style={{ position:'absolute', top:'-60px', right:'-60px', width:'220px', height:'220px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
                     <div style={{ position:'absolute', bottom:'-40px', left:'5%', width:'160px', height:'160px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
 
-                    <div style={{ maxWidth:'1200px', margin:'0 auto', position:'relative', zIndex:1 }}>
+                    <div style={{ maxWidth:'1320px', margin:'0 auto', position:'relative', zIndex:1 }}>
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'1rem' }}>
 
                             {/* Left: avatar + greeting */}
@@ -219,7 +251,7 @@ const UserDashboard = () => {
                                     {initial}
                                 </div>
                                 <div style={{ minWidth:0 }}>
-                                    <p style={{ margin:'0 0 2px', fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', fontWeight:'600', letterSpacing:'0.04em', textTransform:'uppercase' }}>Member Portal</p>
+                                    <p style={{ margin:'0 0 2px', fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', fontWeight:'600', letterSpacing:'0.04em', textTransform:'uppercase' }}>{isLead ? 'Chapter Lead dashboard' : 'Member Portal'}</p>
                                     <h1 style={{ margin:'0 0 3px', fontSize:'clamp(1rem,3vw,1.4rem)', fontWeight:'800', color:'white', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                         Welcome back, {user?.name?.split(' ')[0]}!
                                     </h1>
@@ -256,6 +288,7 @@ const UserDashboard = () => {
                                 { label:'Events Registered', value: loading ? '—' : registrations.length },
                                 { label:'Upcoming Events',   value: loading ? '—' : events.length },
                                 { label:'Membership',        value: roleLabel },
+                                ...leadHeroStats(lead.data),
                             ].map(({ label, value }) => (
                                 <div key={label}>
                                     <p style={{ margin:'0 0 1px', fontSize:'clamp(1rem,2.5vw,1.3rem)', fontWeight:'800', color:'white', lineHeight:1 }}>{value}</p>
@@ -268,6 +301,22 @@ const UserDashboard = () => {
 
                 {/* ═══ BODY ═══ */}
                 <div className="dash-body">
+                    {isLead && (
+                        lead.loading ? (
+                            <div style={{ display:'grid', gap:'1rem', marginBottom:'1.25rem' }}>
+                                <div className="skel" style={{ height:'72px' }}/>
+                                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))', gap:'1rem' }}>
+                                    {[1,2,3,4].map(i => <div key={i} className="skel" style={{ height:'150px' }}/>)}
+                                </div>
+                            </div>
+                        ) : lead.data ? (
+                            <LeadProgrammeTop data={lead.data} />
+                        ) : (
+                            <LeadUnavailable error={lead.error} noProfile={lead.noProfile}
+                                onRetry={() => { setLead(s => ({ ...s, loading: true })); loadLead(); }} />
+                        )
+                    )}
+
                     <div className="dash-grid">
 
                         {/* ── LEFT SIDEBAR ── */}
@@ -287,6 +336,7 @@ const UserDashboard = () => {
                                         }] : []),
                                         { label:'Status', value: user?.status ?? 'Active' },
                                         ...(user?.profile_badge ? [{ label: '🏅 Badge', value: user.profile_badge }] : []),
+                                        ...leadAccountRows(lead.data),
                                     ].map(({ label, value }) => (
                                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', paddingBottom:'0.5rem', borderBottom:'1px solid #F1F5F9', fontSize:'0.85rem' }}>
                                             <span style={{ color:'#94A3B8', fontWeight:'500', flexShrink:0 }}>{label}</span>
@@ -316,6 +366,8 @@ const UserDashboard = () => {
                                     ))}
                                 </div>
                             </div>
+
+                            {isLead && lead.data && <LeadSidebar data={lead.data} onOpenTab={setTab} />}
 
                             {/* Upgrade card — show for ALL professional members; hide only for council_member & founding_member */}
                             {user?.role !== 'founding_member' && user?.role !== 'council_member' && (
@@ -356,6 +408,14 @@ const UserDashboard = () => {
 
                         {/* ── RIGHT CONTENT ── */}
                         <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem', minWidth:0 }}>
+
+                            {isLead && lead.data && <LeadTabBar tab={tab} onChange={setTab} />}
+
+                            {tab !== 'overview' && lead.loading ? (
+                                <div className="skel" style={{ height:'220px' }}/>
+                            ) : tab !== 'overview' && lead.data ? (
+                                <LeadTabPanel tab={tab} data={lead.data} showToast={showToast} onChanged={loadLead} />
+                            ) : (<>
 
                             {/* Events + News row */}
                             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(min(280px,100%),1fr))', gap:'1.25rem' }}>
@@ -546,6 +606,7 @@ const UserDashboard = () => {
                                 )}
                             </div>
 
+                            </>)}
                         </div>{/* end right */}
                     </div>{/* end dash-grid */}
                 </div>{/* end dash-body */}

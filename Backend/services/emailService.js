@@ -1,7 +1,7 @@
 /**
  * emailService.js
  * ─────────────────────────────────────────────────────────────────────────────
- * Production email service for AI Risk Council.
+ * Production email service for Risk AI Council.
  *
  * Provider-agnostic SMTP via Nodemailer. Supports Gmail, SendGrid, Azure
  * Communication Services, and any standard SMTP relay.
@@ -12,9 +12,10 @@
  *  SMTP_SECURE    "true" for port 465, omit/false for port 587
  *  SMTP_USER     Your SMTP username / email address
  *  SMTP_PASS     App password or API key
- *  SMTP_FROM_NAME   Display name (default: "AI Risk Council")
+ *  SMTP_FROM_NAME   Display name (default: "Risk AI Council")
  *  SMTP_FROM_EMAIL  Sender email (default: value of SMTP_USER)
- *  APP_URL      Your public domain (default: Azure App Service URL)
+ * EMAIL_BASE_URL  Public site URL for every link and the logo in emails. Falls back to
+ *               FRONTEND_URL, then APP_URL (both ignored when localhost), then the live site.
  *  CONTACT_RECEIVER_EMAIL  Where Contact-form messages are delivered. Optional;
  *               comma-separated for several recipients
  *               (default: support@riskaicouncil.org)
@@ -36,7 +37,7 @@ const getTransporter = () => {
   if (_transporter) return _transporter;
 
   const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST ||!SMTP_USER ||!SMTP_PASS) return null;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
 
   _transporter = nodemailer.createTransport({
     host:      SMTP_HOST,
@@ -61,29 +62,28 @@ const getTransporter = () => {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 const FROM = () =>
-  `"${process.env.SMTP_FROM_NAME || 'AI Risk Council'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`;
+  `"${process.env.SMTP_FROM_NAME || 'Risk AI Council'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`;
 
-// EMAIL_BASE_URL is dedicated to email links — always points to the live site.
-// Falls back to APP_URL only if it looks like a public domain (not localhost).
-// Hardcoded Azure URL is the final fallback so emails are never broken in dev.
-const PRODUCTION_URL = 'https://riskaicouncil-fsgmh0erfjh0g6g4.eastasia-01.azurewebsites.net';
+// Every link and the logo in an email must point at the PUBLIC site, on the same domain
+// the mail is sent from: links to a different or random-looking host are a classic spam
+// signal. Order: EMAIL_BASE_URL (always wins) -> FRONTEND_URL -> APP_URL (both ignored
+// when they are localhost) -> the live site.
+const PUBLIC_SITE_URL = 'https://www.riskaicouncil.org';
 const APP_URL = () => {
   const explicit = process.env.EMAIL_BASE_URL;
   if (explicit) return explicit.replace(/\/$/, '');
 
-  const appUrl = process.env.APP_URL || '';
-  const isLocalhost = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(appUrl);
-  return (appUrl &&!isLocalhost ? appUrl : PRODUCTION_URL).replace(/\/$/, '');
+  const isLocalhost = (u) => /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(u);
+  const candidate = [process.env.FRONTEND_URL, process.env.APP_URL].find((u) => u && !isLocalhost(u));
+  return (candidate || PUBLIC_SITE_URL).replace(/\/$/, '');
 };
 
 const ROLE_LABELS = {
-  free_member:   'Free Member',
-  paid_member:   'Professional Member',
-  university:   'University Researcher',
-  product_company: 'Product Company',
-  executive:    'Chapter Lead',
-  council_member: 'Chapter Lead',
-  admin:      'Administrator',
+  professional:    'Professional',
+  executive:       'Chapter Lead',
+  council_member:  'Chapter Lead',
+  founding_member: 'Founding Member',
+  admin:           'Administrator',
 };
 
 const formatDate = (dateStr) => {
@@ -114,11 +114,72 @@ const buildGCalUrl = (title, dateStr, location) => {
       action:  'TEMPLATE',
       text:   title,
       dates:  `${fmt(start)}/${fmt(end)}`,
-      details: `AI Risk Council Event — ${APP_URL()}/events`,
+      details: `Risk AI Council Event — ${APP_URL()}/events`,
       location: location || '',
     });
     return `https://calendar.google.com/calendar/render?${p.toString()}`;
   } catch { return null; }
+};
+
+// ── Plain-text part ───────────────────────────────────────────────────────────
+// Every message goes out as multipart/alternative (HTML + plain text). HTML-only mail
+// is scored down by spam filters, and some mail clients show only the text part.
+const decodeEntities = (s) => s
+  .replace(/&nbsp;/g, ' ').replace(/&zwnj;/g, '').replace(/&middot;/g, '·')
+  .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–').replace(/&rarr;/g, '→')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/&amp;/g, '&');
+
+const htmlToText = (html) => {
+  let t = String(html || '')
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<div style="display:none[\s\S]*?<\/div>/gi, '');   // the hidden preview line
+
+  // Links: "label (url)" so nothing is lost without the HTML.
+  t = t.replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => {
+    const l = label.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const url = decodeEntities(href);
+    if (url.startsWith('mailto:')) {
+      const addr = url.slice(7).split('?')[0];
+      return !l || l === addr ? addr : `${l} (${addr})`;
+    }
+    return !l || l === url ? url : `${l}: ${url}`;
+  });
+
+  t = t
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|h[1-6]|tr|table|li)>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/td>/gi, '  ')
+    .replace(/<[^>]+>/g, '');
+
+  return decodeEntities(t)
+    .split('\n').map((line) => line.replace(/[ \t]+/g, ' ').trim()).join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+// The address people should write to; Reply-To for mail nobody should reply to the From address of.
+const supportAddress = () => {
+  const first = String(process.env.CONTACT_RECEIVER_EMAIL || '').split(',')[0].trim();
+  return first || 'support@riskaicouncil.org';
+};
+
+// Tells auto-responders (out-of-office and the like) not to answer these messages.
+const AUTOMATED_HEADERS = { 'Auto-Submitted': 'auto-generated', 'X-Auto-Response-Suppress': 'OOF, AutoReply' };
+
+/**
+ * Add what every message needs: the plain-text part, a Reply-To, and (for automated mail)
+ * the auto-response headers. Pass `automated: false` for mail a person wrote.
+ */
+const finalize = (mailOptions) => {
+  const { automated = true, ...message } = mailOptions;
+  if (!message.text && message.html) message.text = htmlToText(message.html);
+  if (!message.replyTo) message.replyTo = supportAddress();
+  message.headers = { ...(automated ? AUTOMATED_HEADERS : {}), ...(message.headers || {}) };
+  return message;
 };
 
 // ── Fire-and-forget dispatcher ────────────────────────────────────────────────
@@ -132,7 +193,7 @@ const send = async (mailOptions) => {
     return false;
   }
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(finalize(mailOptions));
     console.info(`[Email] ✓ Sent "${mailOptions.subject}" → ${mailOptions.to} (${info.messageId})`);
     return true;
   } catch (err) {
@@ -190,8 +251,94 @@ const ctaButton = (label, url) => `
 const checkListItem = (text) =>
   `<tr><td style="padding:5px 0;font-size:13px;color:#475569;line-height:1.6;">${text}</td></tr>`;
 
+const esc = escapeHtml;
+
+// The first word of a name, for greetings. Plain text: escape it before putting it in HTML.
+const firstNameOf = (name, fallback = 'there') => String(name || '').trim().split(/\s+/)[0] || fallback;
+
+const heading = (html) => `<h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">${html}</h2>`;
+
+const lead = (html) => `<p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">${html}</p>`;
+
+const sectionLabel = (label) =>
+  `<p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">${label}</p>`;
+
+const TONES = {
+  info:    { bg: '#eff6ff', border: '#93c5fd', title: '#1d4ed8', text: '#1e40af' },
+  success: { bg: '#f0fdf4', border: '#86efac', title: '#15803d', text: '#166534' },
+  warning: { bg: '#fffbeb', border: '#fcd34d', title: '#92400e', text: '#b45309' },
+  danger:  { bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#b91c1c' },
+};
+
+// A coloured callout with a bold title. `bodyHtml` may contain markup: escape user text first.
+const banner = (tone, title, bodyHtml) => {
+  const t = TONES[tone] || TONES.info;
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:${t.bg};border:1.5px solid ${t.border};border-radius:10px;margin-bottom:28px;">
+     <tr>
+      <td style="padding:16px 20px;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${t.title};">${title}</p>
+       <div style="margin:0;font-size:13px;color:${t.text};line-height:1.6;">${bodyHtml}</div>
+      </td>
+     </tr>
+    </table>`;
+};
+
+// Label/value rows. Pass already-escaped values (use infoRow() for each row).
+const detailsTable = (rowsHtml, marginBottom = 28) => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:${marginBottom}px;">
+     ${rowsHtml}
+    </table>`;
+
+// A grey box with a small title and a bulleted list. Items are HTML (escape user text first).
+const listBox = (title, items) => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border-radius:10px;margin-bottom:8px;">
+     <tr>
+      <td style="padding:20px 22px;">
+       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">${title}</p>
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${items.map((item) => checkListItem(`• &nbsp;${item}`)).join('\n        ')}
+       </table>
+      </td>
+     </tr>
+    </table>`;
+
+// A note with a coloured left edge.
+const callout = (title, bodyHtml, edge = '#003366') => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border-left:3px solid ${edge};border-radius:0 8px 8px 0;margin-bottom:4px;">
+     <tr>
+      <td style="padding:14px 18px;">
+       <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1e293b;">${title}</p>
+       <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">${bodyHtml}</p>
+      </td>
+     </tr>
+    </table>`;
+
+// The big one-time code.
+const codeBox = (label, code) => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:28px;text-align:center;">
+     <tr>
+      <td style="padding:24px 20px;">
+       <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;">${label}</p>
+       <div style="font-size:36px;font-weight:800;letter-spacing:0.25em;color:#003366;font-family:'Courier New',Courier,monospace;">${esc(code)}</div>
+      </td>
+     </tr>
+    </table>`;
+
+// The time-limit note under a code.
+const expiryNote = (minutes, ignoreText) => banner(
+  'warning',
+  `Valid for ${minutes} minutes`,
+  `This code expires in ${minutes} minutes and works only once. ${ignoreText}`,
+);
+
+
 // ── Master layout ─────────────────────────────────────────────────────────────
-const DEFAULT_FOOTER_NOTE = 'You received this email because you have an account on the AI Risk Council platform.';
+const DEFAULT_FOOTER_NOTE = 'You received this email because you have an account on the Risk AI Council platform.';
 
 const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) => `
 <!DOCTYPE html>
@@ -201,7 +348,7 @@ const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) =>
  <meta name="viewport" content="width=device-width,initial-scale=1" />
  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
  <meta name="x-apple-disable-message-reformatting" />
- <title>AI Risk Council</title>
+ <title>Risk AI Council</title>
  <!--[if mso]>
  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
  <![endif]-->
@@ -228,14 +375,14 @@ const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) =>
 
      <!-- ═══ HEADER ═══ -->
      <tr>
-      <td class="email-header" align="center" style="background:linear-gradient(135deg,#001a33 0%,#003366 55%,#005599 100%);padding:36px 40px 32px;text-align:center;">
+      <td class="email-header" align="center" bgcolor="#003366" style="background-color:#003366;background:linear-gradient(135deg,#001a33 0%,#003366 55%,#005599 100%);padding:36px 40px 32px;text-align:center;">
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px auto;">
         <tr>
          <td valign="middle" style="padding-right:10px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:10px;">
            <tr>
             <td align="center" valign="middle" width="40" height="40" style="width:40px;height:40px;border-radius:10px;">
-             <img src="${APP_URL()}/rac_u_logo.png" alt="Logo" width="30" height="30" style="display:block;width:30px;height:30px;object-fit:contain;" />
+             <img src="${APP_URL()}/rac_u_logo.png" alt="Risk AI Council" width="30" height="30" style="display:block;width:30px;height:30px;object-fit:contain;" />
             </td>
            </tr>
           </table>
@@ -266,8 +413,9 @@ const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) =>
         &nbsp;&middot;&nbsp;
         <a href="${APP_URL()}/contact" style="color:#003366;text-decoration:none;font-weight:600;">Contact Us</a>
        </p>
-       <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} AI Risk Council. All rights reserved.</p>
-       <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;">${footerNote}</p>
+       <p style="margin:0;font-size:11px;color:#94a3b8;">© ${new Date().getFullYear()} Risk AI Council. All rights reserved.</p>
+       <p style="margin:6px 0 0;font-size:11px;color:#94a3b8;">Questions? Write to <a href="mailto:support@riskaicouncil.org" style="color:#64748b;">support@riskaicouncil.org</a></p>
+       <p style="margin:6px 0 0;font-size:11px;color:#94a3b8;">${footerNote}</p>
       </td>
      </tr>
 
@@ -294,62 +442,32 @@ const layout = (bodyHtml, previewText = '', footerNote = DEFAULT_FOOTER_NOTE) =>
  */
 export const sendWelcomeEmail = ({ name, email, role, organizationName }) => {
   const roleLabel = ROLE_LABELS[role] || 'Member';
-  const firstName = name.split(' ')[0];
+  const first = firstNameOf(name);
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Welcome, ${firstName}!</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Your registration request has been received. We've summarised your details below.
-    </p>
+    ${heading(`Welcome, ${esc(first)}!`)}
+    ${lead('Thank you for registering with Risk AI Council. We have received your request and summarised your details below.')}
+    ${banner('warning', 'Your account is pending review', 'Our team is reviewing your account. You will receive a separate email as soon as it is approved, typically within <strong>24–48 hours</strong>.')}
 
-    <!-- Pending banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">Review in Progress: Pending Admin Review</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        Your account is being reviewed by our team. You'll receive a separate email once it's approved — 
-        typically within <strong>24–48 hours</strong>.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Your account details')}
+    ${detailsTable(`
+     ${infoRow('Full name', esc(name))}
+     ${infoRow('Email', esc(email))}
+     ${infoRow('Membership', badge(esc(roleLabel)))}
+     ${organizationName ? infoRow('Organisation', esc(organizationName)) : ''}
+    `)}
 
-    <!-- Account details -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Your Account Details</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Full Name',  name)}
-     ${infoRow('Email',    email)}
-     ${infoRow('Membership', badge(roleLabel))}
-     ${organizationName ? infoRow('Organisation', organizationName) : ''}
-    </table>
+    ${listBox('What happens next?', [
+      'Our team reviews your registration',
+      'You receive an approval confirmation email',
+      'You sign in and get full access to the Risk AI Council platform',
+    ])}
 
-    <!-- Next steps -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">What happens next?</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;Our team reviews your application')}
-        ${checkListItem('• &nbsp;You receive an approval confirmation email')}
-        ${checkListItem('• &nbsp;Log in for full access to the ARC platform')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    ${ctaButton('Explore the Platform', APP_URL())}
+    ${ctaButton('Explore the platform', APP_URL())}
   `,
-  `Welcome to AI Risk Council, ${firstName}! Your account is pending review.`);
+  `Welcome to Risk AI Council, ${esc(first)}. Your account is pending review.`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Welcome to AI Risk Council, ${firstName}! `,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: `Welcome to Risk AI Council, ${oneLine(first)}`, html });
 };
 
 
@@ -361,56 +479,29 @@ export const sendWelcomeEmail = ({ name, email, role, organizationName }) => {
  */
 export const sendAccountApprovedEmail = ({ name, email, role, profile_badge }) => {
   const roleLabel = ROLE_LABELS[role] || 'Member';
-  const firstName = name.split(' ')[0];
+  const first = firstNameOf(name);
+  const tag = profile_badge
+    ? `<br><br><strong>Assigned tag:</strong> ${badge(esc(profile_badge), '#15803d', 'rgba(21,128,61,0.1)')}`
+    : '';
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">You're in, ${firstName}!</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Your AI Risk Council account has been reviewed and <strong style="color:#15803d;">approved</strong>. 
-      You now have full access to the platform.
-    </p>
+    ${heading(`You're in, ${esc(first)}!`)}
+    ${lead('Your Risk AI Council account has been reviewed and <strong style="color:#15803d;">approved</strong>. You now have full access to the platform.')}
+    ${banner('success', 'Account approved', `Your <strong>${esc(roleLabel)}</strong> membership is now active. Sign in to explore everything the council has to offer.${tag}`)}
 
-    <!-- Approved banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#15803d;">✓ &nbsp;Account Approved &amp; Active</p>
-       <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;">
-        Your <strong>${roleLabel}</strong> membership is now fully active. Sign in to explore everything the council has to offer.
-       </p>
-       ${profile_badge ? `<p style="margin:8px 0 0;font-size:13px;color:#166534;line-height:1.6;"><strong>Assigned Tag:</strong> ${badge(profile_badge, '#15803d', 'rgba(21,128,61,0.1)')}</p>` : ''}
-      </td>
-     </tr>
-    </table>
+    ${listBox('Available to you now', [
+      'Browse research papers, whitepapers &amp; resources',
+      'Register for upcoming AI governance events',
+      'Join the discussion in the Community Feed',
+      'Submit nominations for the awards',
+      'Explore the AI Risk Framework',
+    ])}
 
-    <!-- What you can do -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Available to you now</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;Browse research papers, whitepapers &amp; resources')}
-        ${checkListItem('• &nbsp;Register for upcoming AI governance events')}
-        ${checkListItem('• &nbsp;Post and answer questions in Community Q&amp;A')}
-        ${checkListItem('• &nbsp;Submit nominations for the AI Risk Awards')}
-        ${checkListItem('• &nbsp;Explore the AI Risk Framework')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    ${ctaButton('Sign In to Your Account', `${APP_URL()}/login`)}
+    ${ctaButton('Sign in to your account', `${APP_URL()}/login`)}
   `,
-  `Your AI Risk Council account has been approved — welcome aboard!`);
+  'Your Risk AI Council account has been approved. Welcome aboard.');
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Your AI Risk Council account is approved! Success:`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: 'Your Risk AI Council account is approved', html });
 };
 
 
@@ -422,50 +513,45 @@ export const sendAccountApprovedEmail = ({ name, email, role, profile_badge }) =
  */
 export const sendEventRegistrationEmail = ({ name, email, organization, event, registrationId }) => {
   const { title, date, location, event_category } = event;
-  const firstName  = name.split(' ')[0];
-  const dateLabel  = formatDate(date);
-  const timeLabel  = formatTime(date);
-  const gcalUrl   = buildGCalUrl(title, date, location);
-  const refId    = registrationId ? `#${String(registrationId).padStart(6, '0')}` : null;
+  const first = firstNameOf(name);
+  const dateLabel = formatDate(date);
+  const timeLabel = formatTime(date);
+  const gcalUrl = buildGCalUrl(title, date, location);
+  const refId = registrationId ? `#${String(registrationId).padStart(6, '0')}` : null;
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">You're registered!</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, your spot for <strong style="color:#003366;">${title}</strong> has been confirmed. 
-      Keep this email — you may be asked to show it at check-in.
-    </p>
+    ${heading("You're registered!")}
+    ${lead(`Hi ${esc(first)}, your spot for <strong style="color:#003366;">${esc(title)}</strong> has been confirmed. Keep this email, as you may be asked to show it at check-in.`)}
 
     <!-- Event card -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
         style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
-     <!-- Accent bar -->
-     <tr><td style="height:4px;background:linear-gradient(90deg,#003366,#0066cc,#0099cc);"></td></tr>
+     <tr><td bgcolor="#0066cc" style="height:4px;background-color:#0066cc;background:linear-gradient(90deg,#003366,#0066cc,#0099cc);"></td></tr>
      <tr>
       <td style="padding:22px 24px 8px;">
-       ${event_category ? badge(event_category, '#0055aa', 'rgba(0,85,170,0.09)') : ''}
-       <h3 style="margin:10px 0 0;font-size:19px;font-weight:800;color:#1e293b;line-height:1.3;">${title}</h3>
+       ${event_category ? badge(esc(event_category), '#0055aa', 'rgba(0,85,170,0.09)') : ''}
+       <h3 style="margin:10px 0 0;font-size:19px;font-weight:800;color:#1e293b;line-height:1.3;">${esc(title)}</h3>
       </td>
      </tr>
      <tr>
       <td style="padding:6px 24px 24px;">
        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${dateLabel ? infoRow('Date', dateLabel + (timeLabel ? `&nbsp; <span style="color:#94a3b8;">·</span> &nbsp;${timeLabel}` : '')) : ''}
-        ${location ? infoRow('Location', location)  : ''}
-        ${infoRow('Registered as', name)}
-        ${infoRow('Email', email)}
-        ${organization ? infoRow('Organisation', organization) : ''}
+        ${dateLabel ? infoRow('Date', esc(dateLabel) + (timeLabel ? `&nbsp; <span style="color:#94a3b8;">·</span> &nbsp;${esc(timeLabel)}` : '')) : ''}
+        ${location ? infoRow('Location', esc(location)) : ''}
+        ${infoRow('Registered as', esc(name))}
+        ${infoRow('Email', esc(email))}
+        ${organization ? infoRow('Organisation', esc(organization)) : ''}
         ${refId ? infoRow('Ref&nbsp;ID', `<code style="background:#f1f5f9;padding:3px 8px;border-radius:5px;font-family:monospace;font-size:13px;color:#334155;">${refId}</code>`) : ''}
        </table>
       </td>
      </tr>
     </table>
 
-    <!-- Add to calendar -->
     ${gcalUrl ? `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px;">
      <tr>
       <td style="border:1.5px solid #e2e8f0;border-radius:8px;background:#ffffff;">
-       <a href="${gcalUrl}" target="_blank"
+       <a href="${esc(gcalUrl)}" target="_blank"
          style="display:inline-block;padding:11px 22px;font-size:13px;font-weight:600;color:#374151;text-decoration:none;">
          Add to Google Calendar
        </a>
@@ -473,30 +559,13 @@ export const sendEventRegistrationEmail = ({ name, email, organization, event, r
      </tr>
     </table>` : ''}
 
-    <!-- Important note -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-left:3px solid #003366;border-radius:0 8px 8px 0;margin-bottom:4px;">
-     <tr>
-      <td style="padding:14px 18px;">
-       <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1e293b;">Important: Important</p>
-       <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">
-        Please save this email as your confirmation. For changes or cancellations, 
-        contact us at least 24 hours before the event.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${callout('Please keep this email', 'Save it as your confirmation. For changes or cancellations, contact us at least 24 hours before the event.')}
 
-    ${ctaButton('View All Events', `${APP_URL()}/events`)}
+    ${ctaButton('View all events', `${APP_URL()}/events`)}
   `,
-  `Confirmed: You're registered for ${title}${dateLabel ? ` on ${dateLabel}` : ''}`);
+  `Confirmed: you're registered for ${esc(title)}${dateLabel ? ` on ${esc(dateLabel)}` : ''}`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Registration Confirmed: ${title} 🗓️`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: `Registration confirmed: ${oneLine(title)}`, html });
 };
 
 // ─── Membership role labels (current 3-tier system) ───────────────────────────
@@ -520,68 +589,38 @@ const MEMBERSHIP_DURATION = {
  * @param {{ name: string, email: string, role: string, expiresAt: string|Date, daysLeft: number }} opts
  */
 export const sendMembershipExpiryWarningEmail = ({ name, email, role, expiresAt, daysLeft }) => {
-  const firstName = (name || 'Member').split(' ')[0];
+  const first = firstNameOf(name, 'Member');
   const roleLabel = MEMBERSHIP_ROLE_LABELS[role] || role;
   const expiryDate = formatDate(expiresAt) || String(expiresAt);
+  const days = `${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Your membership expires soon</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, your <strong>${roleLabel}</strong> membership will expire in
-      <strong>${daysLeft} day${daysLeft!== 1 ? 's' : ''}</strong>.
-    </p>
+    ${heading('Your membership expires soon')}
+    ${lead(`Hi ${esc(first)}, your <strong>${esc(roleLabel)}</strong> membership will expire in <strong>${days}</strong>.`)}
+    ${banner('warning', 'Your membership is about to expire', `Your membership will expire on <strong>${esc(expiryDate)}</strong>. After that, access to members-only content is suspended until your membership is renewed.`)}
 
-    <!-- Warning banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">Important Notice: Expiry Notice</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        Your membership will expire on <strong>${expiryDate}</strong>.
-        After expiry, access to members-only content will be suspended until your membership is renewed.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Your membership')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(name))}
+     ${infoRow('Email', esc(email))}
+     ${infoRow('Tier', badge(esc(roleLabel)))}
+     ${infoRow('Duration', esc(MEMBERSHIP_DURATION[role] || ''))}
+     ${infoRow('Expires on', esc(expiryDate))}
+     ${infoRow('Days left', days)}
+    `)}
 
-    <!-- Membership details -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Your Membership</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Name',     name)}
-     ${infoRow('Email',    email)}
-     ${infoRow('Tier',     badge(roleLabel))}
-     ${infoRow('Duration',   MEMBERSHIP_DURATION[role] || '')}
-     ${infoRow('Expires On',  expiryDate)}
-     ${infoRow('Days Left',  `${daysLeft} day${daysLeft!== 1 ? 's' : ''}`)}
-    </table>
+    ${listBox('What happens when it expires?', [
+      'Access to member-only content is restricted',
+      'Framework downloads &amp; audit templates become unavailable',
+      'You receive a final expiry notification',
+      'Contact us to renew and restore full access',
+    ])}
 
-    <!-- What happens after expiry -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:8px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">What happens when it expires?</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;Access to member-only content will be restricted')}
-        ${checkListItem('• &nbsp;Framework downloads & audit templates will be unavailable')}
-        ${checkListItem('• &nbsp;You will receive a final expiry notification')}
-        ${checkListItem('• &nbsp;Contact us to renew and restore full access')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    ${ctaButton('Contact Us to Renew', `${APP_URL()}/contact`)}
+    ${ctaButton('Contact us to renew', `${APP_URL()}/contact`)}
   `,
-  `Your ${roleLabel} membership expires in ${daysLeft} day${daysLeft!== 1 ? 's' : ''} — renew now`);
+  `Your ${esc(roleLabel)} membership expires in ${days}. Renew to keep your access.`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: ` Your ${roleLabel} membership expires in ${daysLeft} day${daysLeft!== 1 ? 's' : ''}`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: `Your ${oneLine(roleLabel)} membership expires in ${days}`, html });
 };
 
 /**
@@ -591,137 +630,74 @@ export const sendMembershipExpiryWarningEmail = ({ name, email, role, expiresAt,
  * @param {{ name: string, email: string, role: string, expiredAt: string|Date }} opts
  */
 export const sendMembershipExpiredEmail = ({ name, email, role, expiredAt }) => {
-  const firstName = (name || 'Member').split(' ')[0];
+  const first = firstNameOf(name, 'Member');
   const roleLabel = MEMBERSHIP_ROLE_LABELS[role] || role;
   const expiryDate = formatDate(expiredAt) || String(expiredAt);
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Your membership has expired</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, your <strong>${roleLabel}</strong> membership expired on <strong>${expiryDate}</strong>.
-    </p>
+    ${heading('Your membership has expired')}
+    ${lead(`Hi ${esc(first)}, your <strong>${esc(roleLabel)}</strong> membership expired on <strong>${esc(expiryDate)}</strong>.`)}
+    ${banner('danger', 'Membership expired', 'Your access to members-only content has been suspended. Reach out to our team to discuss renewal options and restore your full access.')}
 
-    <!-- Expired banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#991b1b;">Notice: Membership Expired</p>
-       <p style="margin:0;font-size:13px;color:#b91c1c;line-height:1.6;">
-        Your access to members-only content has been suspended. Reach out to our team to
-        discuss renewal options and restore your full access.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Membership details')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(name))}
+     ${infoRow('Email', esc(email))}
+     ${infoRow('Tier', badge(esc(roleLabel), '#991b1b', 'rgba(153,27,27,0.1)'))}
+     ${infoRow('Expired on', esc(expiryDate))}
+     ${infoRow('Status', badge('Expired', '#991b1b', 'rgba(153,27,27,0.1)'))}
+    `)}
 
-    <!-- Membership details -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Membership Details</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Name',    name)}
-     ${infoRow('Email',   email)}
-     ${infoRow('Tier',    badge(roleLabel, '#991b1b', 'rgba(153,27,27,0.1)'))}
-     ${infoRow('Expired On', expiryDate)}
-     ${infoRow('Status',   badge('Expired', '#991b1b', 'rgba(153,27,27,0.1)'))}
-    </table>
+    ${listBox('Your options', [
+      'Contact our team to discuss renewal',
+      'Visit the Membership page to see your options',
+      'Public content (news and events) stays accessible',
+    ])}
 
-    <!-- Options -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:8px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Your options</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;Contact our team to discuss renewal')}
-        ${checkListItem('• &nbsp;Re-register for a free Professional membership')}
-        ${checkListItem('• &nbsp;Upgrade to Executive or Founding Member tier')}
-        ${checkListItem('• &nbsp;Public content (news, events) remains accessible')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    ${ctaButton('Contact Us to Renew', `${APP_URL()}/contact`)}
+    ${ctaButton('Contact us to renew', `${APP_URL()}/contact`)}
   `,
-  `Your ${roleLabel} membership has expired — contact us to renew`);
+  `Your ${esc(roleLabel)} membership has expired. Contact us to renew.`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Your ${roleLabel} membership has expired`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: `Your ${oneLine(roleLabel)} membership has expired`, html });
 };
 
 
 /**
  * sendExecutiveApplicationAdminEmail
- * Sent to the admin when a user submits an Executive membership application.
+ * Sent to the admin when a member submits a Chapter Lead application.
  *
  * @param {{ adminEmail: string, adminName?: string, application: object }} opts
  *  application: { applicant_name, applicant_email, organization_name, job_title, linkedin_url, phone, created_at }
  */
 export const sendExecutiveApplicationAdminEmail = ({ adminEmail, adminName, application }) => {
-  const {
-    applicant_name, applicant_email, organization_name,
-    job_title, linkedin_url, phone,
-    created_at,
-  } = application;
-
-  const appliedOn = formatDate(created_at) || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const adminFirst = (adminName || 'Admin').split(' ')[0];
+  const a = application || {};
+  const applicantName = a.applicant_name ?? a.full_name ?? '';
+  const applicantEmail = a.applicant_email ?? a.email ?? '';
+  const { organization_name, job_title, linkedin_url, phone, created_at } = a;
+  const appliedOn = formatDate(created_at) || formatDate(new Date());
+  const adminFirst = firstNameOf(adminName, 'Admin');
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">New Executive Application</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${adminFirst}, a user has submitted an <strong>Executive Membership</strong> application and is awaiting your review.
-    </p>
+    ${heading('New Chapter Lead application')}
+    ${lead(`Hi ${esc(adminFirst)}, a member has applied to become a <strong>Chapter Lead</strong> and is waiting for your review.`)}
+    ${banner('info', 'Action required', 'Please review this application in the admin dashboard and approve or reject it. The applicant is notified of your decision automatically.')}
 
-    <!-- Alert banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d4ed8;">Action Required: Action Required</p>
-       <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
-        Please review this application in the admin dashboard and approve or reject it.
-        The applicant will be notified of your decision automatically.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Applicant details')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(applicantName))}
+     ${infoRow('Email', applicantEmail ? `<a href="mailto:${esc(applicantEmail)}" style="color:#0066cc;">${esc(applicantEmail)}</a>` : '')}
+     ${infoRow('Organisation', esc(organization_name || '—'))}
+     ${infoRow('Job title', esc(job_title || '—'))}
+     ${infoRow('LinkedIn', linkedin_url ? `<a href="${esc(linkedin_url)}" style="color:#0066cc;">${esc(linkedin_url)}</a>` : '—')}
+     ${infoRow('Phone', esc(phone || '—'))}
+     ${infoRow('Applied on', esc(appliedOn))}
+    `)}
 
-    <!-- Applicant details -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Applicant Details</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Name',     applicant_name)}
-     ${infoRow('Email',     applicant_email)}
-     ${infoRow('Organisation', organization_name || '—')}
-     ${infoRow('Job Title',   job_title || '—')}
-     ${infoRow('LinkedIn',   linkedin_url ? `<a href="${linkedin_url}" style="color:#0066cc;">${linkedin_url}</a>` : '—')}
-     ${infoRow('Phone',     phone || '—')}
-     ${infoRow('Applied On',  appliedOn)}
-    </table>
-
-    <!-- Payment info -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Payment Summary</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Original Price', '$299 / quarter')}
-     ${infoRow('Promo Applied',  badge('FOUNDING-LAUNCH 100% OFF', '#15803d', 'rgba(21,128,61,0.1)'))}
-     ${infoRow('Amount Charged', '<strong style="color:#15803d;">$0.00</strong>')}
-     ${infoRow('Payment Ref',   '<code style="background:#f1f5f9;padding:3px 8px;border-radius:5px;font-family:monospace;font-size:12px;color:#334155;">PROMO-100PCT</code>')}
-    </table>
-
-    ${ctaButton('Review Application in Admin Dashboard', `${APP_URL()}/admin`)}
+    ${ctaButton('Review in the admin dashboard', `${APP_URL()}/admin-dashboard?tab=pending`)}
   `,
-  `New Executive Membership application from ${applicant_name} — action required`);
+  `New Chapter Lead application from ${esc(applicantName || 'a member')}. Action required.`);
 
-  send({
-    from:  FROM(),
-    to:   adminEmail,
-    subject: ` New Executive Membership Application — ${applicant_name}`,
-    html,
-  });
+  send({ from: FROM(), to: adminEmail, subject: `New Chapter Lead application: ${oneLine(applicantName) || 'a member'}`, html });
 };
 
 
@@ -729,81 +705,49 @@ export const sendExecutiveApplicationAdminEmail = ({ adminEmail, adminName, appl
  * sendMembershipApplicationReceivedEmail
  * Sent to the applicant confirming their application was received.
  *
- * @param {{ name: string, email: string, requestedRole: 'executive'|'founding_member' }} opts
+ * @param {{ name: string, email: string, requestedRole: 'council_member'|'founding_member' }} opts
  */
 export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedRole }) => {
-  const firstName = (name || 'Member').split(' ')[0];
-  const roleLabel = requestedRole === 'founding_member' ? 'Founding Member' : 'Executive';
+  const first = firstNameOf(name);
+  const isFounding = requestedRole === 'founding_member';
+  const roleLabel = isFounding ? 'Founding Member' : 'Chapter Lead';
 
-  const isExecutive = requestedRole === 'executive';
+  const summary = isFounding
+    ? 'Your Founding Member invitation request has been received. Our team will carefully review your application and reach out if you are selected.'
+    : 'Your Chapter Lead application has been submitted and is under admin review. You will be notified once a decision is made.';
 
-  const roleDetails = isExecutive
-    ? `<p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
-       Your Executive membership application (with our <strong>FOUNDING-LAUNCH</strong> promo — $0 today) has been 
-       submitted and is under admin review. You'll be notified once a decision is made.
-      </p>`
-    : `<p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
-       Your Founding Member invitation request has been received. Our team will carefully review
-       your application and reach out if you're selected.
-      </p>`;
-
-  const nextStepsRows = isExecutive
-    ? `${checkListItem('• &nbsp;Admin team reviews your Executive application')}
-      ${checkListItem('• &nbsp;You receive an approval or rejection email')}
-      ${checkListItem('• &nbsp;On approval, your role upgrades to Executive instantly')}`
-    : `${checkListItem('• &nbsp;Your application is reviewed by the founding team')}
-      ${checkListItem('• &nbsp;You will be contacted directly if selected')}
-      ${checkListItem('• &nbsp;Founding Members help shape the AI Risk Council\'s future')}`;
+  const steps = isFounding
+    ? [
+      'Your application is reviewed by the founding team',
+      'You will be contacted directly if selected',
+      "Founding Members help shape the Risk AI Council's future",
+    ]
+    : [
+      'Our admin team reviews your Chapter Lead application',
+      'You receive an email with the decision',
+      'If approved, your account becomes a Chapter Lead account and your dashboard opens up',
+    ];
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Application Received Success:</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, we've received your <strong>${roleLabel}</strong> membership application. Thank you for your interest!
-    </p>
+    ${heading('Application received')}
+    ${lead(`Hi ${esc(first)}, we have received your <strong>${roleLabel}</strong> application. Thank you for your interest.`)}
+    ${banner('info', 'Your application is under review', summary)}
 
-    <!-- Confirmation banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d4ed8;">Review in Progress: Pending Admin Review</p>
-       ${roleDetails}
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Your application')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(name))}
+     ${infoRow('Email', esc(email))}
+     ${infoRow('Requested role', badge(roleLabel))}
+     ${infoRow('Status', badge('Under review', '#92400e', '#fffbeb'))}
+    `)}
 
-    <!-- Application summary -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Your Application</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Name',      name)}
-     ${infoRow('Email',      email)}
-     ${infoRow('Requested Tier', badge(roleLabel))}
-     ${infoRow('Status',     badge('Under Review', '#92400e', '#fffbeb'))}
-    </table>
+    ${listBox('What happens next?', steps)}
 
-    <!-- Next steps -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:8px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">What happens next?</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${nextStepsRows}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    ${ctaButton('Back to the Platform', APP_URL())}
+    ${ctaButton('Back to the platform', APP_URL())}
   `,
-  `Your ${roleLabel} application has been received — we'll be in touch soon`);
+  `Your ${roleLabel} application has been received. We will be in touch soon.`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Your ${roleLabel} application has been received 📬`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: `We've received your ${roleLabel} application`, html });
 };
 
 
@@ -811,113 +755,67 @@ export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedR
  * sendMembershipApplicationStatusEmail
  * Sent to the applicant when an admin approves or rejects their application.
  *
- * @param {{ name: string, email: string, requestedRole: 'executive'|'founding_member', status: 'approved'|'rejected', adminNotes?: string }} opts
+ * @param {{ name: string, email: string, requestedRole: 'council_member'|'founding_member', status: 'approved'|'rejected', adminNotes?: string }} opts
  */
 export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRole, status, adminNotes, profile_badge }) => {
-  const firstName = (name || 'Member').split(' ')[0];
-  const roleLabel = requestedRole === 'founding_member' ? 'Founding Member' : 'Chapter Lead';
+  const first = firstNameOf(name, 'there');
+  const isFounding = requestedRole === 'founding_member';
+  const roleLabel = isFounding ? 'Founding Member' : 'Chapter Lead';
   const isApproved = status === 'approved';
 
+  const tag = profile_badge
+    ? `<br><br><strong>Assigned tag:</strong> ${badge(esc(profile_badge), '#15803d', 'rgba(21,128,61,0.1)')}`
+    : '';
   const bannerHtml = isApproved
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;margin-bottom:28px;">
-      <tr>
-       <td style="padding:16px 20px;">
-        <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#15803d;">• &nbsp;Application Approved!</p>
-        <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;">
-         Congratulations — your <strong>${roleLabel}</strong> membership is now active.
-         Sign in to access all your new member benefits.
-        </p>
-        ${profile_badge ? `<p style="margin:8px 0 0;font-size:13px;color:#166534;line-height:1.6;"><strong>Assigned Tag:</strong> ${badge(profile_badge, '#15803d', 'rgba(21,128,61,0.1)')}</p>` : ''}
-       </td>
-      </tr>
-     </table>`
-    : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;margin-bottom:28px;">
-      <tr>
-       <td style="padding:16px 20px;">
-        <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#991b1b;">Notice: Application Not Approved</p>
-        <p style="margin:0;font-size:13px;color:#b91c1c;line-height:1.6;">
-         After reviewing your application, we were unable to approve your <strong>${roleLabel}</strong>
-         membership at this time. Your existing Professional membership remains active.
-        </p>
-       </td>
-      </tr>
-     </table>`;
+    ? banner('success', 'Application approved', `Congratulations. Your <strong>${roleLabel}</strong> membership is now active. Sign in to access your new member benefits.${tag}`)
+    : banner('danger', 'Application not approved', `After reviewing your application, we were unable to approve your <strong>${roleLabel}</strong> membership at this time. Your existing Professional membership remains active.`);
 
-  const approvedBenefits = requestedRole === 'founding_member'
-    ? `${checkListItem('• &nbsp;Lifetime Founding Member status on the AI Risk Council')}
-      ${checkListItem('• &nbsp;Direct input on council direction and governance')}
-      ${checkListItem('📅 &nbsp;Exclusive founding member events and roundtables')}
-      ${checkListItem('• &nbsp;Recognition in the AI Risk Council founding members list')}`
-    : `${checkListItem('• &nbsp;Executive membership role is now active on your account')}
-      ${checkListItem('• &nbsp;Access to Executive-tier resources and frameworks')}
-      ${checkListItem('📅 &nbsp;Priority access to all council events')}
-      ${checkListItem('👥 &nbsp;Executive member networking and roundtables')}`;
+  const benefits = isFounding
+    ? [
+      'Lifetime Founding Member status on Risk AI Council',
+      'Direct input on council direction and governance',
+      'Exclusive founding member events and roundtables',
+      'Recognition in the Risk AI Council founding members list',
+    ]
+    : [
+      'Your Chapter Lead dashboard, with quarterly goals and tracking',
+      'Your personal referral code and link for inviting new members',
+      'Write blogs and request to host podcasts or workshops',
+      'Share posts in the Community Feed',
+    ];
 
-  const adminNotesSection = adminNotes
-    ? `<p style="margin:20px 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Note from Reviewer</p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-         style="background:#f8fafc;border-left:3px solid #94a3b8;border-radius:0 8px 8px 0;margin-bottom:8px;">
-       <tr>
-        <td style="padding:14px 18px;">
-         <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;font-style:italic;">"${adminNotes}"</p>
-        </td>
-       </tr>
-      </table>`
+  const notes = adminNotes
+    ? `${sectionLabel('Note from the reviewer')}
+       ${callout('', `<em>"${esc(adminNotes)}"</em>`, '#94a3b8')}
+       <div style="height:20px;"></div>`
     : '';
 
-  const ctaSection = isApproved
-    ? ctaButton('Sign In to Access Your New Benefits', `${APP_URL()}/login`)
-    : ctaButton('Contact Us for More Information', `${APP_URL()}/contact`);
-
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">
-      ${isApproved ? `Welcome to ${roleLabel}! ` : 'Application Update'}
-   </h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, we have an update regarding your <strong>${roleLabel}</strong> membership application.
-    </p>
-
+    ${heading(isApproved ? `Welcome to ${roleLabel}` : 'Application update')}
+    ${lead(`Hi ${esc(first)}, we have an update on your <strong>${roleLabel}</strong> membership application.`)}
     ${bannerHtml}
 
-    <!-- Application details -->
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Application Details</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
-     ${infoRow('Name',      name)}
-     ${infoRow('Email',     email)}
-     ${infoRow('Requested Tier', badge(roleLabel))}
-     ${infoRow('Decision',    badge(isApproved ? 'Approved' : 'Not Approved', isApproved ? '#15803d' : '#991b1b', isApproved ? 'rgba(21,128,61,0.1)' : 'rgba(153,27,27,0.1)'))}
-    </table>
+    ${sectionLabel('Application details')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(name))}
+     ${infoRow('Email', esc(email))}
+     ${infoRow('Requested role', badge(roleLabel))}
+     ${infoRow('Decision', badge(isApproved ? 'Approved' : 'Not approved', isApproved ? '#15803d' : '#991b1b', isApproved ? 'rgba(21,128,61,0.1)' : 'rgba(153,27,27,0.1)'))}
+    `, 24)}
 
-    ${adminNotesSection}
+    ${notes}
+    ${isApproved ? listBox('Your new benefits', benefits) : ''}
 
-    ${isApproved ? `
-    <!-- Benefits unlocked -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin:${adminNotes ? '20px' : '0'} 0 8px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Your new benefits</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${approvedBenefits}
-       </table>
-      </td>
-     </tr>
-    </table>` : ''}
-
-    ${ctaSection}
+    ${isApproved
+      ? ctaButton('Sign in to access your new benefits', `${APP_URL()}/login`)
+      : ctaButton('Contact us for more information', `${APP_URL()}/contact`)}
   `,
-  isApproved
-    ? `Congratulations! Your ${roleLabel} application has been approved`
-    : `Update on your ${roleLabel} membership application`);
+  isApproved ? `Congratulations. Your ${roleLabel} application has been approved.` : `Update on your ${roleLabel} membership application`);
 
   send({
-    from:  FROM(),
-    to:   email,
-    subject: isApproved
-      ? ` Your ${roleLabel} membership is approved!`
-      : `Update on your ${roleLabel} application`,
+    from: FROM(),
+    to: email,
+    subject: isApproved ? `Your ${roleLabel} application is approved` : `Update on your ${roleLabel} application`,
     html,
   });
 };
@@ -936,45 +834,14 @@ export const sendCouncilApplicationAdminEmail = sendExecutiveApplicationAdminEma
 
 export const sendVerificationEmail = (email, otp) => {
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Verify Your Email</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Thank you for starting your registration with the AI Risk Council. Please use the verification code below to confirm this email address.
-    </p>
-
-    <!-- OTP banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:28px;text-align:center;">
-     <tr>
-      <td style="padding:24px 20px;">
-       <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;">Your Verification Code</p>
-       <div style="font-size:36px;font-weight:800;letter-spacing:0.25em;color:#003366;font-family:monospace;">
-        ${otp}
-       </div>
-      </td>
-     </tr>
-    </table>
-
-    <!-- Security note -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border-left:3px solid #fcd34d;border-radius:0 8px 8px 0;margin-bottom:4px;">
-     <tr>
-      <td style="padding:14px 18px;">
-       <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">Time-sensitive: Valid for 10 minutes</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        This code will expire in 10 minutes. If you did not request this, you can safely ignore this email.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${heading('Verify your email')}
+    ${lead('Thank you for starting your registration with Risk AI Council. Use the code below to confirm this email address.')}
+    ${codeBox('Your verification code', otp)}
+    ${expiryNote(10, 'If you did not request this, you can safely ignore this email.')}
   `,
-  `Your AI Risk Council verification code is ${otp}`);
+  'Use this code to confirm your email address. It expires in 10 minutes.');
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Your Verification Code: ${otp}`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: 'Your Risk AI Council verification code', html });
 };
 
 /**
@@ -984,43 +851,14 @@ export const sendVerificationEmail = (email, otp) => {
  */
 export const sendNominationOtpEmail = (email, otp) => {
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Verify Your Email</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Thanks for submitting your self-nomination to the AI Risk Council Awards. Please use the code below to confirm this email address and finish your submission.
-    </p>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:28px;text-align:center;">
-     <tr>
-      <td style="padding:24px 20px;">
-       <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;">Your Verification Code</p>
-       <div style="font-size:36px;font-weight:800;letter-spacing:0.25em;color:#003366;font-family:monospace;">
-        ${otp}
-       </div>
-      </td>
-     </tr>
-    </table>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border-left:3px solid #fcd34d;border-radius:0 8px 8px 0;margin-bottom:4px;">
-     <tr>
-      <td style="padding:14px 18px;">
-       <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">Time-sensitive: Valid for 10 minutes</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        This code will expire in 10 minutes. If you did not request this, you can safely ignore this email — your nomination will not be submitted without it.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${heading('Verify your email')}
+    ${lead('Thanks for submitting your self-nomination to the Risk AI Council Awards. Use the code below to confirm this email address and finish your submission.')}
+    ${codeBox('Your verification code', otp)}
+    ${expiryNote(10, 'If you did not request this, you can safely ignore this email. Your nomination will not be submitted without it.')}
   `,
-  `Your AI Risk Council nomination verification code is ${otp}`);
+  'Use this code to confirm your email address and finish your nomination. It expires in 10 minutes.');
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `Your Nomination Verification Code: ${otp}`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: 'Your nomination verification code', html });
 };
 
 /**
@@ -1032,46 +870,30 @@ export const sendNominationOtpEmail = (email, otp) => {
  */
 export const sendSelfNominationAdminEmail = ({ adminEmail, adminName, nomination }) => {
   const { name, designation, company, award_name, category_name, submitter_email, created_at } = nomination;
-  const adminFirst = (adminName || 'Admin').split(' ')[0];
-  const submittedOn = formatDate(created_at) || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const adminFirst = firstNameOf(adminName, 'Admin');
+  const submittedOn = formatDate(created_at) || formatDate(new Date());
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">New Self-Nomination</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${adminFirst}, someone has submitted a self-nomination and it's awaiting your review before it appears publicly.
-    </p>
+    ${heading('New self-nomination')}
+    ${lead(`Hi ${esc(adminFirst)}, someone has submitted a self-nomination and it is waiting for your review before it appears publicly.`)}
+    ${banner('info', 'Action required', 'Review this nomination in the admin dashboard\'s "Pending Self-Nominations" queue and approve or reject it.')}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d4ed8;">Action Required</p>
-       <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
-        Review this nomination in the admin dashboard's "Pending Self-Nominations" queue and approve or reject it.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${sectionLabel('Nomination details')}
+    ${detailsTable(`
+     ${infoRow('Name', esc(name))}
+     ${infoRow('Designation', esc(designation || '—'))}
+     ${infoRow('Company', esc(company || '—'))}
+     ${infoRow('Award', esc(award_name))}
+     ${infoRow('Category', esc(category_name))}
+     ${infoRow('Contact email', esc(submitter_email || '—'))}
+     ${infoRow('Submitted on', esc(submittedOn))}
+    `)}
 
-    <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">Nomination Details</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Name',    name)}
-     ${infoRow('Designation', designation || '—')}
-     ${infoRow('Company',  company || '—')}
-     ${infoRow('Award',    award_name)}
-     ${infoRow('Category',  category_name)}
-     ${infoRow('Contact Email', submitter_email || '—')}
-     ${infoRow('Submitted On', submittedOn)}
-    </table>
+    ${ctaButton('Review in the admin dashboard', `${APP_URL()}/admin-dashboard?tab=nominations`)}
   `,
-  `New self-nomination from ${name} — awaiting review`);
+  `New self-nomination from ${esc(name)}. Awaiting review.`);
 
-  send({
-    from:  FROM(),
-    to:   adminEmail,
-    subject: `New Self-Nomination Awaiting Review: ${name}`,
-    html,
-  });
+  send({ from: FROM(), to: adminEmail, subject: `New self-nomination awaiting review: ${oneLine(name)}`, html });
 };
 
 /**
@@ -1079,39 +901,21 @@ export const sendSelfNominationAdminEmail = ({ adminEmail, adminName, nomination
  * Confirmation sent to the nominee after a self-nomination is submitted.
  */
 export const sendSelfNominationReceivedEmail = ({ name, email, awardName, categoryName }) => {
-  const firstName = (name || '').split(' ')[0] || 'there';
+  const first = firstNameOf(name);
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">Nomination Received, ${firstName}!</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Thanks for nominating yourself for the AI Risk Council Awards. Here's a summary of what you submitted.
-    </p>
+    ${heading(`Nomination received, ${esc(first)}!`)}
+    ${lead('Thanks for nominating yourself for the Risk AI Council Awards. Here is a summary of what you submitted.')}
+    ${banner('warning', 'Pending review', 'Our team reviews every self-nomination before it goes live for public voting. We will let you know once a decision is made.')}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">Pending Review</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        Our team reviews every self-nomination before it goes live for public voting. We'll let you know once a decision is made.
-       </p>
-      </td>
-     </tr>
-    </table>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-     ${infoRow('Award',   awardName)}
-     ${infoRow('Category', categoryName)}
-    </table>
+    ${detailsTable(`
+     ${infoRow('Award', esc(awardName))}
+     ${infoRow('Category', esc(categoryName))}
+    `)}
   `,
-  `Your self-nomination for ${awardName} has been received`);
+  `Your self-nomination for ${esc(awardName)} has been received.`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: `We've received your self-nomination`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: "We've received your self-nomination", html });
 };
 
 /**
@@ -1119,44 +923,22 @@ export const sendSelfNominationReceivedEmail = ({ name, email, awardName, catego
  * Sent to the nominee once an admin approves or rejects their self-nomination.
  */
 export const sendSelfNominationDecisionEmail = ({ name, email, awardName, categoryName, approved, adminNotes }) => {
-  const firstName = (name || '').split(' ')[0] || 'there';
+  const first = firstNameOf(name);
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#1e293b;">
-      ${approved ? `Great news, ${firstName}!` : `Update on your nomination`}
-    </h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      ${approved
-        ? `Your self-nomination for <strong>${categoryName}</strong> (${awardName}) has been approved and is now live for public voting.`
-        : `Thanks for submitting your self-nomination for <strong>${categoryName}</strong> (${awardName}). After review, our team has decided not to move forward with it at this time.`}
-    </p>
+    ${heading(approved ? `Great news, ${esc(first)}!` : 'Update on your nomination')}
+    ${lead(approved
+      ? `Your self-nomination for <strong>${esc(categoryName)}</strong> (${esc(awardName)}) has been approved and is now live for public voting.`
+      : `Thanks for submitting your self-nomination for <strong>${esc(categoryName)}</strong> (${esc(awardName)}). After review, our team has decided not to move forward with it at this time.`)}
+    ${approved
+      ? banner('success', 'Approved and live', 'Share your nomination with your network and encourage votes before the category closes.')
+      : banner('danger', 'Not approved', adminNotes ? esc(adminNotes) : 'If you have questions about this decision, feel free to reach out to us.')}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:${approved ? '#f0fdf4' : '#fef2f2'};border:1.5px solid ${approved ? '#bbf7d0' : '#fecaca'};border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${approved ? '#166534' : '#991b1b'};">
-        ${approved ? 'Approved & Live' : 'Not Approved'}
-       </p>
-       <p style="margin:0;font-size:13px;color:${approved ? '#166534' : '#991b1b'};line-height:1.6;">
-        ${approved
-          ? 'Share your nomination with your network and encourage votes before the category closes.'
-          : (adminNotes ? adminNotes : 'If you have questions about this decision, feel free to reach out to us.')}
-       </p>
-      </td>
-     </tr>
-    </table>
-
-    ${approved ? ctaButton('View Nominees', `${APP_URL()}/nominees`) : ''}
+    ${approved ? ctaButton('View nominees', `${APP_URL()}/nominees`) : ''}
   `,
-  approved ? `Your self-nomination for ${categoryName} has been approved!` : `Update on your self-nomination for ${categoryName}`);
+  approved ? `Your self-nomination for ${esc(categoryName)} has been approved.` : `Update on your self-nomination for ${esc(categoryName)}`);
 
-  send({
-    from:  FROM(),
-    to:   email,
-    subject: approved ? `Your self-nomination has been approved!` : `Update on your self-nomination`,
-    html,
-  });
+  send({ from: FROM(), to: email, subject: approved ? 'Your self-nomination has been approved' : 'Update on your self-nomination', html });
 };
 
 
@@ -1164,190 +946,51 @@ export const sendSelfNominationDecisionEmail = ({ name, email, awardName, catego
 // ACCOUNT DELETION EMAILS
 // ════════════════════════════════════════════════════════════════════════════════
 
+
+
 /**
- * sendDeletionRequestConfirmationEmail
- * Sent immediately when a user submits an account deletion request.
+ * sendAccountDeletedEmail
+ * Sent right after a member deletes their own account (deletion is immediate: there is no review step).
  *
  * @param {{ name: string, email: string }} opts
  */
-export const sendDeletionRequestConfirmationEmail = ({ name, email }) => {
-  const firstName = (name || '').split(' ')[0] || 'Member';
+export const sendAccountDeletedEmail = ({ name, email }) => {
+  const first = firstNameOf(name, 'there');
 
   const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Account Deletion Request Received</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, we have received your request to permanently delete your Risk AI Council account.
-    </p>
+    ${heading('Your account has been deleted')}
+    ${lead(`Hi ${esc(first)}, as you requested, your Risk AI Council account has been deleted.`)}
+    ${banner('success', 'Account deleted', 'Your sign-in details and personal information have been permanently removed. This cannot be undone.')}
 
-    <!-- Status banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#92400e;">⏳ Awaiting Administrator Review</p>
-       <p style="margin:0;font-size:13px;color:#b45309;line-height:1.6;">
-        Your account has been temporarily deactivated. You will not be able to log in while your
-        request is under review. You will receive another email once a decision has been made.
-       </p>
-      </td>
-     </tr>
-    </table>
+    ${listBox('What was removed', [
+      'Your account and sign-in credentials',
+      'Your profile photo, bio and social links',
+      'Your membership applications and history',
+      'Your event and workshop registrations',
+      'Your saved posts, notification history and device tokens',
+    ])}
+    <div style="height:14px;"></div>
+    ${listBox('What stays, anonymised', [
+      'Posts, comments and resource uploads stay, shown as &quot;Former Member&quot;',
+      'Reviews and award votes you submitted stay, and totals are not changed',
+      'If you were a Chapter Lead: referral records, quarter results and your agreement record are kept as history',
+    ])}
 
-    <!-- What happens next -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">What happens next?</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;An administrator will review your request')}
-        ${checkListItem('• &nbsp;You will receive an approval or rejection email')}
-        ${checkListItem('• &nbsp;If approved, your account and all associated data will be permanently removed')}
-        ${checkListItem('• &nbsp;If rejected, your account will be fully reactivated')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
-      If you did not submit this request, please contact us immediately at
+    <p style="margin:24px 0 0;font-size:13px;color:#64748b;line-height:1.6;">
+      <strong>Did not request this?</strong> Contact us straight away at
       <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
     </p>
+    <p style="margin:12px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Thank you for being part of the Risk AI Council community. You are welcome to
+      <a href="${APP_URL()}/register" style="color:#003366;">register again</a> at any time.
+    </p>
   `,
-  'Your account deletion request has been received and is pending review.');
+  'Your Risk AI Council account has been deleted.');
 
-  send({
-    from:    FROM(),
-    to:      email,
-    subject: 'Account Deletion Request Received — Risk AI Council',
-    html,
-  });
+  send({ from: FROM(), to: email, subject: 'Your Risk AI Council account has been deleted', html });
 };
 
 
-/**
- * sendDeletionApprovedEmail
- * Sent when an administrator approves the deletion request.
- * At this point, the user's account and data have been permanently removed.
- *
- * @param {{ name: string, email: string }} opts
- */
-export const sendDeletionApprovedEmail = ({ name, email }) => {
-  const firstName = (name || '').split(' ')[0] || 'Member';
-
-  const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Your Account Has Been Deleted</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, your account deletion request has been approved.
-    </p>
-
-    <!-- Confirmation banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#166534;">✓ Account Permanently Deleted</p>
-       <p style="margin:0;font-size:13px;color:#15803d;line-height:1.6;">
-        Your Risk AI Council account and all associated personal data have been permanently and
-        irreversibly removed from our systems.
-       </p>
-      </td>
-     </tr>
-    </table>
-
-    <!-- What was removed -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 12px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Data removed</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${checkListItem('• &nbsp;Account credentials and login access')}
-        ${checkListItem('• &nbsp;Profile information, photo, and bio')}
-        ${checkListItem('• &nbsp;Membership and subscription history')}
-        ${checkListItem('• &nbsp;Event and workshop registrations')}
-        ${checkListItem('• &nbsp;Saved posts, bookmarks, and notification history')}
-        ${checkListItem('• &nbsp;All personal uploaded files')}
-       </table>
-      </td>
-     </tr>
-    </table>
-
-    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
-      Thank you for being part of the Risk AI Council community. If you wish to rejoin in the future,
-      you are welcome to register again at
-      <a href="${APP_URL()}/register" style="color:#003366;">riskaicouncil.org/register</a>.
-    </p>
-  `,
-  'Your Risk AI Council account has been permanently deleted.');
-
-  send({
-    from:    FROM(),
-    to:      email,
-    subject: 'Your Account Has Been Permanently Deleted — Risk AI Council',
-    html,
-  });
-};
-
-
-/**
- * sendDeletionRejectedEmail
- * Sent when an administrator rejects the deletion request.
- * The user's account is reactivated.
- *
- * @param {{ name: string, email: string, reason: string }} opts
- */
-export const sendDeletionRejectedEmail = ({ name, email, reason }) => {
-  const firstName = (name || '').split(' ')[0] || 'Member';
-
-  const html = layout(`
-    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">Account Deletion Request — Update</h2>
-    <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.65;">
-      Hi ${firstName}, we have reviewed your account deletion request.
-    </p>
-
-    <!-- Status banner -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:16px 20px;">
-       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#991b1b;">Request Not Approved</p>
-       <p style="margin:0;font-size:13px;color:#b91c1c;line-height:1.6;">
-        Your account deletion request has not been approved at this time. Your account has been
-        fully reactivated and you can log in as normal.
-       </p>
-      </td>
-     </tr>
-    </table>
-
-    <!-- Reason -->
-    ${reason ? `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-        style="background:#f8fafc;border-radius:10px;margin-bottom:28px;">
-     <tr>
-      <td style="padding:20px 22px;">
-       <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Reason provided by administrator</p>
-       <p style="margin:0;font-size:14px;color:#334155;line-height:1.65;">${reason}</p>
-      </td>
-     </tr>
-    </table>` : ''}
-
-    ${ctaButton('Log In to Your Account', `${APP_URL()}/login`)}
-
-    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
-      If you have questions, please contact us at
-      <a href="mailto:support@riskaicouncil.org" style="color:#003366;">support@riskaicouncil.org</a>.
-    </p>
-  `,
-  'Your account deletion request has not been approved — your account is now active.');
-
-  send({
-    from:    FROM(),
-    to:      email,
-    subject: 'Account Deletion Request Update — Risk AI Council',
-    html,
-  });
-};
 
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1449,7 +1092,7 @@ export const sendContactReplyEmail = ({ firstName, email, inquiry, originalMessa
     </p>
   `,
   escapeHtml(`Our team replied to your ${oneLine(inquiry)} message: ${oneLine(replyBody).slice(0, 90)}`),
-  'You received this email because this address was used to contact the AI Risk Council team through our website.');
+  'You received this email because this address was used to contact the Risk AI Council team through our website.');
 
   return send({
     from:    FROM(),
@@ -1457,6 +1100,7 @@ export const sendContactReplyEmail = ({ firstName, email, inquiry, originalMessa
     replyTo: CONTACT_RECEIVER(),
     subject: `Re: ${oneLine(inquiry)} — Risk AI Council`,
     html,
+    automated: false, // a person wrote this reply, so do not mark it as auto-generated
   });
 };
 
@@ -1502,7 +1146,7 @@ export const sendContactConfirmationEmail = ({ id, firstName, email, inquiry, me
     </p>
   `,
   'We\'ve received your message — our team will reply within 1–2 business days.',
-  'You received this email because this address was used to submit the Contact form on the AI Risk Council website. If that wasn\'t you, you can safely ignore it.');
+  'You received this email because this address was used to submit the Contact form on the Risk AI Council website. If that wasn\'t you, you can safely ignore it.');
 
   return send({
     from:    FROM(),
@@ -1586,11 +1230,156 @@ export const sendTestEmail = async (to) => {
   'Test message requested from the admin dashboard.');
 
   try {
-    const info = await transporter.sendMail({ from: FROM(), to, subject: 'Test email — Risk AI Council', html });
+    const info = await transporter.sendMail(finalize({ from: FROM(), to, subject: 'Test email — Risk AI Council', html }));
     console.info(`[Email] ✓ Sent test email → ${to} (${info.messageId})`);
     return { ok: true, error: null };
   } catch (err) {
     console.error(`[Email] ✗ Test email failed → ${to}:`, err.message);
     return { ok: false, error: describeSmtpError(err) };
   }
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// CHAPTER LEAD PROGRAMME
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * sendChapterLeadNoticeEmail
+ * One generic, branded notice used by the Chapter Lead programme for quarter
+ * results, warnings, term changes, role endings and admin alerts.
+ *
+ * @param {{ name?: string, email: string, subject: string, heading: string,
+ *           paragraphs?: string[], details?: Array<[string, string]>,
+ *           tone?: 'info'|'warning'|'danger'|'success', ctaLabel?: string, ctaPath?: string }} opts
+ * All text is escaped here — callers pass plain strings.
+ */
+export const sendChapterLeadNoticeEmail = ({
+  name, email, subject, heading, paragraphs = [], details = [],
+  tone = 'info', ctaLabel, ctaPath,
+}) => {
+  if (!email) return;
+  const firstName = escapeHtml((name || '').split(' ')[0]);
+  const tones = {
+    info:    { bg: '#eff6ff', border: '#bfdbfe', text: '#1e3a8a' },
+    success: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
+    warning: { bg: '#fffbeb', border: '#fde68a', text: '#92400e' },
+    danger:  { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b' },
+  };
+  const c = tones[tone] || tones.info;
+
+  const detailsHtml = details.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 20px;">
+        ${details.map(([label, value]) => infoRow(escapeHtml(label), escapeHtml(value))).join('')}
+       </table>`
+    : '';
+
+  const html = layout(`
+    <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#1e293b;">${escapeHtml(heading)}</h2>
+    ${firstName ? `<p style="margin:0 0 20px;font-size:15px;color:#64748b;">Hi ${firstName},</p>` : ''}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:${c.bg};border:1.5px solid ${c.border};border-radius:10px;margin-bottom:22px;">
+     <tr><td style="padding:16px 20px;color:${c.text};font-size:14px;line-height:1.65;">
+      ${paragraphs.length ? nl2br(paragraphs[0]) : ''}
+     </td></tr>
+    </table>
+    ${paragraphs.slice(1).map((p) => `<p style="margin:0 0 14px;font-size:15px;color:#475569;line-height:1.65;">${nl2br(p)}</p>`).join('')}
+    ${detailsHtml}
+    ${ctaLabel && ctaPath ? ctaButton(escapeHtml(ctaLabel), `${APP_URL()}${ctaPath}`) : ''}
+  `,
+  oneLine(heading),
+  'You received this email because you are a Chapter Lead on the Risk AI Council platform.');
+
+  send({ from: FROM(), to: email, subject: oneLine(subject), html });
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// SIGN-IN CODES, PASSWORD RESET AND SECURITY ALERTS
+// These return Promise<boolean> (like the Contact emails) so a caller that cares
+// can find out whether the relay accepted the message.
+// ════════════════════════════════════════════════════════════════════════════════
+
+const utcStamp = (date) => `${new Date(date).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short', timeZone: 'UTC' })} UTC`;
+
+/**
+ * sendLoginCodeEmail
+ * The one-time code for "Sign in with an email code".
+ *
+ * @param {{ name?: string, email: string, code: string, ttlMinutes?: number }} opts
+ */
+export const sendLoginCodeEmail = ({ name, email, code, ttlMinutes = 10 }) => {
+  const html = layout(`
+    ${heading('Your sign-in code')}
+    ${lead(`Hi ${esc(firstNameOf(name))}, use this code to sign in to Risk AI Council.`)}
+    ${codeBox('Your sign-in code', code)}
+    ${expiryNote(ttlMinutes, 'If you did not try to sign in, you can ignore this email: nobody can sign in without the code.')}
+    <div style="height:16px;"></div>
+    ${callout('Keep this code private', 'Risk AI Council will never ask you for it, by email, phone or chat.')}
+  `,
+  `Use this code to sign in. It expires in ${ttlMinutes} minutes.`);
+
+  return send({ from: FROM(), to: email, subject: 'Your Risk AI Council sign-in code', html });
+};
+
+/**
+ * sendPasswordResetCodeEmail
+ * The one-time code for "Forgot password".
+ *
+ * @param {{ name?: string, email: string, code: string, ttlMinutes?: number }} opts
+ */
+export const sendPasswordResetCodeEmail = ({ name, email, code, ttlMinutes = 10 }) => {
+  const html = layout(`
+    ${heading('Reset your password')}
+    ${lead(`Hi ${esc(firstNameOf(name))}, we received a request to reset the password for your Risk AI Council account. Use this code to choose a new one.`)}
+    ${codeBox('Your password reset code', code)}
+    ${expiryNote(ttlMinutes, 'If you did not ask to reset your password, you can ignore this email and your password will stay the same.')}
+    <div style="height:16px;"></div>
+    ${callout('Keep this code private', 'Risk AI Council will never ask you for it, by email, phone or chat.')}
+  `,
+  `Use this code to reset your password. It expires in ${ttlMinutes} minutes.`);
+
+  return send({ from: FROM(), to: email, subject: 'Reset your Risk AI Council password', html });
+};
+
+/**
+ * sendPasswordChangedEmail
+ * Tells the account owner that the password just changed (by a reset or from their profile),
+ * so a change they did not make is noticed quickly.
+ *
+ * @param {{ name?: string, email: string, changedAt?: Date }} opts
+ */
+export const sendPasswordChangedEmail = ({ name, email, changedAt = new Date() }) => {
+  const html = layout(`
+    ${heading('Your password was changed')}
+    ${lead(`Hi ${esc(firstNameOf(name))}, the password for your Risk AI Council account was changed on <strong>${esc(utcStamp(changedAt))}</strong>.`)}
+    ${banner('success', 'Password updated', 'If this was you, there is nothing more to do. Anywhere else you were signed in, you have been signed out.')}
+    ${banner('danger', 'Was this not you?', 'Reset your password straight away, then contact us at <a href="mailto:support@riskaicouncil.org" style="color:#991b1b;">support@riskaicouncil.org</a> so we can secure your account.')}
+    ${ctaButton('Reset my password', `${APP_URL()}/forgot-password`)}
+  `,
+  'Your Risk AI Council password was changed. If this was not you, reset it now.');
+
+  return send({ from: FROM(), to: email, subject: 'Your Risk AI Council password was changed', html });
+};
+
+/**
+ * sendSecurityAlertAdminEmail
+ * Sent to the OTHER founding members when a founding member account signs in with an
+ * emailed code or has its password reset, so a takeover cannot go unnoticed.
+ *
+ * @param {{ adminEmail: string, adminName?: string, accountName: string, accountEmail: string,
+ *           event: 'otp_login'|'password_reset', when?: Date }} opts
+ */
+export const sendSecurityAlertAdminEmail = ({ adminEmail, adminName, accountName, accountEmail, event, when = new Date() }) => {
+  const what = event === 'password_reset' ? 'had its password reset' : 'signed in with an emailed code';
+  const html = layout(`
+    ${heading('Security alert')}
+    ${lead(`Hi ${esc(firstNameOf(adminName, 'Admin'))}, the founding member account <strong>${esc(accountName)}</strong> (${esc(accountEmail)}) ${what} on <strong>${esc(utcStamp(when))}</strong>.`)}
+    ${banner('warning', 'Please check this was expected', 'If you do not recognise this activity, contact the account owner. You can reset their password from Manage Users in the admin dashboard.')}
+    ${ctaButton('Open Manage Users', `${APP_URL()}/admin-dashboard/users`)}
+  `,
+  `Security alert: ${esc(accountName)} ${what}.`,
+  'You received this email because you are a founding member of Risk AI Council.');
+
+  return send({ from: FROM(), to: adminEmail, subject: `Security alert: ${oneLine(accountName)} ${what}`, html });
 };

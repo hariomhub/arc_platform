@@ -21,6 +21,9 @@ const councilValidation = [
     body('professional_bio').optional().trim().isLength({ max: 2000 }),
     body('areas_of_expertise').optional().trim().isLength({ max: 1000 }),
     body('why_council_member').optional().trim().isLength({ max: 3000 }),
+    body('accept_privacy').custom((value) => value === true).withMessage('You must agree to the Privacy Policy and Terms to apply as a Chapter Lead.'),
+    body('country_code').matches(/^[A-Za-z]{2}$/).withMessage('Please select your country.'),
+    body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Invalid chapter.'),
 ];
 
 // Council Member application (replaces /apply/executive)

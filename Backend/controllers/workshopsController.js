@@ -71,7 +71,7 @@ export const getWorkshopById = async (req, res, next) => {
 // POST /api/workshops  (founding_member or council_member)
 export const createWorkshop = async (req, res, next) => {
     try {
-        const { title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming } = req.body;
+        const { title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming, price, capacity, registration_url } = req.body;
         const isCouncilMember = req.user.role === 'council_member';
 
         // council_member always creates as draft
@@ -79,8 +79,9 @@ export const createWorkshop = async (req, res, next) => {
 
         const [result] = await pool.query(
             `INSERT INTO executive_workshops
-               (title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               (title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming, created_by,
+                price, capacity, registration_url)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 date,
@@ -93,8 +94,19 @@ export const createWorkshop = async (req, res, next) => {
                 publishedValue,
                 is_upcoming !== undefined ? Boolean(is_upcoming) : true,
                 req.user.id,
+                price !== undefined && price !== '' && price !== null ? Number(price) : 0,
+                capacity ? parseInt(capacity, 10) : null,
+                registration_url ? registration_url.trim() : null,
             ]
         );
+
+        // A Chapter Lead who creates a workshop is its host (admins assign hosts explicitly).
+        if (isCouncilMember) {
+            await pool.query(
+                `INSERT INTO event_hosts (workshop_id, user_id, role) VALUES (?, ?, 'host')`,
+                [result.insertId, req.user.id]
+            );
+        }
 
         const [rows] = await pool.query('SELECT * FROM executive_workshops WHERE id = ?', [result.insertId]);
 
@@ -122,7 +134,7 @@ export const createWorkshop = async (req, res, next) => {
 // PUT /api/workshops/:id  (founding_member or council_member — council_member owns only)
 export const updateWorkshop = async (req, res, next) => {
     try {
-        const { title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming } = req.body;
+        const { title, date, location, description, speaker, agenda, recording_url, banner_image, is_published, is_upcoming, price, capacity, registration_url } = req.body;
 
         const [check] = await pool.query('SELECT id, created_by, is_published FROM executive_workshops WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
@@ -142,7 +154,8 @@ export const updateWorkshop = async (req, res, next) => {
         await pool.query(
             `UPDATE executive_workshops
              SET title=?, date=?, location=?, description=?, speaker=?, agenda=?,
-                 recording_url=?, banner_image=?, is_published=?, is_upcoming=?
+                 recording_url=?, banner_image=?, is_published=?, is_upcoming=?,
+                 price=COALESCE(?, price), capacity=?, registration_url=?
              WHERE id=?`,
             [
                 title.trim(),
@@ -155,6 +168,9 @@ export const updateWorkshop = async (req, res, next) => {
                 banner_image ? banner_image.trim() : null,
                 publishedValue,
                 is_upcoming !== undefined ? Boolean(is_upcoming) : true,
+                price !== undefined && price !== '' && price !== null ? Number(price) : null,
+                capacity ? parseInt(capacity, 10) : null,
+                registration_url ? registration_url.trim() : null,
                 req.params.id,
             ]
         );
@@ -239,7 +255,7 @@ export const uploadWorkshopBanner = async (req, res, next) => {
 // DELETE /api/workshops/:id  (founding_member or council_member — council_member owns only)
 export const deleteWorkshop = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id, banner_image, created_by FROM executive_workshops WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, banner_image, created_by, conducted_at FROM executive_workshops WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Workshop not found.' });
         }
@@ -247,6 +263,10 @@ export const deleteWorkshop = async (req, res, next) => {
         // Ownership check for council_member
         if (req.user.role === 'council_member' && check[0].created_by !== req.user.id) {
             return res.status(403).json({ success: false, message: 'You can only delete workshops you created.' });
+        }
+        // Once conducted a workshop is part of the lead's record, so removal is an admin decision.
+        if (req.user.role === 'council_member' && check[0].conducted_at) {
+            return res.status(409).json({ success: false, message: 'This workshop has already been conducted and counted. Please contact an admin if it needs to be removed.' });
         }
 
         await deleteFromBlob(check[0].banner_image);

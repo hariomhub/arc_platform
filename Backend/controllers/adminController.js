@@ -3,6 +3,21 @@ import bcrypt from 'bcryptjs';
 import { sendAccountApprovedEmail, sendMembershipApplicationStatusEmail } from '../services/emailService.js';
 import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 import { softDeleteUser, purgeProfilePhoto } from '../services/accountDeletionService.js';
+import {
+    applyRole, activateChapterLead, qualifyReferral, voidReferral, isDuplicate,
+} from '../services/chapterLeadService.js';
+
+const CHAPTER_TAKEN_MESSAGE =
+    'That chapter already has an active Chapter Lead. End their role first or choose a different chapter.';
+
+// Looks up an active chapter by id. Returns the id, null (none given) or false (invalid).
+const resolveChapterId = async (conn, raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const id = parseInt(raw, 10);
+    if (!id) return false;
+    const [[row]] = await conn.query("SELECT id FROM chapters WHERE id = ? AND status = 'active'", [id]);
+    return row ? id : false;
+};
 
 const paginate = (query, total) => {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -18,7 +33,11 @@ export const getUsers = async (req, res, next) => {
         const { role, status, search } = req.query;
 
         let countSql = 'SELECT COUNT(*) AS total FROM users WHERE 1=1';
-        let dataSql  = 'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at FROM users WHERE 1=1';
+        // country_code and who referred the member help an admin vet a new sign-up.
+        let dataSql  = `SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at, country_code,
+                               (SELECT l.name FROM referrals r JOIN users l ON l.id = r.lead_user_id
+                                WHERE r.referred_user_id = users.id LIMIT 1) AS referred_by_name
+                        FROM users WHERE 1=1`;
         const params = [];
 
         if (role) {
@@ -69,35 +88,50 @@ export const getPendingUsers = async (req, res, next) => {
 
 // PATCH /api/admin/users/:id/approve
 export const approveUser = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
-        const [rows] = await pool.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
+        const [rows] = await conn.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
         const { role } = rows[0];
+        const userId = parseInt(req.params.id, 10);
 
-        const expiresAt = role === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-            : role === 'council_member'                 ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+        const chapterId = await resolveChapterId(conn, req.body.chapter_id);
+        if (chapterId === false) {
+            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
+        }
 
-        if (req.body.profile_badge) {
-            await pool.query(
-                "UPDATE users SET status = 'approved', membership_expires_at = ?, profile_badge = ? WHERE id = ?",
-                [expiresAt, req.body.profile_badge, req.params.id]
+        await conn.beginTransaction();
+
+        const badgeSql = req.body.profile_badge ? ', profile_badge = ?' : '';
+        const badgeParam = req.body.profile_badge ? [req.body.profile_badge] : [];
+        if (role === 'council_member') {
+            // Chapter Leads: the shared service sets the term-based expiry.
+            await conn.query(
+                `UPDATE users SET status = 'approved', approved_at = COALESCE(approved_at, UTC_TIMESTAMP())${badgeSql} WHERE id = ?`,
+                [...badgeParam, userId]
             );
+            await activateChapterLead(conn, userId, { chapterId, termStartedAt: req.body.term_started_at || null });
         } else {
-            await pool.query(
-                "UPDATE users SET status = 'approved', membership_expires_at = ? WHERE id = ?",
-                [expiresAt, req.params.id]
+            const expiresAt = role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+            await conn.query(
+                `UPDATE users SET status = 'approved', membership_expires_at = ?, approved_at = COALESCE(approved_at, UTC_TIMESTAMP())${badgeSql} WHERE id = ?`,
+                [expiresAt, ...badgeParam, userId]
             );
         }
+        // A referred member now counts toward their lead's quarterly goal.
+        await qualifyReferral(userId, conn);
+
+        await conn.commit();
 
         // Email notification
         sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role, profile_badge: req.body.profile_badge });
 
         // Push notification — immediate
         notifyUser(
-            parseInt(req.params.id, 10),
+            userId,
             NOTIF_TYPES.ACCOUNT_APPROVED,
             'Your account has been approved!',
             'Welcome to AI Risk Council. You now have full access to the platform.',
@@ -106,7 +140,13 @@ export const approveUser = async (req, res, next) => {
 
         return res.json({ success: true, message: 'User approved.' });
     } catch (err) {
+        await conn.rollback().catch(() => {});
+        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
+            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
+        }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
@@ -118,6 +158,7 @@ export const rejectUser = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
         await pool.query("UPDATE users SET status = 'rejected' WHERE id = ?", [req.params.id]);
+        await voidReferral(parseInt(req.params.id, 10), 'Referred account was rejected');
 
         // Push notification — immediate
         notifyUser(
@@ -136,29 +177,48 @@ export const rejectUser = async (req, res, next) => {
 
 // PATCH /api/admin/users/:id/status
 export const updateUserStatus = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
         const { status } = req.body;
+        const userId = parseInt(req.params.id, 10);
 
-        if (parseInt(req.params.id, 10) === req.user.id) {
+        if (userId === req.user.id) {
             return res.status(403).json({ success: false, message: 'You cannot change your own status.' });
         }
 
-        const [rows] = await pool.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
+        const [rows] = await conn.query('SELECT id, name, email, role FROM users WHERE id = ?', [userId]);
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        await pool.query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.id]);
+        const chapterId = await resolveChapterId(conn, req.body.chapter_id);
+        if (chapterId === false) {
+            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
+        }
+
+        await conn.beginTransaction();
+        await conn.query('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
 
         if (status === 'approved') {
-            const expiresAt = rows[0].role === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : rows[0].role === 'council_member'                 ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
-            await pool.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [expiresAt, req.params.id]);
+            await conn.query('UPDATE users SET approved_at = COALESCE(approved_at, UTC_TIMESTAMP()) WHERE id = ?', [userId]);
+            if (rows[0].role === 'council_member') {
+                await activateChapterLead(conn, userId, { chapterId });
+            } else {
+                const expiresAt = rows[0].role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
+                    : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+                await conn.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [expiresAt, userId]);
+            }
+            await qualifyReferral(userId, conn);
+        } else if (status === 'rejected') {
+            await voidReferral(userId, 'Referred account was rejected', conn);
+        }
+        await conn.commit();
+
+        if (status === 'approved') {
             sendAccountApprovedEmail({ name: rows[0].name, email: rows[0].email, role: rows[0].role });
 
             notifyUser(
-                parseInt(req.params.id, 10),
+                userId,
                 NOTIF_TYPES.ACCOUNT_APPROVED,
                 'Your account has been approved!',
                 'Welcome to AI Risk Council. You now have full access to the platform.',
@@ -166,7 +226,7 @@ export const updateUserStatus = async (req, res, next) => {
             );
         } else if (status === 'rejected') {
             notifyUser(
-                parseInt(req.params.id, 10),
+                userId,
                 NOTIF_TYPES.ACCOUNT_REJECTED,
                 'Application update',
                 'Your account application was not approved at this time. Contact us for more information.',
@@ -176,34 +236,57 @@ export const updateUserStatus = async (req, res, next) => {
 
         return res.json({ success: true, data: { message: `User status updated to "${status}".` } });
     } catch (err) {
+        await conn.rollback().catch(() => {});
+        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
+            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
+        }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
 // PATCH /api/admin/users/:id/role
 export const updateUserRole = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
         const { role } = req.body;
+        const userId = parseInt(req.params.id, 10);
 
-        if (parseInt(req.params.id, 10) === req.user.id) {
+        if (userId === req.user.id) {
             return res.status(403).json({ success: false, message: 'You cannot change your own role.' });
         }
 
-        const [check] = await pool.query('SELECT id, status FROM users WHERE id = ?', [req.params.id]);
+        const [check] = await conn.query('SELECT id, status FROM users WHERE id = ?', [userId]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        const expiresAt = check[0].status === 'approved'
-            ? (role === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : role === 'council_member' ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
-            : null;
+        const chapterId = await resolveChapterId(conn, req.body.chapter_id);
+        if (chapterId === false) {
+            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
+        }
 
-        await pool.query('UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?', [role, expiresAt, req.params.id]);
+        await conn.beginTransaction();
+        // One shared path: promoting creates the lead profile + referral code,
+        // demoting ends the active stint.
+        await applyRole(conn, userId, role, {
+            adminId: req.user.id,
+            chapterId,
+            termStartedAt: req.body.term_started_at || null,
+            approved: check[0].status === 'approved',
+        });
+        await conn.commit();
+
         return res.json({ success: true, data: { message: `User role updated to "${role}".` } });
     } catch (err) {
+        await conn.rollback().catch(() => {});
+        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
+            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
+        }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
@@ -286,12 +369,18 @@ export const updateUserBadge = async (req, res, next) => {
 
 // POST /api/admin/users
 export const createUser = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
         const { name, email, password, role, status, organization_name, linkedin_url, professional_sub_type } = req.body;
 
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+        const [existing] = await conn.query('SELECT id FROM users WHERE email = ?', [email.trim().toLowerCase()]);
         if (existing.length > 0) {
             return res.status(409).json({ success: false, message: 'This email is already registered.' });
+        }
+
+        const chapterId = await resolveChapterId(conn, req.body.chapter_id);
+        if (chapterId === false) {
+            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
         }
 
         const password_hash  = await bcrypt.hash(password, 12);
@@ -299,17 +388,24 @@ export const createUser = async (req, res, next) => {
         const assignedStatus = status || 'approved';
         const subType         = assignedRole === 'professional' ? (professional_sub_type || null) : null;
 
+        // Chapter Leads get their term-based expiry from the shared service below.
         const expiresAt = assignedStatus === 'approved'
-            ? (assignedRole === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : assignedRole === 'council_member' ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
+            ? (assignedRole === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
                 : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
             : null;
 
-        const [result] = await pool.query(
-            `INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, organization_name, linkedin_url, professional_sub_type)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, assignedStatus, expiresAt, organization_name || null, linkedin_url || null, subType]
+        await conn.beginTransaction();
+        const [result] = await conn.query(
+            `INSERT INTO users (name, email, password_hash, role, status, membership_expires_at, approved_at, organization_name, linkedin_url, professional_sub_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name.trim(), email.trim().toLowerCase(), password_hash, assignedRole, assignedStatus, expiresAt,
+             assignedStatus === 'approved' ? new Date() : null,
+             organization_name || null, linkedin_url || null, subType]
         );
+        if (assignedRole === 'council_member' && assignedStatus === 'approved') {
+            await activateChapterLead(conn, result.insertId, { chapterId, termStartedAt: req.body.term_started_at || null });
+        }
+        await conn.commit();
 
         const [rows] = await pool.query(
             'SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, created_at FROM users WHERE id = ?',
@@ -318,7 +414,13 @@ export const createUser = async (req, res, next) => {
 
         return res.status(201).json({ success: true, data: rows[0] });
     } catch (err) {
+        await conn.rollback().catch(() => {});
+        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
+            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
+        }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
@@ -408,9 +510,11 @@ export const getMembershipApplications = async (req, res, next) => {
         const { status, role } = req.query;
         let countSql = `SELECT COUNT(*) AS total FROM membership_applications ma JOIN users u ON u.id = ma.user_id WHERE 1=1`;
         let dataSql  = `
-            SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status, u.profile_badge
+            SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status, u.profile_badge,
+                   c.name AS requested_chapter_name
             FROM membership_applications ma
             JOIN users u ON u.id = ma.user_id
+            LEFT JOIN chapters c ON c.id = ma.requested_chapter_id
             WHERE 1=1
         `;
         const params = [];
@@ -431,8 +535,9 @@ export const getMembershipApplications = async (req, res, next) => {
 
 // PATCH /api/admin/membership-applications/:id/approve
 export const approveMembershipApplication = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
-        const [[app]] = await pool.query(
+        const [[app]] = await conn.query(
             `SELECT ma.*, u.name, u.email FROM membership_applications ma
              JOIN users u ON u.id = ma.user_id
              WHERE ma.id = ?`,
@@ -444,25 +549,46 @@ export const approveMembershipApplication = async (req, res, next) => {
         }
 
         const requestedRole = app.requested_role;
-        const expiresAt = requestedRole === 'founding_member'  ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-            : requestedRole === 'council_member'                 ? new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-            : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
 
-        if (req.body.profile_badge) {
-            await pool.query(
-                `UPDATE users SET role = ?, membership_expires_at = ?, profile_badge = ? WHERE id = ?`,
-                [requestedRole, expiresAt, req.body.profile_badge, app.user_id]
+        // Admin may override the chapter the applicant asked for.
+        const chosenChapter = req.body.chapter_id !== undefined && req.body.chapter_id !== ''
+            ? req.body.chapter_id
+            : app.requested_chapter_id;
+        const chapterId = await resolveChapterId(conn, chosenChapter);
+        if (chapterId === false) {
+            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
+        }
+
+        await conn.beginTransaction();
+
+        if (requestedRole === 'council_member') {
+            // One shared path: role, term-based expiry, lead profile and referral code.
+            await conn.query(`UPDATE users SET role = 'council_member' WHERE id = ?`, [app.user_id]);
+            await activateChapterLead(conn, app.user_id, { chapterId, termStartedAt: req.body.term_started_at || null });
+            await conn.query(
+                `UPDATE users
+                 SET country_code = COALESCE(country_code, ?), chapter_id = COALESCE(chapter_id, ?)
+                 WHERE id = ?`,
+                [app.requested_country_code || null, chapterId, app.user_id]
             );
         } else {
-            await pool.query(
+            const expiresAt = requestedRole === 'founding_member'
+                ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
+                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+            await conn.query(
                 `UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?`,
                 [requestedRole, expiresAt, app.user_id]
             );
         }
-        await pool.query(
+        if (req.body.profile_badge) {
+            await conn.query(`UPDATE users SET profile_badge = ? WHERE id = ?`, [req.body.profile_badge, app.user_id]);
+        }
+        await conn.query(
             `UPDATE membership_applications SET status = 'approved', processed_at = NOW(), admin_notes = ? WHERE id = ?`,
             [req.body.admin_notes || null, req.params.id]
         );
+
+        await conn.commit();
 
         // Email notification
         sendMembershipApplicationStatusEmail({
@@ -480,13 +606,21 @@ export const approveMembershipApplication = async (req, res, next) => {
             app.user_id,
             NOTIF_TYPES.MEMBERSHIP_APPROVED,
             `${roleLabel} membership approved!`,
-            `Congratulations! Your ${roleLabel} membership is now active.`,
+            requestedRole === 'council_member'
+                ? 'Congratulations! Your Chapter Lead role is now active. Open your Chapter Lead dashboard to see your goals and referral code.'
+                : `Congratulations! Your ${roleLabel} membership is now active.`,
             { url: '/user/dashboard' }
         );
 
         return res.json({ success: true, message: 'Application approved. User role updated.' });
     } catch (err) {
+        await conn.rollback().catch(() => {});
+        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
+            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
+        }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 

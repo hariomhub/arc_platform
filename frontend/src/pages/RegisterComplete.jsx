@@ -4,6 +4,7 @@ import { Shield, Check, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import axios from '../api/axios.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import LocationFields from '../components/common/LocationFields.jsx';
 
 const SUB_CATEGORIES = [
     {
@@ -28,6 +29,9 @@ const RegisterComplete = () => {
 
     const [selectedSubCat,  setSelectedSubCat]  = useState('working_professional');
     const [organizationName,setOrganizationName]= useState('');
+    const [countryCode,     setCountryCode]     = useState('');
+    const [chapterId,       setChapterId]       = useState('');
+    const [countryError,    setCountryError]    = useState('');
     const [submitting,      setSubmitting]       = useState(false);
     const [error,           setError]           = useState('');
     const [success,         setSuccess]         = useState(false);
@@ -53,12 +57,18 @@ const RegisterComplete = () => {
             setError('Organisation / University Name is required.');
             return;
         }
+        if (!countryCode) {
+            setCountryError('Please select your country.');
+            return;
+        }
 
         setSubmitting(true);
         try {
             await axios.patch('/auth/complete-profile', {
                 professional_sub_type: selectedSubCat,
                 organization_name: organizationName.trim(),
+                country_code: countryCode,
+                chapter_id: chapterId || undefined,
             });
             setSuccess(true);
         } catch (err) {
@@ -216,6 +226,19 @@ const RegisterComplete = () => {
                                     onBlur={e => e.target.style.borderColor = '#E2E8F0'}
                                 />
                             </div>
+
+                            <LocationFields
+                                country={countryCode}
+                                chapterId={chapterId}
+                                disabled={submitting}
+                                countryError={countryError}
+                                idPrefix="rc"
+                                onChange={({ country_code, chapter_id }) => {
+                                    setCountryCode(country_code);
+                                    setChapterId(chapter_id);
+                                    setCountryError('');
+                                }}
+                            />
 
                             <div style={{ background: '#F8FAFC', borderRadius: '9px', padding: '0.65rem 0.9rem', fontSize: '0.75rem', color: '#64748B', border: '1px solid #E2E8F0' }}>
                                 Both categories have identical platform access. Your selection is used for community analytics only.

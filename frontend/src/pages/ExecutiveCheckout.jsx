@@ -167,7 +167,7 @@ export default function ExecutiveCheckout() {
                             <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-gray-100">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-900">Chapter Lead Membership</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">2-year term · Risk AI Council (RAC)</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">18-month terms · Risk AI Council (RAC)</p>
                                 </div>
                                 <p className="text-sm font-semibold text-gray-500 line-through whitespace-nowrap">$299 / qtr</p>
                             </div>
@@ -193,7 +193,7 @@ export default function ExecutiveCheckout() {
                             <div className="space-y-2 text-xs text-gray-500">
                                 {[
                                     'No credit card required',
-                                    '2-year Chapter Lead access on approval',
+                                    '18-month Chapter Lead terms that continue automatically',
                                     'Professional membership stays active during review',
                                 ].map((txt) => (
                                     <div key={txt} className="flex items-center gap-2">

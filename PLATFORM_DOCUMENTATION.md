@@ -1,6 +1,7 @@
 # AI Risk Council (ARC) Platform — Full Documentation
 > Last updated: March 2026  
 > Stack: React (Vite) + Node.js/Express + MySQL (Azure) + Azure Blob Storage
+> **Note:** the role called "Executive" below is the **Chapter Lead** (`council_member` in the code). See section 12 for the Chapter Lead programme, which changes how that role works.
 
 ---
 
@@ -16,6 +17,7 @@
 9. [Email Notifications](#9-email-notifications)
 10. [Database Schema Summary](#10-database-schema-summary)
 11. [Ongoing DB Migration Strategy](#11-ongoing-db-migration-strategy)
+12. [Chapter Lead Programme](#12-chapter-lead-programme)
 
 ---
 
@@ -568,13 +570,27 @@ Tabs can be opened directly via URL query param:
 
 ## 9. Email Notifications
 
-| Trigger | Recipient | Content |
+All emails are built in `Backend/services/emailService.js` from one shared layout. Every message is sent as HTML **plus** a plain-text part, with a Reply-To to the support address; automated mail is marked `Auto-Submitted` so out-of-office replies are not triggered. Links and the logo use `EMAIL_BASE_URL`, then `FRONTEND_URL`, then `APP_URL` (localhost ignored), then `https://www.riskaicouncil.org`, so they match the sending domain.
+
+| Email | Sent when | To |
 |---|---|---|
-| Account approved | Member | Welcome + membership details |
-| Account rejected | Applicant | Rejection notice |
-| Event registration | Registrant | Confirmation with event details |
-| Vote submitted | Voter | Vote confirmation |
-| Membership upgrade approved | Member | New role + expiry date |
+| Welcome | Someone registers | The new member |
+| Account approved | An admin approves a member | The member |
+| Event registration confirmed | Someone registers for an event | The registrant |
+| Membership expiry warning / expired | Daily job, 7 days before and on expiry | The member |
+| Application received | A member applies to be a Chapter Lead | The applicant |
+| New Chapter Lead application | Same moment | Founding members (or `ADMIN_EMAIL`) |
+| Application approved / not approved | An admin decides | The applicant |
+| Verification code (registration) | "Send code" on the register form | The new user |
+| Verification code (nomination) | "Send code" on the self-nomination form | The nominee |
+| Self-nomination received / awaiting review / decision | Nomination submitted, then reviewed | Nominee, then founding members, then nominee |
+| Account deleted | A member deletes their own account | The former member |
+| Contact: inquiry / confirmation / reply | Contact form, then admin reply | The team, the visitor, the visitor |
+| Chapter Lead notices | Programme events (results, warnings, term changes) | Leads and admins |
+| **Sign-in code** | "Login with code" on the sign-in page | The account owner |
+| **Password reset code** | "Forgot password" | The account owner |
+| **Password was changed** | A reset or a change from the profile | The account owner |
+| **Security alert** | A founding member signs in with a code or has a password reset | The other founding members |
 
 ---
 
@@ -607,6 +623,15 @@ Tabs can be opened directly via URL query param:
 | `framework_maturity_levels` | Maturity self-assessment levels |
 | `framework_audit_templates` | Downloadable audit templates |
 | `framework_security_tools` | Curated tool recommendations |
+| `chapters` | Admin-defined geographic areas (one active lead each) |
+| `chapter_lead_profiles` | One row per Chapter Lead tenure: referral code, term start, status |
+| `chapter_lead_policy` | Versioned programme rules: targets, term length, revenue-share rates |
+| `chapter_lead_quarters` | Per-lead quarterly result snapshots |
+| `referrals` | Which Chapter Lead brought which member |
+| `policy_acceptances` | Versioned consent to the Privacy Policy and Terms |
+| `event_hosts` / `host_requests` | Who hosted a podcast or workshop / requests to host |
+| `blog_posts` | Chapter Lead blogs (draft, pending, published, rejected) |
+| `content_views` | De-duplicated view and recording-click tracking |
 
 ---
 
@@ -657,3 +682,91 @@ mysqldump -u root -p --no-tablespaces --no-create-info --insert-ignore --complet
 cmd /c "mysql -h racdatabase.mysql.database.azure.com -u racdbadmin -p --ssl-mode=REQUIRED racdatabase < C:\data_only.sql"
 ```
 `--insert-ignore` skips rows that already exist → no data loss, no duplicates.
+
+---
+
+## 12. Chapter Lead Programme
+
+A Chapter Lead (`council_member`) has quarterly goals, a personal dashboard, a referral code and a revenue-share entitlement. Rules live in the database (`chapter_lead_policy`) and are editable by admins; the numbers below are the launch defaults.
+
+### Rules (defaults)
+| Item | Default |
+|---|---|
+| Quarterly goals | 20 new members, 3 podcasts, 10-15 posts, 3 blogs |
+| A quarter is "met" | at least 3 of the 4 goals |
+| Removal review | 3 consecutive missed quarters (an admin decides; never automatic) |
+| Quarters | Calendar quarters (UTC). A lead's first part-quarter is not scored. |
+| Term | 18 months, continues automatically into the next term unless the role is ended |
+| Revenue share | Term 1: 3%, Term 2: 5%, Term 3+: 7% |
+| Direct commission | 10% on value brought in directly (first payment only unless the policy flag is set) |
+
+### What counts
+- **Members:** referred sign-ups once an admin approves them (`referrals.qualified_at` in the quarter).
+- **Podcasts:** published podcast, lead is a host, an admin marked it conducted (`events.conducted_at`).
+- **Posts:** the lead's visible feed posts of type general / ai_product / event / troubleshooting (memes and polls excluded; credit stops at the maximum).
+- **Blogs:** `blog_posts` published in the quarter.
+
+### Where things are
+- Pure rules (terms, quarters, goals): `Backend/utils/chapterLeadRules.js`
+- Business logic: `Backend/services/chapterLeadService.js` (the one place that promotes / ends a lead)
+- Lead API: `/api/chapter-lead/*`; admin API: `/api/admin/chapter-leads/*`; blogs `/api/blogs`; views `/api/views`; chapters `/api/chapters`
+- Daily job: `Backend/jobs/chapterLeadJob.js` (01:00 UTC): rolls terms over, closes finished quarters, sends nudges. Idempotent; admins can run it from the Chapter Leads tab.
+- Frontend: the Chapter Lead programme is part of the one member dashboard at `/user/dashboard` (programme block on top for leads, tabs: Overview / Content performance / Referrals / Host requests / Quarter history; `?tab=` deep-links a tab). `/chapter-lead/dashboard` redirects there. Also `/blog`, `/chapter-lead/blog/*`, and Admin Dashboard -> **Chapter Leads** tab (founding members managing all leads).
+
+### Behaviour worth knowing
+- Every route to "becomes a lead" (application approval, user approval, role change, admin-created user) goes through `activateChapterLead()`, so the profile, referral code and term are always created.
+- Roles are re-read from the database on every request (`middleware/auth.js`), so ending a lead's role (or deleting an account) takes effect immediately, not when the 7-day token expires.
+- Applying requires ticking the Privacy Policy + Terms box; acceptance is stored per version in `policy_acceptances`. Bump `POLICY_VERSION` in `chapterLeadRules.js` (and the dates on /privacy and /terms) to make every active lead accept again at next login.
+- Sign-up now requires a country. A referral code can be supplied by link (`/register?ref=RAC-XXXXXX`), by typing it, or through LinkedIn sign-up.
+- Deleting an account stays immediate. A lead's role ends, the code stops working, and referral / quarter / consent records are kept in anonymised form (IP address erased).
+- Database session time zone is assumed to be UTC (the Azure default); quarter windows are UTC.
+
+### Not built yet (deliberately)
+Revenue ledger, earnings accrual and payouts wait for the payment gateway. The data needed later is already captured: chapter and country per member, referral attribution, hosts on sessions, term start dates, and workshop prices.
+
+### Deploying this change (order matters)
+1. Run migrations **before** deploying the new backend: `npm run db:migrate` in `Backend/` (applies 0019 and 0020; both are safe to re-run).
+2. Backfill existing leads: `npm run db:backfill-leads` (dry run, prints the plan), then `node db/backfill_chapter_leads.js --apply`. Leads whose membership already expired are listed and left untouched.
+3. In Admin Dashboard -> Chapter Leads -> Chapters, create chapters, then assign each existing lead to one.
+4. Deploy backend and frontend together (sign-up now sends `country_code`).
+5. Existing leads see a one-time "accept updated terms" prompt at their next login.
+
+---
+
+## 13. Sign-in codes, password reset and email delivery
+
+### What members can do
+- **Password**: unchanged.
+- **Login with code**: on the sign-in page, enter the email, get a 6-digit code, enter it. Works for every account type, including accounts created through LinkedIn (which have no password).
+- **Forgot password**: `/forgot-password`. Enter the email, then the emailed code and a new password. For a LinkedIn-only account this sets its first password; the Profile page offers the same from "Set a password".
+- **Change password** (Profile, signed in) now works. It used to send the wrong field names and was always rejected.
+- An admin can still reset any user's password from Manage Users.
+
+### Endpoints (`/api/auth`)
+| Endpoint | Body | Result |
+|---|---|---|
+| `POST /login-code/request` | `email` | Emails a code. Always answers the same, whether or not the account exists |
+| `POST /login-code/verify` | `email`, `code` | Signs in (same gates and session as a password login) |
+| `POST /forgot-password` | `email` | Emails a reset code. Same generic answer |
+| `POST /reset-password` | `email`, `code`, `newPassword` | Sets the password (8+ characters, one uppercase, one number) |
+
+### Security rules
+- Codes come from `crypto.randomInt`, are single-use, last **10 minutes** (**5** for founding members), and lock after **5** wrong guesses. Only an HMAC of the code is stored, never the code. The key is `OTP_SECRET`, or `JWT_SECRET` if that is not set.
+- Throttles: at most one code per account per **60 seconds** and **5 per hour**; per IP, 10 code requests and 30 attempts per 15 minutes.
+- Deleted accounts are ignored. Pending and rejected accounts get a code but then see the same "pending" / "rejected" message as a password login.
+- **A password change signs the account out everywhere.** `users.password_changed_at` is compared with each session's issue time in `middleware/auth.js` and `optionalAuth.js`. The device that made the change gets a fresh session.
+- Every password change emails the owner. When a founding member signs in with a code or has a password reset, the **other** founding members are emailed.
+- Codes are never in an email subject. Server logs record the event and user id only.
+
+### Database (migration `0021_auth_otp.sql`)
+`auth_otps` (one live code per email and purpose, hashed) and `users.password_changed_at`. If the code reaches production before the migration, the site keeps working (the auth middleware and password writes fall back and log a warning), but code sign-in and reset will not work until it runs. Run the migration first.
+
+### Email deliverability (checked 21 Oct 2026)
+- Mail goes through GoDaddy's relay (`smtpout.secureserver.net`) from `members@riskaicouncil.org`.
+- DNS: SPF `v=spf1 include:secureserver.net -all` is valid. DMARC is `p=reject` with relaxed alignment. **No DKIM record was found** at ten common selector names. That is not proof (the selector depends on the provider), so confirm with the headers of a message that reached a spam folder (Gmail: Show original, look at `Authentication-Results`). With DMARC at `reject`, a missing or failing DKIM/SPF match is what pushes mail to spam or rejects it.
+- Fixed in code: plain-text part on every email, links and logo on the public domain, colour fallbacks for Outlook, no emoji or stray text in subjects, correct role names, escaped user text.
+
+### Deploying this change
+1. Apply `0021_auth_otp.sql` **before** deploying (`npm run db:migrate`).
+2. Optionally set `EMAIL_BASE_URL=https://www.riskaicouncil.org` in the Azure app settings (now the default anyway) and, if wanted, a separate `OTP_SECRET`.
+3. After deploying, use the admin dashboard's test email and check the received headers.

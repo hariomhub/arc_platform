@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { getFeedPosts } from '../api/feed.js';
+import { getFeedPosts, getMyStats } from '../api/feed.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import FeedPost from '../components/feed/FeedPost.jsx';
 import CreatePost from '../components/feed/CreatePost.jsx';
@@ -45,15 +45,15 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
 
             {/* Feed identity card */}
             <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(0,51,102,0.1)', boxShadow: '0 2px 12px rgba(0,51,102,0.07)' }}>
-                <div style={{ background: '#003366', padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ background: '#003366', padding: '20px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: -16, right: -16, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
                             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', animation: 'cf-pulse-dot 2s ease-in-out infinite' }} />
-                            <span style={{ fontSize: '0.62rem', fontWeight: '800', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Feed</span>
+                            <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Feed</span>
                         </div>
-                        <h3 style={{ margin: '0 0 4px', fontSize: '0.95rem', fontWeight: '800', color: 'white' }}>Community Feed</h3>
-                        <p style={{ margin: '0 0 12px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)', lineHeight: '1.5' }}>
+                        <h3 style={{ margin: '0 0 6px', fontSize: '1.2rem', fontWeight: '800', color: 'white' }}>Community Feed</h3>
+                        <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5' }}>
                             Curated knowledge from AI risk professionals.
                         </p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -61,23 +61,23 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                                 { v: totalCount > 0 ? totalCount : '—', l: 'Posts' },
                                 { v: '50+', l: 'Members' },
                             ].map(({ v, l }) => (
-                                <div key={l} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                    <p style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'white', lineHeight: 1 }}>{v}</p>
-                                    <p style={{ margin: '2px 0 0', fontSize: '0.62rem', color: 'rgba(255,255,255,0.45)', fontWeight: '600' }}>{l}</p>
+                                <div key={l} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <p style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'white', lineHeight: 1 }}>{v}</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'rgba(255,255,255,0.65)', fontWeight: '600' }}>{l}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </div>
-                <div style={{ background: 'white', padding: '10px 14px' }}>
+                <div style={{ background: 'white', padding: '12px 18px' }}>
                     {[
                         { dot: '#003366', text: 'Chapter Leads can post' },
                         { dot: '#057642', text: 'All members can engage' },
                         { dot: '#f59e0b', text: 'Ranked by engagement' },
                     ].map(({ dot, text }) => (
-                        <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0' }}>
-                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.76rem', color: '#475569' }}>{text}</span>
+                        <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0' }}>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.92rem', color: '#475569' }}>{text}</span>
                         </div>
                     ))}
                 </div>
@@ -85,8 +85,8 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
 
             {/* Popular tags */}
             {topTags.length > 0 && (
-                <div style={{ background: 'white', borderRadius: '12px', padding: '12px 14px', border: '1px solid rgba(0,51,102,0.08)', boxShadow: '0 2px 8px rgba(0,51,102,0.04)' }}>
-                    <p style={{ margin: '0 0 8px', fontSize: '0.68rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trending Tags</p>
+                <div style={{ background: 'white', borderRadius: '12px', padding: '16px 18px', border: '1px solid rgba(0,51,102,0.08)', boxShadow: '0 2px 8px rgba(0,51,102,0.04)' }}>
+                    <p style={{ margin: '0 0 10px', fontSize: '0.76rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trending Tags</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                         {topTags.map((tag, i) => (
                             <button key={tag} onClick={() => onTagClick(tag)}
@@ -94,8 +94,8 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                                     display: 'inline-flex', alignItems: 'center',
                                     background: i % 3 === 0 ? '#eef2ff' : i % 3 === 1 ? '#f0fdf4' : '#fffbeb',
                                     color: i % 3 === 0 ? '#003366' : i % 3 === 1 ? '#057642' : '#d97706',
-                                    border: 'none', borderRadius: 4, fontSize: '0.71rem', fontWeight: '700',
-                                    padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                                    border: 'none', borderRadius: 5, fontSize: '0.84rem', fontWeight: '700',
+                                    padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
                                     transition: 'all 0.13s',
                                 }}
                                 onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)'; }}
@@ -111,12 +111,12 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
             {user && !canPost && (
                 <div style={{ background: '#003366', borderRadius: '12px', padding: '14px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: 'rgba(245,158,11,0.1)' }} />
-                    <p style={{ margin: '0 0 4px', fontSize: '0.84rem', fontWeight: '800', color: 'white', position: 'relative', zIndex: 1 }}>Want to post?</p>
-                    <p style={{ margin: '0 0 10px', fontSize: '0.74rem', color: 'rgba(147,197,253,0.85)', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
+                    <p style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: '800', color: 'white', position: 'relative', zIndex: 1 }}>Want to post?</p>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.86rem', color: 'rgba(147,197,253,0.9)', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
                         Chapter Leads share knowledge and build their professional presence.
                     </p>
                     <a href="/membership"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f59e0b', color: '#1e293b', padding: '6px 12px', borderRadius: 7, fontWeight: '800', fontSize: '0.76rem', textDecoration: 'none', position: 'relative', zIndex: 1 }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f59e0b', color: '#1e293b', padding: '8px 14px', borderRadius: 8, fontWeight: '800', fontSize: '0.88rem', textDecoration: 'none', position: 'relative', zIndex: 1 }}
                         onMouseOver={e => { e.currentTarget.style.background = '#fbbf24'; }}
                         onMouseOut={e => { e.currentTarget.style.background = '#f59e0b'; }}>
                         Upgrade to Council →
@@ -145,6 +145,15 @@ const CommunityQnA = () => {
     const [loadingMore,   setLoadingMore]   = useState(false);
     const [error,         setError]         = useState('');
     const [topTags,       setTopTags]       = useState([]);
+    const [composeSignal, setComposeSignal] = useState(0);     // bumped by the hero's "Write a post" to open the composer
+    const [myStats,       setMyStats]       = useState(null);  // the signed-in member's own numbers, for the hero panel
+    const userId = user?.id;
+    useEffect(() => {
+        if (!userId) { setMyStats(null); return undefined; }
+        let live = true;
+        getMyStats().then(res => { if (live) setMyStats(res.data?.data ?? null); }).catch(() => { if (live) setMyStats(null); });
+        return () => { live = false; };
+    }, [userId]);
 
     const canPost = (isCouncilMember?.() || isAdmin?.());
     const feedRef = useRef(null);
@@ -216,16 +225,16 @@ const CommunityQnA = () => {
                 /* ── Compact hero ── */
                 .cf-hero {
                     background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
-                    padding: clamp(1.25rem,2.5vw,2rem) clamp(1rem,4vw,2rem) clamp(2.5rem,4vw,3rem);
+                    padding: clamp(1.25rem,2.5vw,2rem) clamp(1rem,2.2vw,1.5rem) clamp(2.5rem,4vw,3rem);
                     position: relative; overflow: hidden;
                 }
 
                 /* ── Body ── */
                 .cf-body {
-                    max-width: 1100px; margin: -2.5rem auto 0;
-                    padding: 0 clamp(0.5rem,2.5vw,1.5rem) 4rem;
+                    box-sizing: content-box; max-width: 1240px; margin: -2.5rem auto 0;
+                    padding: 0 clamp(0.75rem,2.2vw,1.5rem) 4rem;
                     display: grid;
-                    grid-template-columns: 1fr 272px;
+                    grid-template-columns: 1fr 300px;
                     gap: 14px; align-items: start;
                     position: relative; z-index: 1;
                 }
@@ -241,6 +250,22 @@ const CommunityQnA = () => {
                 @media (max-width: 380px) {
                     .cf-body { padding: 0 0.5rem 2.5rem; margin-top: -1.5rem; }
                 }
+
+                /* ── Hero: text on the left, a glass panel on the right (hidden on small screens) ── */
+                .cf-hero-row { display: flex; align-items: center; justify-content: space-between; gap: 2rem; }
+                .cf-hero-main { flex: 1 1 440px; min-width: 0; }
+                .cf-hero-panel { flex: 0 0 330px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 14px 16px; backdrop-filter: blur(6px); }
+                .cf-panel-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 10px; }
+                .cf-panel-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+                .cf-panel-stat { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 10px 6px; text-align: center; }
+                .cf-panel-stat strong { display: block; font-size: 1.45rem; font-weight: 800; color: white; line-height: 1.1; }
+                .cf-panel-stat span { display: block; margin-top: 3px; font-size: 0.72rem; color: rgba(255,255,255,0.7); font-weight: 600; line-height: 1.25; }
+                .cf-panel-text { margin: 0 0 14px; font-size: 0.9rem; line-height: 1.55; color: #E2E8F0; }
+                .cf-panel-cta { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; box-sizing: border-box; background: #f59e0b; color: #1e293b; border: none; border-radius: 10px; padding: 11px 14px; font-weight: 800; font-size: 0.95rem; text-decoration: none; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+                .cf-panel-cta:hover { background: #fbbf24; }
+                .cf-panel-note { margin: 10px 0 0; font-size: 0.8rem; color: rgba(255,255,255,0.7); line-height: 1.5; text-align: center; }
+                .cf-panel-note a { color: #fbbf24; font-weight: 700; text-decoration: none; }
+                @media (max-width: 860px) { .cf-hero-panel { display: none; } }
 
                 /* ── Individual Post Card ── */
                 .cf-post-item {
@@ -291,7 +316,8 @@ const CommunityQnA = () => {
                     <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
                     <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
 
-                    <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                    <div className="cf-hero-row" style={{ maxWidth: 1240, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                    <div className="cf-hero-main">
                         <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:100, padding:'3px 10px', marginBottom:'0.75rem' }}>
                             <div style={{ width:5, height:5, borderRadius:'50%', background:'#f59e0b', animation:'cf-pulse-dot 2s ease-in-out infinite' }} />
                             <span style={{ fontSize:'0.62rem', fontWeight:'800', color:'#fbbf24', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:"'Sora',sans-serif" }}>AI Risk Knowledge Hub</span>
@@ -321,6 +347,41 @@ const CommunityQnA = () => {
                             ))}
                         </div>
                     </div>
+
+                    <aside className="cf-hero-panel" aria-label={user ? 'Your activity' : 'Join the conversation'}>
+                        <div className="cf-panel-label">{user ? 'Your activity' : 'Join the conversation'}</div>
+                        {user ? (
+                            <div className="cf-panel-stats">
+                                {(canPost
+                                    ? [['Your posts', myStats?.total_posts], ['Likes received', myStats?.total_likes_received], ['Comments received', myStats?.total_comments_received]]
+                                    : [['Comments made', myStats?.comments_made], ['Likes given', myStats?.likes_given], ['Posts saved', myStats?.posts_saved]]
+                                ).map(([label, value]) => (
+                                    <div key={label} className="cf-panel-stat">
+                                        <strong>{value ?? '—'}</strong>
+                                        <span>{label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="cf-panel-text">Upvote, discuss and save posts from AI risk professionals.</p>
+                        )}
+                        {canPost ? (
+                            <button type="button" className="cf-panel-cta" onClick={() => setComposeSignal(n => n + 1)}>
+                                Write a post
+                            </button>
+                        ) : user ? (
+                            <>
+                                <a href="/membership" className="cf-panel-cta">Become a Chapter Lead</a>
+                                <p className="cf-panel-note">Chapter Leads can post. Everyone can engage.</p>
+                            </>
+                        ) : (
+                            <>
+                                <a href="/register" className="cf-panel-cta">Join the Council</a>
+                                <p className="cf-panel-note">Already a member? <a href="/login">Sign in</a></p>
+                            </>
+                        )}
+                    </aside>
+                </div>
                 </div>
 
                 {/* ── Body ── */}
@@ -329,7 +390,7 @@ const CommunityQnA = () => {
                     {/* ── Main ── */}
                     <div className="cf-main" style={{ display:'flex', flexDirection:'column', gap:12, minWidth:0 }}>
 
-                        {canPost && <CreatePost onPostCreated={handlePostCreated} />}
+                        {canPost && <CreatePost onPostCreated={handlePostCreated} openSignal={composeSignal} />}
 
                         {!user && (
                             <div className="cf-login-card">

@@ -6,15 +6,18 @@ import {
     Search, Loader2, UserX, UserCheck, ChevronDown,
     Plus, Trash2, FileText, Edit2, Save, ShieldCheck,
     Image, Video, Eye, Upload, Star, Trophy, Newspaper,
-    BookOpen, Mic2, MapPin, Linkedin, Globe, AlertTriangle
+    BookOpen, Mic2, MapPin, Linkedin, Globe, AlertTriangle, Target
 } from 'lucide-react';
 import AdminNominees from './AdminNominees.jsx';
 import FrameworkManagement from '../components/admin/FrameworkManagement.jsx';
 import ContactMessagesManagement from '../components/admin/ContactMessagesManagement.jsx';
+import ChapterLeadsManagement from '../components/admin/ChapterLeadsManagement.jsx';
 import AutomatedNewsManagement from '../components/AutomatedNewsManagement.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { getPendingUsers, getAllUsers, approveUser, rejectUser, getAdminStats, updateUserRole, updateUserBadge, getMembershipApplications, approveMembershipApplication, rejectMembershipApplication, getPendingSubTypeUpgrades, approveSubTypeUpgrade, rejectSubTypeUpgrade, getContactMessages } from '../api/admin.js';
+import { getAdminChapters } from '../api/adminChapterLeads.js';
+import { countryName } from '../utils/countries.js';
 import { getEvents, createEvent, updateEvent, deleteEvent, togglePublishEvent } from '../api/events.js';
 import { getWorkshops, createWorkshop, updateWorkshop, deleteWorkshop, togglePublishWorkshop } from '../api/workshops.js';
 import { getNews, createNews, deleteNews, togglePublishNews } from '../api/news.js';
@@ -37,6 +40,7 @@ const TABS = [
     { key: 'auto_news', label: 'Automated News', icon: Newspaper },
     { key: 'events', label: 'Manage Events', icon: CalendarDays },
     { key: 'workshops', label: 'Exec Workshops', icon: BookOpen },
+    { key: 'chapter_leads', label: 'Chapter Leads', icon: Target },
     { key: 'team', label: 'Manage Team', icon: Users },
     { key: 'resources', label: 'Manage Resources', icon: FileText },
     { key: 'product_reviews', label: 'Product Reviews', icon: ShieldCheck },
@@ -182,6 +186,9 @@ const PendingTab = ({ showToast, onApproved }) => {
 
     const [badgeModal, setBadgeModal] = useState(null);
     const [badgeText, setBadgeText] = useState('');
+    // Chapter Lead approvals: the admin confirms the chapter the new lead will represent.
+    const [chapterChoice, setChapterChoice] = useState('');
+    const [chapterOptions, setChapterOptions] = useState([]);
     const [editBadgeModal, setEditBadgeModal] = useState(null);
     const [editBadgeText, setEditBadgeText] = useState('');
     const [editBadgeSaving, setEditBadgeSaving] = useState(false);
@@ -252,15 +259,25 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setActioning((p) => ({ ...p, [userId]: null })); }
     };
 
-    const handleAppApprove = (id, name, currentBadge) => {
-        setBadgeModal({ type: 'council', id, name, currentBadge: currentBadge || '' });
+    const handleAppApprove = (id, name, currentBadge, app) => {
+        setBadgeModal({
+            type: app?.requested_role === 'council_member' ? 'council' : 'council_other',
+            id, name, currentBadge: currentBadge || '', app,
+        });
         setBadgeText(currentBadge || '');
+        setChapterChoice(app?.requested_chapter_id ? String(app.requested_chapter_id) : '');
+        if (app?.requested_role === 'council_member') {
+            getAdminChapters()
+                .then((res) => setChapterOptions((res.data?.data || []).filter((c) => c.status === 'active')))
+                .catch(() => setChapterOptions([]));
+        }
     };
 
     const confirmBadgeApprove = async () => {
         if (!badgeModal) return;
         const { type, id, name } = badgeModal;
         const data = { profile_badge: badgeText.trim() || null };
+        if (type === 'council' && chapterChoice) data.chapter_id = Number(chapterChoice);
         setBadgeModal(null);
 
         if (type === 'subtype') {
@@ -280,7 +297,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                 onApproved?.();
             } catch (err) { showToast(getErrorMessage(err), 'error'); }
             finally { setActioning((p) => ({ ...p, [id]: null })); }
-        } else if (type === 'council') {
+        } else if (type === 'council' || type === 'council_other') {
             setAppActioning(prev => ({ ...prev, [id]: 'approving' }));
             try {
                 await approveMembershipApplication(id, data);
@@ -370,6 +387,12 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#64748B' }}><Mail size={12} /> {u.email}</span>
                                 {u.organisation && <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#64748B' }}><Building size={12} /> {u.organisation}</span>}
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px', alignSelf: 'flex-start', marginTop: '2px' }}>Registered: {formatDate(u.created_at)}</span>
+                                {(u.country_code || u.referred_by_name) && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#475569' }}>
+                                        {u.country_code && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {countryName(u.country_code)}</span>}
+                                        {u.referred_by_name && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#047857', fontWeight: 600 }}><Target size={12} /> Referred by {u.referred_by_name}</span>}
+                                    </span>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, flexWrap: 'wrap' }}>
                                 <button onClick={() => setViewUser(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'white', color: '#003366', border: '1.5px solid #003366', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }} onMouseOver={e => e.currentTarget.style.background = '#f0f4f8'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
@@ -421,6 +444,8 @@ const PendingTab = ({ showToast, onApproved }) => {
                             <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Role Requested</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500', textTransform: 'capitalize' }}>{(viewUser.role || '').replace('_', ' ')}</p></div>
                             {viewUser.professional_sub_type && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Professional Type</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.professional_sub_type === 'working_professional' ? 'Working Professional' : 'Final Year Undergraduate'}</p></div>}
                             {viewUser.organization_name && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Organisation Name</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{viewUser.organization_name}</p></div>}
+                            {viewUser.country_code && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Country</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#0F172A', fontWeight: '500' }}>{countryName(viewUser.country_code)}</p></div>}
+                            {viewUser.referred_by_name && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>Referred by Chapter Lead</p><p style={{ margin: 0, fontSize: '0.95rem', color: '#047857', fontWeight: '600' }}>{viewUser.referred_by_name}</p></div>}
                             {viewUser.linkedin_url && <div><p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#64748B', fontWeight: '600' }}>LinkedIn Profile</p><a href={viewUser.linkedin_url} target="_blank" rel="noreferrer" style={{ margin: 0, fontSize: '0.95rem', color: '#2563EB', fontWeight: '500', textDecoration: 'none' }}>{viewUser.linkedin_url}</a></div>}
                         </div>
                         <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
@@ -434,13 +459,30 @@ const PendingTab = ({ showToast, onApproved }) => {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>Assign Profile Badge</h3>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>{badgeModal.type === 'council' ? 'Approve Chapter Lead' : 'Assign Profile Badge'}</h3>
                             <button onClick={() => setBadgeModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem' }}>
                             <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: '#475569' }}>
                                 You are approving <strong>{badgeModal.name}</strong>. Assign a profile badge to display next to their name in the community feed.
                             </p>
+                            {badgeModal.type === 'council' && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <label htmlFor="approve-chapter" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#374151' }}>Chapter this lead will represent</label>
+                                    <select id="approve-chapter" className="adm-input" value={chapterChoice} onChange={(e) => setChapterChoice(e.target.value)}>
+                                        <option value="">Assign later</option>
+                                        {chapterOptions.map((c) => (
+                                            <option key={c.id} value={c.id} disabled={!!c.lead_name && String(c.id) !== chapterChoice}>
+                                                {c.name} ({countryName(c.country_code)}){c.lead_name ? ` - already led by ${c.lead_name}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p style={{ margin: '4px 0 0', fontSize: '0.74rem', color: '#64748B', lineHeight: 1.5 }}>
+                                        {badgeModal.app?.requested_country_code ? `Applicant is in ${countryName(badgeModal.app.requested_country_code)}. ` : ''}
+                                        Approving starts their term today and creates their referral code. Each chapter can have one active lead.
+                                    </p>
+                                </div>
+                            )}
                             {badgeModal.currentBadge && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.75rem', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '7px', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#15803D', fontWeight: '600' }}>
                                     <span style={{ opacity: 0.7 }}>Last assigned:</span>
@@ -575,6 +617,12 @@ const PendingTab = ({ showToast, onApproved }) => {
                                                 {a.organization_name && <>&nbsp;·&nbsp;<Building size={11} style={{ verticalAlign: 'middle', marginRight: '3px' }} />{a.organization_name}</>}
                                                 {a.job_title && <>&nbsp;·&nbsp;{a.job_title}</>}
                                             </p>
+                                            {a.requested_role === 'council_member' && (a.requested_country_code || a.requested_chapter_name) && (
+                                                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#475569' }}>
+                                                    <MapPin size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                                    {a.requested_chapter_name ? `${a.requested_chapter_name} · ` : 'No chapter chosen · '}{countryName(a.requested_country_code)}
+                                                </p>
+                                            )}
                                             <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>Applied: {a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</p>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
@@ -583,7 +631,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                             </button>
                                             {a.status === 'pending' && (
                                                 <>
-                                                    <button onClick={() => handleAppApprove(a.id, displayName, a.profile_badge)} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <button onClick={() => handleAppApprove(a.id, displayName, a.profile_badge, a)} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#15803d', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         {appActioning[a.id] === 'approving' ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Approve
                                                     </button>
                                                     <button onClick={() => { setRejectModal({ id: a.id, name: displayName }); setRejectNotes(''); }} disabled={!!appActioning[a.id]} style={{ padding: '0.45rem 0.9rem', border: 'none', borderRadius: '7px', background: '#dc2626', color: 'white', fontWeight: '700', fontSize: '0.8rem', cursor: appActioning[a.id] ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: appActioning[a.id] ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -2444,6 +2492,7 @@ const AdminDashboard = () => {
                 {tab === 'resources' && <ResourcesTab showToast={showToast} />}
                 {tab === 'product_reviews' && <ProductReviewsTab showToast={showToast} />}
                 {tab === 'workshops' && <WorkshopsTab showToast={showToast} />}
+                {tab === 'chapter_leads' && isFoundingMember && <ChapterLeadsManagement showToast={showToast} />}
                 {tab === 'nominations' && <AdminNominees embedded />}
                 {tab === 'framework' && <FrameworkManagement />}
                 {tab === 'contact' && isFoundingMember && <ContactMessagesManagement showToast={showToast} onCountChange={setContactNewCount} />}

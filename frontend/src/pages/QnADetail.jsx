@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { trackView } from '../api/views.js';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
     ArrowLeft, AlertCircle, RefreshCw,
@@ -146,6 +147,7 @@ const QnADetail = () => {
             const res = await getFeedPost(id);
             const data = res.data?.data;
             setPost(data);
+            if (data?.id) trackView('post', data.id); // Chapter Leads see how their posts are read
             document.title = `${data?.author_name || 'Post'} on Community Feed | Risk AI Council`;
         } catch (err) {
             if (err?.response?.status === 404) setNotFound(true);

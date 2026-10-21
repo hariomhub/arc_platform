@@ -1,6 +1,7 @@
 import pool from '../db/connection.js';
 import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 import { notifyAllMembers, NOTIF_TYPES } from '../services/notificationService.js';
+import { getHosts } from '../services/chapterLeadService.js';
 
 // Helper: build pagination meta and LIMIT/OFFSET
 const paginate = (query, total) => {
@@ -21,6 +22,30 @@ const parseTags = (tags) => {
     } catch {
         // Treat comma-separated string as tag array
         return JSON.stringify(tags.split(',').map(t => t.trim()).filter(Boolean));
+    }
+};
+
+// Helper: attach `hosts` ([{ user_id, name, role }]) to a list of event rows with one query.
+// Failure here must never break the public events list, so it degrades to no hosts.
+const attachHosts = async (rows) => {
+    if (!rows.length) return rows;
+    try {
+        const [hosts] = await pool.query(
+            `SELECT h.event_id, h.user_id, h.role, u.name
+             FROM event_hosts h JOIN users u ON u.id = h.user_id
+             WHERE h.event_id IN (?)
+             ORDER BY h.id`,
+            [rows.map((r) => r.id)]
+        );
+        const byEvent = new Map();
+        hosts.forEach((h) => {
+            if (!byEvent.has(h.event_id)) byEvent.set(h.event_id, []);
+            byEvent.get(h.event_id).push({ user_id: h.user_id, name: h.name, role: h.role });
+        });
+        return rows.map((r) => ({ ...r, hosts: byEvent.get(r.id) || [] }));
+    } catch (err) {
+        console.error('[Events] Could not load hosts:', err.message);
+        return rows.map((r) => ({ ...r, hosts: [] }));
     }
 };
 
@@ -69,7 +94,7 @@ export const getEvents = async (req, res, next) => {
             );
             counts.forEach(c => { regCounts[c.event_id] = c.cnt; });
         }
-        const enriched = rows.map(r => ({ ...r, registered_count: regCounts[r.id] || 0 }));
+        const enriched = await attachHosts(rows.map(r => ({ ...r, registered_count: regCounts[r.id] || 0 })));
 
         return res.json({ success: true, data: enriched, total, page, limit, totalPages });
     } catch (err) {
@@ -89,7 +114,9 @@ export const getEventById = async (req, res, next) => {
             'SELECT COUNT(*) AS cnt FROM event_registrations WHERE event_id = ?',
             [ev.id]
         );
-        return res.json({ success: true, data: { ...ev, registered_count: cnt } });
+        let hosts = [];
+        try { hosts = await getHosts({ eventId: ev.id }); } catch (err) { console.error('[Events] Could not load hosts:', err.message); }
+        return res.json({ success: true, data: { ...ev, registered_count: cnt, hosts } });
     } catch (err) {
         next(err);
     }
@@ -143,6 +170,14 @@ export const createEvent = async (req, res, next) => {
                 max_capacity ? parseInt(max_capacity, 10) : null,
             ]
         );
+
+        // A Chapter Lead who creates a session is its host (admins assign hosts explicitly).
+        if (isCouncilMember) {
+            await pool.query(
+                `INSERT INTO event_hosts (event_id, user_id, role) VALUES (?, ?, 'host')`,
+                [result.insertId, req.user.id]
+            );
+        }
 
         const [rows] = await pool.query('SELECT * FROM events WHERE id = ?', [result.insertId]);
 
@@ -355,12 +390,17 @@ export const uploadSpeakerPhoto = async (req, res, next) => {
 // DELETE /api/events/:id  (founding_member or council_member — council_member owns only)
 export const deleteEvent = async (req, res, next) => {
     try {
-        const [check] = await pool.query('SELECT id, banner_image, thumbnail_url, speaker_photo_url, created_by FROM events WHERE id = ?', [req.params.id]);
+        const [check] = await pool.query('SELECT id, banner_image, thumbnail_url, speaker_photo_url, created_by, conducted_at FROM events WHERE id = ?', [req.params.id]);
         if (check.length === 0) {
             return res.status(404).json({ success: false, message: 'Event not found.' });
         }
         if (req.user.role === 'council_member' && check[0].created_by !== req.user.id) {
             return res.status(403).json({ success: false, message: 'You can only delete events you created.' });
+        }
+        // Once a session has been marked conducted it counts toward quarterly goals,
+        // so removing it is an admin decision.
+        if (req.user.role === 'council_member' && check[0].conducted_at) {
+            return res.status(409).json({ success: false, message: 'This session has already been conducted and counted. Please contact an admin if it needs to be removed.' });
         }
 
         // Clean up all blobs

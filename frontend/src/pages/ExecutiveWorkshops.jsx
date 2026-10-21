@@ -5,6 +5,7 @@ import {
     X, FileText, ExternalLink,
 } from 'lucide-react';
 import { getWorkshops } from '../api/workshops.js';
+import { trackView } from '../api/views.js';
 import { formatDate, formatDateTime } from '../utils/dateFormatter.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import Pagination from '../components/common/Pagination.jsx';
@@ -26,6 +27,9 @@ const WorkshopModal = ({ ws, onClose }) => {
             document.body.style.overflow = '';
         };
     }, [onClose]);
+
+    // Chapter Leads see how many people opened their workshop page.
+    useEffect(() => { trackView('workshop', ws.id); }, [ws.id]);
 
     // Close on backdrop click
     const handleOverlayClick = (e) => {
@@ -198,6 +202,7 @@ const WorkshopModal = ({ ws, onClose }) => {
                             href={ws.recording_url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => trackView('workshop', ws.id, 'recording_click')}
                             style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '8px',
                                 background: '#003366', color: 'white',

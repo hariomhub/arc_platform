@@ -7,7 +7,7 @@
  */
 
 import pool from '../db/connection.js';
-import { sendDeletionApprovedEmail } from '../services/emailService.js';
+import { sendAccountDeletedEmail } from '../services/emailService.js';
 import { softDeleteUser, purgeProfilePhoto } from '../services/accountDeletionService.js';
 
 // ─── POST /api/account-deletion/submit ────────────────────────────────────────
@@ -78,7 +78,7 @@ export const submitDeletionRequest = async (req, res, next) => {
         await purgeProfilePhoto(user);
 
         // Send permanent deletion confirmation email
-        sendDeletionApprovedEmail({ name: full_name.trim(), email: email.trim() });
+        sendAccountDeletedEmail({ name: full_name.trim(), email: email.trim() });
 
         return res.json({
             success: true,

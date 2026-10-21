@@ -3,8 +3,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { Eye, EyeOff, AlertCircle, CheckCircle, Loader2, ShieldCheck, BookOpen, Users, TrendingUp } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
-import { registerUser, sendEmailOtp, verifyEmailOtp } from '../api/auth.js';
+import { registerUser, sendEmailOtp, verifyEmailOtp, checkReferralCode } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import LocationFields from '../components/common/LocationFields.jsx';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -24,6 +25,9 @@ const getPwStrength = (pw) => {
     ];
     return { score: s, ...map[s] };
 };
+
+// A referral code is "RAC-" + 6 characters. Accept it typed with or without the dash, any case.
+const cleanRefCode = (raw) => String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 10);
 
 const ROLES = [
     { value: 'professional', label: 'Professional', desc: 'Free 1-year membership — community access, events & resources' },
@@ -66,7 +70,7 @@ const Register = () => {
     const location = useLocation();
     const { user, isAuthLoading } = useAuth();
 
-    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '', professional_sub_type: '', linkedin_url: '' });
+    const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'professional', organization_name: '', professional_sub_type: '', linkedin_url: '', country_code: '', chapter_id: '', ref_code: '' });
 
     const [subCatSelected, setSubCatSelected] = useState(false);
     const [showPw, setShowPw] = useState(false);
@@ -79,6 +83,9 @@ const Register = () => {
     const [emailVerificationPhase, setEmailVerificationPhase] = useState('idle');
     const [recaptchaToken, setRecaptchaToken] = useState('');
     const recaptchaRef = useRef(null);
+    // Referral code check: idle | checking | valid | invalid
+    const [refStatus, setRefStatus] = useState('idle');
+    const [refLead, setRefLead] = useState('');
 
     const pwStrength = getPwStrength(form.password);
     const showOrgField = ORG_ROLES.includes(form.role);
@@ -97,6 +104,39 @@ const Register = () => {
             setSubCatSelected(true); // came pre-selected from Membership page
         }
     }, [location.search]);
+
+    // Referral link (/register?ref=RAC-XXXXXX): pre-fill the code. It is remembered for
+    // this visit so it survives a trip to the login page and back.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        let fromLink = cleanRefCode(params.get('ref'));
+        try {
+            if (fromLink) sessionStorage.setItem('arc_ref', fromLink);
+            else fromLink = cleanRefCode(sessionStorage.getItem('arc_ref'));
+        } catch { /* storage unavailable */ }
+        if (fromLink) setForm(p => (p.ref_code ? p : { ...p, ref_code: fromLink }));
+    }, [location.search]);
+
+    // Check the referral code shortly after the person stops typing.
+    useEffect(() => {
+        const code = form.ref_code.trim();
+        if (!code) { setRefStatus('idle'); setRefLead(''); return undefined; }
+        if (code.length < 9) { setRefStatus('idle'); return undefined; }
+        setRefStatus('checking');
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            try {
+                const res = await checkReferralCode(code);
+                if (cancelled) return;
+                const data = res.data?.data;
+                if (data?.valid) { setRefStatus('valid'); setRefLead(data.lead_first_name || ''); }
+                else { setRefStatus('invalid'); setRefLead(''); }
+            } catch {
+                if (!cancelled) { setRefStatus('idle'); setRefLead(''); }
+            }
+        }, 450);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [form.ref_code]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -161,6 +201,8 @@ const Register = () => {
             if (!form.linkedin_url.trim()) e.linkedin_url = 'LinkedIn profile URL is required.';
             else if (!/^https?:\/\/(www\.)?linkedin\.com\//.test(form.linkedin_url.trim())) e.linkedin_url = 'Enter a valid LinkedIn URL (e.g. https://linkedin.com/in/your-name).';
         }
+        if (!form.country_code) e.country_code = 'Please select your country.';
+        if (form.ref_code.trim() && refStatus === 'invalid') e.ref_code = 'This referral code is not valid. Check it or clear the field.';
         // CAPTCHA disabled for now — will be re-enabled later.
         // if (!recaptchaToken) e.recaptcha = 'Please complete the reCAPTCHA verification.';
         return e;
@@ -180,6 +222,9 @@ const Register = () => {
                 organization_name: form.organization_name.trim(),
                 professional_sub_type: form.role === 'professional' ? form.professional_sub_type : undefined,
                 linkedin_url: form.role === 'professional' ? form.linkedin_url.trim() : undefined,
+                country_code: form.country_code,
+                chapter_id: form.chapter_id || undefined,
+                ref_code: form.ref_code.trim() || undefined,
                 recaptchaToken,
             });
             setSuccess(true);
@@ -532,6 +577,41 @@ const Register = () => {
                                     className={`ra-input${fieldErrors.organization_name ? ' ra-input-err' : ''}`} style={inputStyle(fieldErrors.organization_name, submitting)} />
                             </Field>
 
+                            <LocationFields
+                                country={form.country_code}
+                                chapterId={form.chapter_id}
+                                disabled={submitting}
+                                countryError={fieldErrors.country_code}
+                                idPrefix="ra"
+                                onChange={({ country_code, chapter_id }) => {
+                                    setForm(p => ({ ...p, country_code, chapter_id }));
+                                    setFieldErrors(p => ({ ...p, country_code: '' }));
+                                }}
+                            />
+
+                            <Field id="ra-ref" label="Referral code" hint="Optional — if a Chapter Lead invited you" error={fieldErrors.ref_code}>
+                                <input id="ra-ref" type="text" name="ref_code" value={form.ref_code}
+                                    onChange={(e) => {
+                                        setForm(p => ({ ...p, ref_code: cleanRefCode(e.target.value) }));
+                                        setFieldErrors(p => ({ ...p, ref_code: '' }));
+                                        setServerError('');
+                                    }}
+                                    placeholder="RAC-XXXXXX" disabled={submitting} autoComplete="off" spellCheck={false}
+                                    className={`ra-input${fieldErrors.ref_code || refStatus === 'invalid' ? ' ra-input-err' : ''}`}
+                                    style={{ ...inputStyle(fieldErrors.ref_code || refStatus === 'invalid', submitting), letterSpacing: '0.06em', fontWeight: 600 }} />
+                                {refStatus === 'checking' && <span style={{ fontSize: '0.74rem', color: '#64748B' }}>Checking code…</span>}
+                                {refStatus === 'valid' && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', color: '#059669', fontWeight: 600 }}>
+                                        <CheckCircle size={12} />{refLead ? `Referred by ${refLead}` : 'Referral code accepted'}
+                                    </span>
+                                )}
+                                {refStatus === 'invalid' && !fieldErrors.ref_code && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', color: '#DC2626' }}>
+                                        <AlertCircle size={11} />This code is not valid or is no longer active.
+                                    </span>
+                                )}
+                            </Field>
+
                             <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8', lineHeight: 1.6 }}>
                                 By creating an account you agree to our{' '}
                                 <Link to="/terms" style={{ color: '#003366', fontWeight: 600, textDecoration: 'none' }}>Terms of Service</Link>{' '}and{' '}
@@ -562,7 +642,7 @@ const Register = () => {
                         </div>
 
                         {/* ── LinkedIn OAuth button ── */}
-                        <a href="/api/auth/linkedin"
+                        <a href={refStatus === 'valid' ? `/api/auth/linkedin?ref=${encodeURIComponent(form.ref_code.trim())}` : '/api/auth/linkedin'}
                             style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
                                 width: '100%', padding: '0.8rem',

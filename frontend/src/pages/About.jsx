@@ -98,7 +98,7 @@ const About = () => {
             <style>{`@keyframes skeleton-pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
 
             {/* Hero */}
-            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)', position: 'relative', overflow: 'hidden', textAlign: 'center' }}>
+            <div style={{ background: 'linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%)', padding: 'clamp(1.5rem,2.5vw,2rem) clamp(0.75rem,1.6vw,1rem)', position: 'relative', overflow: 'hidden', textAlign: 'center' }}>
                 <div style={{ position:'absolute', top:'-80px', right:'-80px', width:'300px', height:'300px', borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
                 <div style={{ position:'absolute', bottom:'-60px', left:'-60px', width:'240px', height:'240px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
                 <div style={{ maxWidth: '980px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -113,8 +113,8 @@ const About = () => {
             </div>
 
             {/* Mission */}
-            <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', borderBottom: '1px solid #E2E8F0' }}>
-                <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)', borderBottom: '1px solid #E2E8F0' }}>
+                <div style={{ maxWidth: '1320px', margin: '0 auto' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(300px,100%),1fr))', gap: 'clamp(2rem,5vw,4rem)', alignItems: 'start' }}>
                         <div>
                             <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '1.25rem' }}>Our Mission</h2>
@@ -171,8 +171,8 @@ const About = () => {
             </div>
 
             {/* Council Components */}
-            <div style={{ background: '#F0F4F8', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ background: '#F0F4F8', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)' }}>
+                <div style={{ maxWidth: '1320px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>Council Components</h2>
                         <p style={{ color: '#64748B', fontSize: '1rem' }}>The three pillars of the Risk AI Council (RAC)</p>
@@ -193,8 +193,8 @@ const About = () => {
             </div>
 
             {/* Team Grid */}
-            <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)' }}>
-                <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div style={{ background: 'white', padding: 'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)' }}>
+                <div style={{ maxWidth: '1320px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <h2 style={{ fontSize: 'clamp(1.4rem,3vw,2rem)', fontWeight: '800', color: '#1A202C', marginBottom: '0.5rem' }}>People &amp; Contributors</h2>
                         <p style={{ color: '#64748B', fontSize: '1rem', marginBottom: '0.75rem' }}>Meet the people behind our initiatives</p>

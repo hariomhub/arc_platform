@@ -27,6 +27,7 @@ import { requestSubTypeUpgrade } from '../api/auth.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate, timeAgo } from '../utils/dateFormatter.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
+import { passwordProblem } from '../components/auth/authUi.jsx';
 
 const ROLE_LABELS = {
     founding_member: 'Founding Member',
@@ -201,7 +202,7 @@ const ProfileInfoSection = ({ user, showToast }) => {
 };
 
 // ─── Change Password ──────────────────────────────────────────────────────────
-const ChangePasswordSection = ({ showToast }) => {
+const ChangePasswordSection = ({ showToast, hasPassword = true, email = '' }) => {
     const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
     const [errors, setErrors] = useState({});
     const [show, setShow] = useState({ current: false, new: false, confirm: false });
@@ -210,7 +211,8 @@ const ChangePasswordSection = ({ showToast }) => {
     const validate = () => {
         const e = {};
         if (!form.current_password) e.current_password = 'Current password is required.';
-        if (form.new_password.length < 8) e.new_password = 'New password must be at least 8 characters.';
+        const problem = passwordProblem(form.new_password);
+        if (problem) e.new_password = problem;
         if (form.new_password !== form.confirm_password) e.confirm_password = 'Passwords do not match.';
         return e;
     };
@@ -221,7 +223,7 @@ const ChangePasswordSection = ({ showToast }) => {
         if (Object.keys(errs).length) { setErrors(errs); return; }
         setLoading(true);
         try {
-            await changePassword({ current_password: form.current_password, new_password: form.new_password });
+            await changePassword({ currentPassword: form.current_password, newPassword: form.new_password });
             setForm({ current_password: '', new_password: '', confirm_password: '' });
             setErrors({});
             showToast('Password changed successfully!', 'success');
@@ -248,6 +250,23 @@ const ChangePasswordSection = ({ showToast }) => {
             </div>
         </Field>
     );
+
+    // Accounts created with LinkedIn have no password until they set one; the emailed-code flow sets it.
+    if (!hasPassword) {
+        return (
+            <Card>
+                <SectionHeader icon={ShieldCheck} title="Set a password" subtitle="Your account has no password yet" accent="#7C3AED" />
+                <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.65 }}>
+                    You signed up with LinkedIn, so there is no password on this account. Set one if you also want to sign in with your email and password.
+                    We will email you a 6-digit code to confirm it is you.
+                </p>
+                <Link to={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#003366', color: 'white', borderRadius: 10, padding: '0.7rem 1.25rem', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none' }}>
+                    <Lock size={15} /> Set a password
+                </Link>
+            </Card>
+        );
+    }
 
     return (
         <Card>
@@ -723,7 +742,7 @@ const Profile = () => {
                     </div>
 
                     {activeTab === 'info' && <ProfileInfoSection user={profile || user} showToast={showToast} />}
-                    {activeTab === 'password' && <ChangePasswordSection showToast={showToast} />}
+                    {activeTab === 'password' && <ChangePasswordSection showToast={showToast} hasPassword={user?.has_password !== false} email={user?.email} />}
                     {activeTab === 'uploads'  && <MyUploadsSection      showToast={showToast} navigate={navigate} />}
                     {activeTab === 'saved'    && <SavedPostsSection     showToast={showToast} />}
                     {activeTab === 'settings' && <SettingsSection      navigate={navigate} />}

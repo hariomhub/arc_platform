@@ -157,7 +157,7 @@ const Contact = () => {
                 /* ── Hero ── */
                 .ct-hero {
                     background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
-                    padding: clamp(2.5rem,6vw,4rem) clamp(1rem,4vw,2rem);
+                    padding: clamp(2.5rem,6vw,4rem) clamp(0.75rem,1.6vw,1rem);
                     text-align: center;
                     position: relative;
                     overflow: hidden;
@@ -168,9 +168,9 @@ const Contact = () => {
                     display: grid;
                     grid-template-columns: 1fr 420px;
                     gap: clamp(2rem,5vw,4rem);
-                    max-width: 1100px;
+                    max-width: 1320px;
                     margin: 0 auto;
-                    padding: clamp(2.5rem,5vw,4rem) clamp(1rem,4vw,2rem);
+                    padding: clamp(2.5rem,5vw,4rem) clamp(0.75rem,1.6vw,1rem);
                     align-items: start;
                 }
                 @media (max-width: 900px) {

@@ -39,6 +39,11 @@ export const AuthProvider = ({ children }) => {
     // ── login: called after successful POST /auth/login ────────────────────────────────────
     const login = useCallback((userData) => {
         setUser(userData);
+        // The login response is minimal. Pull the full profile too, which carries
+        // flags such as needs_policy_acceptance for Chapter Leads.
+        getMe()
+            .then((res) => { if (res.data?.success) setUser(res.data.data); })
+            .catch(() => { /* keep the minimal user from the login response */ });
     }, []);
 
     // ── refreshUser: re-fetches the full user profile from the server ───────────────

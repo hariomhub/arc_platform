@@ -5,6 +5,8 @@ import { Eye, EyeOff, AlertCircle, AlertTriangle, Loader2, ShieldCheck, BookOpen
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { loginUser } from '../api/auth.js';
+import CodeLogin from '../components/auth/CodeLogin.jsx';
+import { Field, inputStyle } from '../components/auth/authUi.jsx';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
@@ -15,27 +17,6 @@ const FEATURES = [
     { icon: Users, title: 'Expert Community', desc: 'Connect with AI safety leaders and executives.' },
     { icon: TrendingUp, title: 'Events & Certifications', desc: 'Live summits, workshops, and professional certifications.' },
 ];
-
-const Field = ({ id, label, required, error, children }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-        <label htmlFor={id} style={{ fontSize: '0.82rem', fontWeight: '600', color: error ? '#DC2626' : '#374151' }}>
-            {label}{required && <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>}
-        </label>
-        {children}
-        {error && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: '#DC2626' }}><AlertCircle size={11} />{error}</span>}
-    </div>
-);
-
-const inputStyle = (hasError, disabled) => ({
-    width: '100%', padding: '0.72rem 0.9rem',
-    border: `1.5px solid ${hasError ? '#FCA5A5' : '#E2E8F0'}`,
-    borderRadius: '10px', fontSize: '0.9rem', boxSizing: 'border-box',
-    display: 'block',
-    fontFamily: 'var(--font-sans)', outline: 'none',
-    background: hasError ? '#FFF5F5' : '#FAFBFC',
-    color: '#0F172A', opacity: disabled ? 0.65 : 1,
-    transition: 'border-color 0.15s, box-shadow 0.15s',
-});
 
 const Login = () => {
     const navigate = useNavigate();
@@ -51,6 +32,7 @@ const Login = () => {
     const [isPending, setIsPending] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [recaptchaToken, setRecaptchaToken] = useState('');
+    const [mode, setMode] = useState('password'); // password | code
     const emailRef = useRef(null);
     const recaptchaRef = useRef(null);
 
@@ -85,6 +67,19 @@ const Login = () => {
         return e;
     };
 
+    // What happens once someone is signed in, whichever way they did it (password or emailed code).
+    const finishLogin = (u) => {
+        login(u);
+        showToast('Welcome back!', 'success');
+        if (u.role === 'founding_member') navigate('/admin-dashboard', { replace: true });
+        else navigate(location.state?.from?.pathname || '/', { replace: true });
+    };
+    const reportError = (msg) => {
+        if (msg?.toLowerCase().includes('pending')) setIsPending(true);
+        else setServerError(msg);
+    };
+    const switchMode = (next) => { setMode(next); setServerError(''); setIsPending(false); setFieldErrors({}); };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setServerError(''); setIsPending(false);
@@ -93,13 +88,7 @@ const Login = () => {
         setFieldErrors({}); setSubmitting(true);
         try {
             const res = await loginUser({ email: email.trim().toLowerCase(), password, recaptchaToken });
-            if (res.data?.success) {
-                const u = res.data.data.user;
-                login(u);
-                showToast('Welcome back!', 'success');
-                if (u.role === 'founding_member') navigate('/admin-dashboard', { replace: true });
-                else navigate(location.state?.from?.pathname || '/', { replace: true });
-            }
+            if (res.data?.success) finishLogin(res.data.data.user);
         } catch (err) {
             const msg = getErrorMessage(err);
             if (msg?.toLowerCase().includes('pending')) setIsPending(true);
@@ -280,6 +269,20 @@ const Login = () => {
                             </div>
                         )}
 
+                        <div role="tablist" aria-label="Sign-in method" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, background: '#F1F5F9', borderRadius: 10, padding: 4, marginBottom: '1.25rem' }}>
+                            {[['password', 'Password'], ['code', 'Login with code']].map(([key, label]) => (
+                                <button key={key} type="button" role="tab" aria-selected={mode === key} onClick={() => switchMode(key)}
+                                    style={{ padding: '0.55rem 0.5rem', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: '0.83rem', transition: 'all 0.15s',
+                                        background: mode === key ? '#fff' : 'transparent', color: mode === key ? '#003366' : '#64748B', boxShadow: mode === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none' }}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {mode === 'code' ? (
+                            <CodeLogin email={email} onEmailChange={setEmail} emailRef={emailRef} onSuccess={finishLogin} onError={reportError}
+                                onClear={() => { setServerError(''); setIsPending(false); }} />
+                        ) : (
                         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <Field id="login-email" label="Email Address" required error={fieldErrors.email}>
                                 <input ref={emailRef} id="login-email" type="email" value={email}
@@ -303,6 +306,13 @@ const Login = () => {
                                 </div>
                             </Field>
 
+                            <div style={{ textAlign: 'right', marginTop: '-0.55rem' }}>
+                                <Link to={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
+                                    style={{ fontSize: '0.8rem', fontWeight: 600, color: '#003366', textDecoration: 'none' }}>
+                                    Forgot password?
+                                </Link>
+                            </div>
+
                             {/* CAPTCHA disabled for now — will be re-enabled later.
                             {RECAPTCHA_SITE_KEY && (
                                 <div>
@@ -321,6 +331,7 @@ const Login = () => {
                                 {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Signing in…</> : 'Sign In →'}
                             </button>
                         </form>
+                        )}
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.5rem 0' }}>
                             <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} /><span style={{ fontSize: '0.72rem', color: '#CBD5E1', fontWeight: 600, letterSpacing: '0.06em' }}>OR</span><div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />

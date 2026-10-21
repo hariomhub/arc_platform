@@ -49,6 +49,8 @@ router.post(
             .optional({ checkFalsy: true })
             .isIn(['working_professional', 'final_year_undergrad'])
             .withMessage('Invalid professional sub-type.'),
+        body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
+        body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
     ],
     validate,
     adminController.createUser
@@ -88,7 +90,11 @@ router.patch(
 // PATCH /api/admin/users/:id/approve
 router.patch(
     '/users/:id/approve',
-    [body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')],
+    [
+        body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.'),
+        body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
+        body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+    ],
     validate,
     adminController.approveUser
 );
@@ -101,6 +107,7 @@ router.patch(
     '/users/:id/status',
     [
         body('status').isIn(['pending', 'approved', 'rejected']).withMessage('Status must be: pending, approved, or rejected.'),
+        body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
     ],
     validate,
     adminController.updateUserStatus
@@ -113,6 +120,8 @@ router.patch(
         body('role')
             .isIn(['founding_member', 'council_member', 'professional'])
             .withMessage('Invalid role.'),
+        body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
+        body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
     ],
     validate,
     adminController.updateUserRole
@@ -138,7 +147,9 @@ router.patch(
     '/membership-applications/:id/approve',
     [
         body('admin_notes').optional().trim().isLength({ max: 1000 }),
-        body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.')
+        body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.'),
+        body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
+        body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
     ],
     validate,
     adminController.approveMembershipApplication

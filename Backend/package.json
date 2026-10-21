@@ -7,7 +7,8 @@
     "dev": "nodemon server.js",
     "db:migrate": "node db/migrate.js",
     "db:status": "node db/migrate.js --status",
-    "db:dry-run": "node db/migrate.js --dry-run"
+    "db:dry-run": "node db/migrate.js --dry-run",
+    "db:backfill-leads": "node db/backfill_chapter_leads.js"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.31.0",

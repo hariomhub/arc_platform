@@ -19,7 +19,7 @@ const Services = () => {
                 /* ── Hero ── */
                 .svc-hero {
                     background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
-                    padding: clamp(1.5rem,4vw,2.5rem) clamp(1rem,4vw,2rem);
+                    padding: clamp(1.5rem,4vw,2.5rem) clamp(0.75rem,1.6vw,1rem);
                     text-align: center;
                     position: relative;
                     overflow: hidden;
@@ -109,8 +109,8 @@ const Services = () => {
             </div>
 
             {/* ── Two Service Cards ── */}
-            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,2.5vw,2rem) clamp(1rem,4vw,2rem)' }}>
-                <div style={{ maxWidth:'1100px', margin:'0 auto' }}>
+            <div style={{ background:'#F8FAFC', padding:'clamp(1.5rem,2.5vw,2rem) clamp(0.75rem,1.6vw,1rem)' }}>
+                <div style={{ maxWidth:'1320px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'1.5rem' }}>
                         <h2 style={{ fontSize:'clamp(1.5rem,3vw,2rem)', fontWeight:'800', color:'#1A202C', marginBottom:'0.5rem' }}>What We Offer</h2>
                         <p style={{ color:'#64748B', fontSize:'clamp(0.9rem,1.5vw,1.05rem)', maxWidth:'560px', margin:'0 auto' }}>
@@ -186,8 +186,8 @@ const Services = () => {
             </div>
 
             {/* ── Why Choose ARC ── */}
-            <div style={{ background:'white', padding:'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', borderTop:'1px solid #E2E8F0' }}>
-                <div style={{ maxWidth:'1100px', margin:'0 auto' }}>
+            <div style={{ background:'white', padding:'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)', borderTop:'1px solid #E2E8F0' }}>
+                <div style={{ maxWidth:'1320px', margin:'0 auto' }}>
                     <div style={{ textAlign:'center', marginBottom:'2rem' }}>
                         <h2 style={{ fontSize:'clamp(1.5rem,3vw,2rem)', fontWeight:'800', color:'#1A202C', marginBottom:'0.5rem' }}>Why Choose Risk AI Council?</h2>
                         <p style={{ color:'#64748B', fontSize:'clamp(0.9rem,1.5vw,1.05rem)', maxWidth:'560px', margin:'0 auto' }}>
@@ -209,7 +209,7 @@ const Services = () => {
             </div>
 
             {/* ── CTA Banner ── */}
-            <div style={{ background:'linear-gradient(135deg,#003366 0%,#005599 100%)', padding:'clamp(1.5rem,3vw,2.5rem) clamp(1rem,4vw,2rem)', textAlign:'center' }}>
+            <div style={{ background:'linear-gradient(135deg,#003366 0%,#005599 100%)', padding:'clamp(1.5rem,3vw,2.5rem) clamp(0.75rem,1.6vw,1rem)', textAlign:'center' }}>
                 <div style={{ maxWidth:'680px', margin:'0 auto' }}>
                     <h2 style={{ color:'white', fontSize:'clamp(1.4rem,3vw,2rem)', fontWeight:'800', marginBottom:'1rem', fontFamily:'var(--font-serif)' }}>
                         Ready to Strengthen Your AI Governance?

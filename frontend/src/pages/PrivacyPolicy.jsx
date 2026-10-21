@@ -109,7 +109,7 @@ export default function PrivacyPolicy() {
             We are committed to protecting your personal data. This policy explains what we collect, why, and how you can control it.
           </p>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center', fontSize: '0.8rem', color: '#94A3B8' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Calendar size={13} /> Effective: April 23, 2026</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Calendar size={13} /> Effective: October 17, 2026</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Globe size={13} /> riskaicouncil.org</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Smartphone size={13} /> Web &amp; Mobile App</span>
           </div>
@@ -152,6 +152,9 @@ export default function PrivacyPolicy() {
               <Row label="Profile" value="Bio, profile photo, professional sub-type." />
               <Row label="Community Content" value="Posts, comments, votes, reviews, event registrations, nominations." />
               <Row label="Workshop / Checkout" value="Membership plan selections and registration details." />
+              <Row label="Location" value="The country (and optional chapter) you choose when you sign up or apply as a Chapter Lead. It is used to place members in a chapter." />
+              <Row label="Referral" value="If you register with a Chapter Lead's referral code, we record which lead referred you, so their membership goals and any commission can be attributed correctly." />
+              <Row label="Chapter Lead Programme" value="For Chapter Leads: quarterly goal progress, sessions hosted, blogs written, how your content performs (views, likes, comments, registrations), referral records, requests you submit, and a record of your agreement to these documents (version, date/time and IP address). When payments are enabled, payout details will also be collected." />
               <Row label="Contact Inquiries" value="Messages submitted via our Contact page or support email." />
               <SubHead>2.2 Collected Automatically</SubHead>
               <Row label="Usage Data" value="Pages visited, feed interactions (likes, saves, comments), search queries, time on Platform." />
@@ -168,6 +171,7 @@ export default function PrivacyPolicy() {
               <Row label="Platform Services" value="Posts, comments, events, resources, community feed, and member interactions." />
               <Row label="Communications" value="Welcome emails, OTPs, membership expiry notices, and activity notifications." />
               <Row label="Moderation" value="Reviewing community content against our standards and terms of use." />
+              <Row label="Chapter Lead Programme" value="Attributing referred members to their lead, measuring quarterly goals, reviewing performance under the Terms, sending quarter results and warnings, and calculating revenue share and commission." />
               <Row label="Analytics" value="Understanding usage to improve features. Feed ranking uses an engagement algorithm (likes × 3, comments × 2, saves × 1)." />
               <Row label="Security" value="Detecting fraud, unauthorized access, and Platform abuse." />
               <Row label="Legal Compliance" value="Meeting applicable laws, regulations, and legal processes." />
@@ -180,11 +184,13 @@ export default function PrivacyPolicy() {
               <Row label="SMTP Email Provider" value="Sends transactional emails (OTPs, welcome, expiry notices) on our behalf." />
               <Row label="LinkedIn OAuth" value="Authentication via LinkedIn's OAuth 2.0 under their own privacy policy." />
               <Row label="News APIs" value="Third-party APIs surface relevant AI risk news. No personal data is shared." />
-              <SubHead>4.2 Legal Requirements</SubHead>
+              <SubHead>4.2 Chapter Leads</SubHead>
+              <Row label="Referred members" value="A Chapter Lead can see the first name, organisation, sign-up date and approval status of the members who registered with their referral code. They do not see email addresses or other details." />
+              <SubHead>4.3 Legal Requirements</SubHead>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.5rem' }}>
                 We may disclose your information if required by law, court order, or to protect the safety of any person or prevent fraud.
               </p>
-              <SubHead>4.3 Business Transfers</SubHead>
+              <SubHead>4.4 Business Transfers</SubHead>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
                 If Risk AI Council is acquired or merges, your data may transfer as part of the transaction. You will be notified before this occurs.
               </p>
@@ -221,6 +227,7 @@ export default function PrivacyPolicy() {
                       ['Uploaded media', 'Deleted upon post or account deletion'],
                       ['Notification records', '90 days, then auto-purged'],
                       ['Payment & workshop records', '7 years (legal / accounting compliance)'],
+                      ['Chapter Lead records (referrals, quarter results, consent log)', 'Kept after account deletion in anonymised form (shown as "Former Chapter Lead"); IP address is erased on deletion'],
                       ['Server logs', '30 days (security monitoring)'],
                     ].map(([type, period], i) => (
                       <tr key={i}><td style={{ fontWeight: 500, color: 'var(--text-main)' }}>{type}</td><td>{period}</td></tr>

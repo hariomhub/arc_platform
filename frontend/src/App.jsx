@@ -7,6 +7,7 @@ import ScrollToTop from './components/common/ScrollToTop.jsx';
 import LoadingSpinner from './components/common/LoadingSpinner.jsx';
 import ProtectedRoute from './components/common/ProtectedRoute.jsx';
 import AdminRoute from './components/common/AdminRoute.jsx';
+import PolicyAcceptanceGate from './components/common/PolicyAcceptanceGate.jsx';
 import { useAuth } from './hooks/useAuth.js';
 
 // ─── Lazy page imports ────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ const QnADetail = lazy(() => import('./pages/QnADetail.jsx'));
 const Contact = lazy(() => import('./pages/Contact.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
 const RegisterComplete = lazy(() => import('./pages/RegisterComplete.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
@@ -47,6 +49,9 @@ const Terms          = lazy(() => import('./pages/Terms.jsx'));
 const DeleteAccount  = lazy(() => import('./pages/DeleteAccount.jsx'));
 const SelfNominate   = lazy(() => import('./pages/SelfNominate.jsx'));
 const NominationTerms = lazy(() => import('./pages/NominationTerms.jsx'));
+const Blogs          = lazy(() => import('./pages/Blogs.jsx'));
+const BlogDetail     = lazy(() => import('./pages/BlogDetail.jsx'));
+const BlogEditor     = lazy(() => import('./pages/BlogEditor.jsx'));
 
 // ── OAuth landing: waits for cookie/session restore then routes correctly ──
 const OAuthLanding = () => {
@@ -69,6 +74,13 @@ const OAuthLanding = () => {
   return <LoadingSpinner fullPage />;
 };
 
+// The Chapter Lead dashboard is part of the one member dashboard now. The old URL keeps
+// working (old links, emails and notifications) and keeps any ?tab= the link carried.
+const LeadDashboardRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/user/dashboard${search}`} replace />;
+};
+
 // ─── Auth-aware redirector (login / register redirect if already signed in) ──
 const GuestRoute = ({ children }) => {
   const { user, isAuthLoading } = useAuth();
@@ -81,6 +93,7 @@ function App() {
   return (
     <>
       <ScrollToTop />
+      <PolicyAcceptanceGate />
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Navbar />
         <main id="main-content" style={{ flex: 1 }}>
@@ -107,6 +120,8 @@ function App() {
               <Route path="/community-qna" element={<CommunityQnA />} />
               <Route path="/community-qna/:id" element={<QnADetail />} />
               <Route path="/news" element={<News />} />
+              <Route path="/blog" element={<Blogs />} />
+              <Route path="/blog/:slug" element={<BlogDetail />} />
               <Route path="/media-hub" element={<MediaHub />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -122,6 +137,8 @@ function App() {
               {/* ── Guest-only routes ── */}
               <Route path="/membership" element={<Membership />} />
               <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+              {/* Not a GuestRoute: a signed-in LinkedIn member uses this page to set a first password. */}
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
               <Route path="/register/complete" element={<RegisterComplete />} />
 
@@ -152,6 +169,20 @@ function App() {
                     <UserDashboard />
                   </ProtectedRoute>
                 }
+              />
+
+              {/* ── Chapter Lead blog editor (the lead dashboard itself lives in /user/dashboard) ── */}
+              <Route
+                path="/chapter-lead/dashboard"
+                element={<LeadDashboardRedirect />}
+              />
+              <Route
+                path="/chapter-lead/blog/new"
+                element={<ProtectedRoute><BlogEditor /></ProtectedRoute>}
+              />
+              <Route
+                path="/chapter-lead/blog/:id/edit"
+                element={<ProtectedRoute><BlogEditor /></ProtectedRoute>}
               />
 
               {/* ── Admin routes ── */}

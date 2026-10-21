@@ -37,6 +37,18 @@ export const NOTIF_TYPES = {
     MEMBERSHIP_EXPIRED:        'membership_expired',
     CONTACT_REPLY:             'contact_reply',
 
+    // ── Chapter Lead programme — immediate ───────────────────────────────────
+    LEAD_QUARTER_RESULT:       'lead_quarter_result',
+    LEAD_QUARTER_WARNING:      'lead_quarter_warning',
+    LEAD_AT_RISK_ADMIN:        'lead_at_risk_admin',
+    LEAD_NUDGE:                'lead_nudge',
+    LEAD_TERM_CHANGE:          'lead_term_change',
+    LEAD_ROLE_ENDED:           'lead_role_ended',
+    LEAD_REQUEST_DECIDED:      'lead_request_decided',
+    LEAD_REQUEST_SUBMITTED:    'lead_request_submitted',
+    LEAD_BLOG_DECIDED:         'lead_blog_decided',
+    LEAD_BLOG_SUBMITTED:       'lead_blog_submitted',
+
     // ── Feed — immediate ──────────────────────────────────────────────────────
     FEED_POST_COMMENTED:       'feed_post_commented',
     FEED_COMMENT_REPLIED:      'feed_comment_replied',
@@ -65,6 +77,17 @@ const IMMEDIATE_TYPES = new Set([
     NOTIF_TYPES.MEMBERSHIP_EXPIRING_7,
     NOTIF_TYPES.MEMBERSHIP_EXPIRED,
     NOTIF_TYPES.CONTACT_REPLY,
+    // Chapter Lead programme
+    NOTIF_TYPES.LEAD_QUARTER_RESULT,
+    NOTIF_TYPES.LEAD_QUARTER_WARNING,
+    NOTIF_TYPES.LEAD_AT_RISK_ADMIN,
+    NOTIF_TYPES.LEAD_NUDGE,
+    NOTIF_TYPES.LEAD_TERM_CHANGE,
+    NOTIF_TYPES.LEAD_ROLE_ENDED,
+    NOTIF_TYPES.LEAD_REQUEST_DECIDED,
+    NOTIF_TYPES.LEAD_REQUEST_SUBMITTED,
+    NOTIF_TYPES.LEAD_BLOG_DECIDED,
+    NOTIF_TYPES.LEAD_BLOG_SUBMITTED,
     // Feed immediate
     NOTIF_TYPES.FEED_POST_COMMENTED,
     NOTIF_TYPES.FEED_COMMENT_REPLIED,

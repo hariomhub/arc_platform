@@ -18,6 +18,9 @@ import {
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { applyCouncil } from '../api/membership.js';
+import { getChapterLeadPolicy } from '../api/chapterLead.js';
+import LocationFields from '../components/common/LocationFields.jsx';
+import PolicyAgreement from '../components/common/PolicyAgreement.jsx';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import {
     COMPLIMENTARY_MONTHS, NO_PAYMENT_LINE, MARKETS, MARKET_ORDER,
@@ -44,6 +47,9 @@ const COUNCIL_FEATURES = [
     { label: 'Create news articles (pending approval)' },
     { label: 'Create workshops (pending approval)' },
     { label: 'Manage automated news feed' },
+    { label: 'Chapter Lead dashboard: quarterly goals, progress and content performance' },
+    { label: 'Personal referral code to track members you bring in' },
+    { label: 'Revenue share and commission, as set out in the Terms' },
 ];
 
 // ─── Comparison table ─────────────────────────────────────────────────────────
@@ -61,6 +67,7 @@ const COMPARISON_ROWS = [
     { feature: 'Create news (pending approval)',                 pro: false,     council: true  },
     { feature: 'Create workshops (pending approval)',            pro: false,     council: true  },
     { feature: 'Manage automated news feed',                     pro: false,     council: true  },
+    { feature: 'Chapter Lead dashboard, quarterly goals & referral code', pro: false, council: true  },
 ];
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
@@ -83,7 +90,7 @@ const FAQ = [
     },
     {
         q: 'How do I become a Chapter Lead?',
-        a: 'Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution, not a higher subscription fee.',
+        a: 'Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution, not a higher subscription fee. Chapter Leads take on quarterly goals (new members, podcasts, posts and blogs), get a personal referral code and a dashboard to track progress, and share in revenue as described in the Terms. You will be asked to agree to the Privacy Policy and Terms when you apply.',
     },
     {
         q: 'What does "pending admin approval" mean for Chapter Leads?',
@@ -230,7 +237,10 @@ const Membership = () => {
     const [councilForm, setCouncilForm] = useState({
         organization_name: '', job_title: '', linkedin_url: '',
         professional_bio: '', why_council_member: '',
+        country_code: '', chapter_id: '', accept_privacy: false,
     });
+    const [councilFieldErrors, setCouncilFieldErrors] = useState({});
+    const [leadPolicy, setLeadPolicy] = useState(null);
     const [councilSubmitting, setCouncilSubmitting] = useState(false);
     const [councilError,   setCouncilError]   = useState('');
     const [councilSuccess, setCouncilSuccess] = useState(false);
@@ -346,17 +356,35 @@ const Membership = () => {
         }
     };
 
+    // The goals shown in the application come from the live policy, so they never drift
+    // from what is actually tracked and enforced.
+    useEffect(() => {
+        if (!showCouncilModal || leadPolicy) return;
+        getChapterLeadPolicy()
+            .then((res) => setLeadPolicy(res.data?.data || null))
+            .catch(() => { /* the summary is optional — the form still works without it */ });
+    }, [showCouncilModal, leadPolicy]);
+
     // ── Council form submit ───────────────────────────────────────────────────
     const handleCouncilSubmit = async (e) => {
         e.preventDefault();
         setCouncilError('');
-        if (!councilForm.why_council_member?.trim()) {
-            setCouncilError('Please tell us why you want to become a Chapter Lead.');
+        const fe = {};
+        if (!councilForm.why_council_member?.trim()) fe.why = 'Please tell us why you want to become a Chapter Lead.';
+        if (!councilForm.country_code) fe.country_code = 'Please select your country.';
+        if (!councilForm.accept_privacy) fe.accept_privacy = 'You must agree to the Privacy Policy and Terms to apply.';
+        setCouncilFieldErrors(fe);
+        if (Object.keys(fe).length) {
+            setCouncilError(fe.why || fe.country_code || fe.accept_privacy);
             return;
         }
         setCouncilSubmitting(true);
         try {
-            await applyCouncil(councilForm);
+            await applyCouncil({
+                ...councilForm,
+                chapter_id: councilForm.chapter_id || undefined,
+                accept_privacy: true,
+            });
             setCouncilSuccess(true);
         } catch (err) {
             setCouncilError(getErrorMessage(err));
@@ -760,7 +788,7 @@ const Membership = () => {
                             </div>
 
                             <p style={{ margin: '0 0 0.9rem', fontSize: '0.95rem', color: '#64748B', lineHeight: '1.6' }}>
-                                Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution, not a higher subscription fee. Contributions are reviewed before they are published.
+                                Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution, not a higher subscription fee. Chapter Leads commit to quarterly goals and track them on a personal dashboard. Contributions are reviewed before they are published.
                             </p>
 
                             <div className="mem-feat-list">
@@ -1057,6 +1085,22 @@ const Membership = () => {
                                         </p>
                                     </div>
 
+                                    {leadPolicy && (
+                                        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '9px', padding: '0.75rem 0.9rem' }}>
+                                            <p style={{ margin: '0 0 0.4rem', fontSize: '0.68rem', fontWeight: '800', color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.08em' }}>What is expected each quarter</p>
+                                            <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.76rem', color: '#78350F', lineHeight: 1.65 }}>
+                                                <li>Bring in <strong>{leadPolicy.targets.members}</strong> new active members</li>
+                                                <li>Host or facilitate <strong>{leadPolicy.targets.podcasts}</strong> podcasts</li>
+                                                <li>Publish <strong>{leadPolicy.targets.posts_min}-{leadPolicy.targets.posts_max}</strong> posts</li>
+                                                <li>Write <strong>{leadPolicy.targets.blogs}</strong> blogs</li>
+                                            </ul>
+                                            <p style={{ margin: '0.45rem 0 0', fontSize: '0.72rem', color: '#78350F', lineHeight: 1.55 }}>
+                                                Meeting at least {leadPolicy.min_goals_met} of the 4 goals counts as a met quarter. Falling short for {leadPolicy.consecutive_miss_limit} quarters in a row may lead to removal from the role.
+                                                Each term lasts {leadPolicy.term_months} months. Revenue share from your area is {leadPolicy.rates.term1}% in your first term, {leadPolicy.rates.term2}% in your second and {leadPolicy.rates.term3}% after that, plus {leadPolicy.rates.direct_commission}% commission on value you bring in directly. Full details are in the Terms.
+                                            </p>
+                                        </div>
+                                    )}
+
                                     {councilError && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '0.65rem 0.9rem' }}>
                                             <AlertCircle size={14} color="#DC2626" />
@@ -1107,6 +1151,33 @@ const Membership = () => {
                                             onFocus={e => e.target.style.borderColor = '#003366'}
                                             onBlur={e => e.target.style.borderColor = '#CBD5E1'} />
                                     </div>
+
+                                    <LocationFields
+                                        country={councilForm.country_code}
+                                        chapterId={councilForm.chapter_id}
+                                        disabled={councilSubmitting}
+                                        countryError={councilFieldErrors.country_code}
+                                        countryLabel="Your country"
+                                        chapterLabel="Chapter you would lead"
+                                        chapterHint="Optional - an admin confirms the final chapter"
+                                        idPrefix="cl"
+                                        inputStyle={{ padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#fafafa', fontSize: '0.875rem' }}
+                                        labelStyle={{ fontSize: '0.8rem', color: '#374151' }}
+                                        onChange={({ country_code, chapter_id }) => {
+                                            setCouncilForm(p => ({ ...p, country_code, chapter_id }));
+                                            setCouncilFieldErrors(p => ({ ...p, country_code: '' }));
+                                        }}
+                                    />
+
+                                    <PolicyAgreement
+                                        checked={councilForm.accept_privacy}
+                                        disabled={councilSubmitting}
+                                        error={councilFieldErrors.accept_privacy}
+                                        onChange={(v) => {
+                                            setCouncilForm(p => ({ ...p, accept_privacy: v }));
+                                            setCouncilFieldErrors(p => ({ ...p, accept_privacy: '' }));
+                                        }}
+                                    />
 
                                     <div style={{ display: 'flex', gap: '0.7rem' }}>
                                         <button type="button" onClick={() => setShowCouncilModal(false)}

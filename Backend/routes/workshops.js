@@ -36,6 +36,9 @@ const workshopValidation = [
     body('banner_image').optional({ checkFalsy: true }).trim(),
     body('is_upcoming').optional().isBoolean().withMessage('is_upcoming must be true or false.'),
     body('is_published').optional().isBoolean().withMessage('is_published must be true or false.'),
+    body('price').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Price must be zero or more.'),
+    body('capacity').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Capacity must be a positive integer.'),
+    body('registration_url').optional({ checkFalsy: true }).trim().isURL().withMessage('Registration URL must be a valid URL.'),
 ];
 
 // ── Read routes — PUBLIC (anyone can browse workshops) ───────────────────────

@@ -33,13 +33,19 @@ import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
  * Bug fix: was using is_approved = 1 (wrong column) — corrected to status = 'approved'
  */
 const getUsersExpiringBetween = async (fromDate, toDate) => {
+    // Active Chapter Leads are excluded: their term rolls over automatically
+    // (see chapterLeadService.autoContinueTerms), so an "expiring" warning would be wrong.
     const [rows] = await pool.query(
         `SELECT id, name, email, role, membership_expires_at
          FROM users
          WHERE membership_expires_at >= ?
            AND membership_expires_at <  ?
            AND role IN ('professional', 'council_member')
-           AND status = 'approved'`,
+           AND status = 'approved'
+           AND NOT EXISTS (
+                SELECT 1 FROM chapter_lead_profiles p
+                WHERE p.user_id = users.id AND p.status = 'active'
+           )`,
         [fromDate, toDate],
     );
     return rows;
