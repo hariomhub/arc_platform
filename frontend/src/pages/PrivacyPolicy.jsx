@@ -152,9 +152,9 @@ export default function PrivacyPolicy() {
               <Row label="Profile" value="Bio, profile photo, professional sub-type." />
               <Row label="Community Content" value="Posts, comments, votes, reviews, event registrations, nominations." />
               <Row label="Workshop / Checkout" value="Membership plan selections and registration details." />
-              <Row label="Location" value="The country (and optional chapter) you choose when you sign up or apply as a Chapter Lead. It is used to place members in a chapter." />
-              <Row label="Referral" value="If you register with a Chapter Lead's referral code, we record which lead referred you, so their membership goals and any commission can be attributed correctly." />
-              <Row label="Chapter Lead Programme" value="For Chapter Leads: quarterly goal progress, sessions hosted, blogs written, how your content performs (views, likes, comments, registrations), referral records, requests you submit, and a record of your agreement to these documents (version, date/time and IP address). When payments are enabled, payout details will also be collected." />
+              <Row label="Location" value="The country (and optional chapter) you choose when you sign up, and the chapter you choose when you apply as a Chapter Ambassador or Chapter Lead. It is used to place members in a chapter." />
+              <Row label="Referral" value="If you register with a Chapter Lead's or Chapter Ambassador's referral code, we record who referred you, so their membership goals and any commission can be attributed correctly." />
+              <Row label="Chapter Lead Programme" value="For Chapter Leads and Ambassadors: quarterly goal progress, sessions hosted, blogs written, how your content performs (views, likes, comments, registrations), referral records, requests you submit, a record of your agreement to these documents (version, date/time and IP address), your confirmation that you checked your employment terms, and, for Chapter Leads, your choice to receive or waive earnings (with date/time and IP address). When payments are enabled, payout details will also be collected." />
               <Row label="Contact Inquiries" value="Messages submitted via our Contact page or support email." />
               <SubHead>2.2 Collected Automatically</SubHead>
               <Row label="Usage Data" value="Pages visited, feed interactions (likes, saves, comments), search queries, time on Platform." />
@@ -171,7 +171,7 @@ export default function PrivacyPolicy() {
               <Row label="Platform Services" value="Posts, comments, events, resources, community feed, and member interactions." />
               <Row label="Communications" value="Welcome emails, OTPs, membership expiry notices, and activity notifications." />
               <Row label="Moderation" value="Reviewing community content against our standards and terms of use." />
-              <Row label="Chapter Lead Programme" value="Attributing referred members to their lead, measuring quarterly goals, reviewing performance under the Terms, sending quarter results and warnings, and calculating revenue share and commission." />
+              <Row label="Chapter Lead Programme" value="Attributing referred members to their referrer, measuring quarterly goals, showing chapter teams on the public Chapters pages and a team leaderboard, reviewing performance under the Terms, sending quarter results and warnings, and calculating revenue share and commission." />
               <Row label="Analytics" value="Understanding usage to improve features. Feed ranking uses an engagement algorithm (likes × 3, comments × 2, saves × 1)." />
               <Row label="Security" value="Detecting fraud, unauthorized access, and Platform abuse." />
               <Row label="Legal Compliance" value="Meeting applicable laws, regulations, and legal processes." />
@@ -184,8 +184,11 @@ export default function PrivacyPolicy() {
               <Row label="SMTP Email Provider" value="Sends transactional emails (OTPs, welcome, expiry notices) on our behalf." />
               <Row label="LinkedIn OAuth" value="Authentication via LinkedIn's OAuth 2.0 under their own privacy policy." />
               <Row label="News APIs" value="Third-party APIs surface relevant AI risk news. No personal data is shared." />
-              <SubHead>4.2 Chapter Leads</SubHead>
-              <Row label="Referred members" value="A Chapter Lead can see the first name, organisation, sign-up date and approval status of the members who registered with their referral code. They do not see email addresses or other details." />
+              <SubHead>4.2 Chapter teams and the public</SubHead>
+              <Row label="Referred members" value="A Chapter Lead or Ambassador can see the first name, organisation, sign-up date and approval status of the members who registered with their referral code. They do not see email addresses or other details." />
+              <Row label="Applicants" value="When you apply to join a chapter as an Ambassador, the Chapter Lead of that chapter can see your name, job title, organisation, LinkedIn profile, country, how long you have been a member, what you wrote about yourself and why you want to join, and whether you confirmed you checked your employment terms. They do not see your email address or phone number. Administrators see the full application." />
+              <Row label="Chapter team" value="Your chapter's Chapter Lead and Ambassadors, and administrators, can see each other's progress against quarterly goals and a leaderboard score. You can choose to appear as hidden on the leaderboard." />
+              <Row label="Public Chapters pages" value="Active Chapter Leads and Ambassadors are listed publicly by name, role and chapter. Your photo, organisation, LinkedIn profile and bio are shown only if you turn them on in your dashboard settings. An administrator can hide an entry." />
               <SubHead>4.3 Legal Requirements</SubHead>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.5rem' }}>
                 We may disclose your information if required by law, court order, or to protect the safety of any person or prevent fraud.
@@ -205,7 +208,7 @@ export default function PrivacyPolicy() {
               <Row label="Opt-out" value="Unsubscribe from non-essential communications via notification settings or email unsubscribe links." />
               <Row label="Restriction" value="Request restriction of data processing in certain circumstances." />
               <Callout type="warning">
-                <strong>Post Retention Policy:</strong> If you hold or have held the role of Chapter Lead or Founding Member, your posts are part of the Platform's knowledge base. Upon account deletion, posts are NOT removed — your name is replaced with <em>"Former Chapter Lead"</em> to preserve community integrity.
+                <strong>Post Retention Policy:</strong> If you hold or have held a chapter team role (Chapter Lead or Chapter Ambassador) or the Founding Member role, your posts are part of the Platform's knowledge base. Upon account deletion, posts are NOT removed — your name is replaced with <em>"Former Chapter Lead"</em> or <em>"Former Chapter Ambassador"</em> to preserve community integrity.
               </Callout>
               <p style={{ fontSize: '0.91rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0' }}>
                 Contact us at <a href="mailto:support@riskaicouncil.org" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@riskaicouncil.org</a> or visit the <Link to="/delete-account" style={{ color: 'var(--accent)', fontWeight: 600 }}>Account Deletion page</Link> to exercise these rights.
@@ -227,7 +230,7 @@ export default function PrivacyPolicy() {
                       ['Uploaded media', 'Deleted upon post or account deletion'],
                       ['Notification records', '90 days, then auto-purged'],
                       ['Payment & workshop records', '7 years (legal / accounting compliance)'],
-                      ['Chapter Lead records (referrals, quarter results, consent log)', 'Kept after account deletion in anonymised form (shown as "Former Chapter Lead"); IP address is erased on deletion'],
+                      ['Chapter team records (referrals, quarter results, consent and earnings-choice log, change history)', 'Kept after account deletion in anonymised form (shown as "Former Chapter Lead" or "Former Chapter Ambassador"); personal details and IP addresses are erased on deletion'],
                       ['Server logs', '30 days (security monitoring)'],
                     ].map(([type, period], i) => (
                       <tr key={i}><td style={{ fontWeight: 500, color: 'var(--text-main)' }}>{type}</td><td>{period}</td></tr>

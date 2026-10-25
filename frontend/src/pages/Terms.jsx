@@ -10,13 +10,16 @@ const DEFAULT_POLICY = {
   targets: { members: 20, podcasts: 3, posts_min: 10, posts_max: 15, blogs: 3 },
   min_goals_met: 3, consecutive_miss_limit: 3, term_months: 18,
   rates: { term1: 3, term2: 5, term3: 7, direct_commission: 10 },
+  tiers: {
+    ambassador: { targets: { members: 5, podcasts: 1, posts_min: 5, posts_max: 8, blogs: 1 }, min_goals_met: 3, seat_cap: 10 },
+  },
 };
 
 const SECTIONS = [
   { id: 'about',        label: 'About These Terms' },
   { id: 'membership',   label: 'Community Membership' },
   { id: 'accounts',     label: 'Accounts & Approval' },
-  { id: 'chapter-lead', label: 'Chapter Lead Role' },
+  { id: 'chapter-lead', label: 'Chapter Lead & Ambassador' },
   { id: 'conduct',      label: 'Community Conduct & Content' },
   { id: 'programmes',   label: 'Events, Workshops & Learning' },
   { id: 'resources',    label: 'Resources, Reviews & Standards' },
@@ -90,7 +93,7 @@ export default function Terms() {
     return () => obs.current?.disconnect();
   }, []);
 
-  // The Chapter Lead section reads its numbers from the live programme rules, so the
+  // The chapter team section reads its numbers from the live programme rules, so the
   // text can never drift from what is actually tracked.
   const [pol, setPol] = useState(DEFAULT_POLICY);
   useEffect(() => {
@@ -105,6 +108,7 @@ export default function Terms() {
     return () => clearTimeout(t);
   }, []);
 
+  const amb = pol.tiers?.ambassador || DEFAULT_POLICY.tiers.ambassador;
   const inr = MARKETS.IN;
   const usd = MARKETS.US;
 
@@ -189,20 +193,25 @@ export default function Terms() {
               <Row label="Your credentials">Keep your password secure. You are responsible for activity under your account.</Row>
             </SectionCard>
 
-            <SectionCard id="chapter-lead" title="4. Chapter Lead Role">
-              <Row label="Application-based">Apply to contribute resources or help facilitate the community. Selection is based on experience and the proposed contribution.</Row>
-              <Row label="No fee">There is no subscription fee for the Chapter Lead role.</Row>
+            <SectionCard id="chapter-lead" title="4. Chapter Teams: Chapter Lead and Chapter Ambassador">
+              <Row label="Structure">Each chapter has one Chapter Lead and {amb.seat_cap === null ? 'any number of' : 'up to ' + amb.seat_cap} Chapter Ambassadors who support them. The Chapter Lead leads the chapter; Ambassadors help it grow.</Row>
+              <Row label="Applying">Members apply to join a chapter as an Ambassador, or to lead one as a Chapter Lead. Selection is based on experience and the proposed contribution. A Chapter Lead decides applications to join their own chapter, and that decision stands unless a Founding Member admin changes it. Founding Member admins can decide any application and can add, move or remove anyone on a chapter team. If a chapter has no Chapter Lead, the administrators decide. An Ambassador may ask to become the Chapter Lead; that request is always decided by an administrator.</Row>
+              <Row label="No fee">There is no subscription fee for either role.</Row>
               <Row label="Your agreement">By applying you confirm you have read and agree to these Terms (including this section) and the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>. Existing Chapter Leads are asked to confirm the same when these terms take effect.</Row>
-              <Row label="Terms of office">Each term lasts {pol.term_months} months and continues into the next term automatically unless the role ends. Term 1 is months 1&ndash;{pol.term_months}, term 2 is months {pol.term_months + 1}&ndash;{pol.term_months * 2}, and every later term follows after that.</Row>
-              <Row label="Quarterly goals">In each calendar quarter a Chapter Lead is expected to: bring in <strong>{pol.targets.members}</strong> new active members (members who register with their referral code and are approved by an admin); host or facilitate <strong>{pol.targets.podcasts}</strong> podcasts (counted once an admin marks them conducted); publish <strong>{pol.targets.posts_min}&ndash;{pol.targets.posts_max}</strong> posts in the community feed; and write <strong>{pol.targets.blogs}</strong> blogs (counted once published after review). A lead's first part-quarter is not scored. Progress is shown on the Chapter Lead dashboard.</Row>
-              <Row label="Minimum performance">A quarter counts as met when at least {pol.min_goals_met} of the 4 goals are reached. If a Chapter Lead does not meet the minimum for {pol.consecutive_miss_limit} consecutive quarters, they may be removed from the role. Removal is decided by a Founding Member admin; meeting the minimum in any quarter resets the count.</Row>
-              <Row label="Referral code">Each Chapter Lead receives a unique referral code that links the members they bring in to them. Codes must not be used to register yourself, to create fake or duplicate accounts, or in any misleading way. Misuse can lead to referrals being voided and to removal from the role.</Row>
-              <Row label="Revenue share">Revenue generated from a Chapter Lead's designated geographical area is shared with them at <strong>{pol.rates.term1}%</strong> in their first term, <strong>{pol.rates.term2}%</strong> in their second term and <strong>{pol.rates.term3}%</strong> in later terms. Revenue sources are membership fees, workshops, exhibitions and events, certifications, and product testing.</Row>
-              <Row label="Direct contributions">Chapter Leads receive a <strong>{pol.rates.direct_commission}%</strong> commission on direct value they bring to the organisation, including new members, hosted workshops and secured sponsorships. Where both the area share and the direct commission would apply to the same payment and the same Chapter Lead, the higher of the two is paid, not both.</Row>
+              <Row label="Your employment">Taking a chapter role, paid or unpaid, can need your employer's permission. You are responsible for checking your employment contract and your employer's policies on outside activities, conflicts of interest and second jobs, and for getting any approval you need. We ask you to confirm this when you apply, and again before a Chapter Lead chooses to receive earnings. We are not your employer and cannot advise you on your employment terms.</Row>
+              <Row label="Public chapter pages">Active Chapter Leads and Ambassadors are listed on the public <Link to="/chapters" style={linkStyle}>Chapters pages</Link> by name, role and chapter. Your photo, organisation, LinkedIn profile and bio appear only if you choose to show them in your dashboard settings; your organisation is off by default. A Founding Member admin can hide an entry. Your progress against goals is visible only to your chapter team and to administrators, and you can choose to appear as hidden on the team leaderboard.</Row>
+              <Row label="Terms of office">Each term lasts {pol.term_months} months and continues into the next term automatically unless the role ends. Term 1 is months 1&ndash;{pol.term_months}, term 2 is months {pol.term_months + 1}&ndash;{pol.term_months * 2}, and every later term follows after that. If you move between the two roles, a new stint begins and your history stays on record; promotion to Chapter Lead starts a new term.</Row>
+              <Row label="Quarterly goals">In each calendar quarter a <strong>Chapter Lead</strong> is expected to: bring in <strong>{pol.targets.members}</strong> new active members (counting every member of their chapter who registers with a team code and is approved by an admin); host or facilitate <strong>{pol.targets.podcasts}</strong> podcasts (counted once an admin marks them conducted); publish <strong>{pol.targets.posts_min}&ndash;{pol.targets.posts_max}</strong> posts in the community feed; and write <strong>{pol.targets.blogs}</strong> blogs (counted once published after review). A <strong>Chapter Ambassador</strong> is expected to: bring in <strong>{amb.targets.members}</strong> new active members, host or facilitate <strong>{amb.targets.podcasts}</strong> podcast{amb.targets.podcasts === 1 ? '' : 's'}, publish <strong>{amb.targets.posts_min}&ndash;{amb.targets.posts_max}</strong> posts and write <strong>{amb.targets.blogs}</strong> blog{amb.targets.blogs === 1 ? '' : 's'}. The first part-quarter is not scored. Progress is shown on your dashboard.</Row>
+              <Row label="Minimum performance">A quarter counts as met when a Chapter Lead reaches at least {pol.min_goals_met} of the 4 goals, or an Ambassador reaches at least {amb.min_goals_met}. If the minimum is not met for {pol.consecutive_miss_limit} consecutive quarters, the role may be ended. A Chapter Lead reviews their Ambassadors' results and may remove an Ambassador, giving a reason; the Ambassador can appeal to the administrators through the Contact page. Chapter Lead removals are decided by a Founding Member admin. Meeting the minimum in any quarter resets the count.</Row>
+              <Row label="Referral code">Each person on a chapter team receives a unique referral code that links the members they bring in to them. Codes must not be used to register yourself, to create fake or duplicate accounts, or in any misleading way. Misuse can lead to referrals being voided and to removal from the role.</Row>
+              <Row label="Revenue share">Chapter Leads only. Revenue generated from a Chapter Lead's designated geographical area is shared with them at <strong>{pol.rates.term1}%</strong> in their first term, <strong>{pol.rates.term2}%</strong> in their second term and <strong>{pol.rates.term3}%</strong> in later terms, if they have chosen to receive it (see below). Revenue sources are membership fees, workshops, exhibitions and events, certifications, and product testing. The Chapter Ambassador role is a volunteer role and does not include revenue share, commission or fees.</Row>
+              <Row label="Direct contributions">Chapter Leads who have chosen to receive earnings get a <strong>{pol.rates.direct_commission}%</strong> commission on direct value they bring to the organisation themselves, including new members, hosted workshops and secured sponsorships. Where both the area share and the direct commission would apply to the same payment and the same Chapter Lead, the higher of the two is paid, not both. Members brought in with a Chapter Ambassador's code count towards the chapter and towards the Chapter Lead's quarterly goal, and earn the Chapter Lead the area share only, not the direct commission.</Row>
+              <Row label="Receive or waive">A Chapter Lead chooses either to receive these earnings, or to waive them and serve as a volunteer, for example because their employer does not allow paid outside work. The choice is yours alone; an administrator can ask you to choose again but can never choose for you. Your first choice applies straight away. A later change applies from the start of your next term and never backwards. While earnings are waived your term and tenure continue as normal, and amounts that would have been payable are not accrued or paid later.</Row>
               <Row label="How earnings are calculated">Revenue share and commission are calculated on revenue actually received by Risk AI Council, after taxes and refunds. They are recorded as revenue is tracked on the Platform and are paid under the payout process we communicate when online payment tracking is enabled. No amounts are payable before then.</Row>
-              <Row label="Workshops & podcasts">Chapter Leads may submit requests to host podcasts or conduct workshops. Leads are financially compensated for delivering workshops; the terms are confirmed when a workshop is approved.</Row>
-              <Row label="Moderation">Events, news, workshops and blogs created by Chapter Leads are saved as drafts and reviewed by a Founding Member admin before they go public. Uploaded resources are reviewed before publication, and top-level community posts are subject to moderation.</Row>
-              <Row label="Ending the role">The role ends if a Founding Member removes you (under the minimum-performance rule above, or for breaking these Terms), if you step down, or if you delete your account. Your referral code then stops accepting new sign-ups. How earnings recorded before the role ended are handled is set out in the payout process we communicate when payments are enabled.</Row>
+              <Row label="Workshops & podcasts">Chapter Leads and Ambassadors may submit requests to host podcasts or conduct workshops. A Chapter Lead who has chosen to receive earnings is financially compensated for delivering workshops; the terms are confirmed when a workshop is approved.</Row>
+              <Row label="Moderation">Events, news, workshops and blogs created by Chapter Leads and Ambassadors are saved as drafts and reviewed by a Founding Member admin before they go public. Uploaded resources are reviewed before publication, and top-level community posts are subject to moderation.</Row>
+              <Row label="Records">We keep a record of changes to a chapter role (who made them and when), of each earnings choice, and of your agreement to these documents, so that decisions can be explained and disputes resolved.</Row>
+              <Row label="Ending the role">The role ends if a Founding Member removes you (under the minimum-performance rule above, or for breaking these Terms), if your Chapter Lead removes you as an Ambassador, if you step down, or if you delete your account. Your referral code then stops accepting new sign-ups. How earnings recorded before the role ended are handled is set out in the payout process we communicate when payments are enabled.</Row>
             </SectionCard>
 
             <SectionCard id="conduct" title="5. Community Conduct & Content">
@@ -231,7 +240,7 @@ export default function Terms() {
             </SectionCard>
 
             <SectionCard id="deletion" title="9. Account Deletion">
-              <P last>You can delete your account yourself at any time from the <Link to="/delete-account" style={linkStyle}>Delete Account page</Link>; deletion is immediate. Posts made while you held the Chapter Lead or Founding Member role may remain, attributed to "Former Chapter Lead," as described in the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>. If you are a Chapter Lead, your role ends immediately, your referral code stops working, and your referral and quarter records are kept in anonymised form.</P>
+              <P last>You can delete your account yourself at any time from the <Link to="/delete-account" style={linkStyle}>Delete Account page</Link>; deletion is immediate. Posts made while you held a chapter team or Founding Member role may remain, attributed to "Former Chapter Lead" or "Former Chapter Ambassador," as described in the <Link to="/privacy" style={linkStyle}>Privacy Policy</Link>. If you are a Chapter Lead or Ambassador, your role ends immediately, your referral code stops working, and your referral and quarter records are kept in anonymised form.</P>
             </SectionCard>
 
             <SectionCard id="changes" title="10. Changes to These Terms">

@@ -319,8 +319,8 @@ const BlogEditor = () => {
         return (
             <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
                 <Card style={{ maxWidth: 420, textAlign: 'center' }}>
-                    <p style={{ margin: '0 0 1rem', color: colors.muted }}>Blogs can be written by Chapter Leads. Apply to become one to start writing.</p>
-                    <Link to="/membership" style={{ color: colors.primary, fontWeight: 700 }}>View Chapter Lead membership</Link>
+                    <p style={{ margin: '0 0 1rem', color: colors.muted }}>Blogs can be written by Chapter Leads and Chapter Ambassadors. Join a chapter team to start writing.</p>
+                    <Link to="/membership" style={{ color: colors.primary, fontWeight: 700 }}>See the chapter team roles</Link>
                 </Card>
             </div>
         );

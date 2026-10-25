@@ -1,6 +1,6 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
-import requireRole from '../middleware/requireRole.js';
+import { requireCapability, CAP } from '../utils/permissions.js';
 import {
   getPendingNews,
   getApprovedNews,
@@ -18,9 +18,9 @@ import {
 const router = express.Router();
 
 // ─── Admin Routes (Protected) ─────────────────────────────────────────────────
-// All admin routes require authentication and founding_member or council_member role
+// The automated feed is site-wide, so it is for admins and Chapter Leads only (not Chapter Ambassadors).
 router.use(auth);
-router.use(requireRole('founding_member', 'council_member'));
+router.use(requireCapability(CAP.AUTONEWS_MANAGE));
 
 // Get pending articles for review
 router.get('/pending', getPendingNews);

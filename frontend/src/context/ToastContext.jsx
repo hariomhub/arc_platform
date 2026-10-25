@@ -5,6 +5,8 @@ const ToastContext = createContext(null);
 
 const MAX_TOASTS = 3;
 const DEFAULT_DURATION = 3000;
+const ACTION_DURATION = 8000;
+const colors = { border: 'rgba(0,0,0,0.18)', text: 'inherit' };
 
 const ICONS = {
     success: <CheckCircle size={18} className="flex-shrink-0" />,
@@ -49,6 +51,19 @@ const Toast = ({ toast, onRemove }) => {
                 {ICONS[toast.type]}
             </span>
             <span style={{ flex: 1, lineHeight: '1.4' }}>{toast.message}</span>
+            {toast.action && (
+                <button
+                    type="button"
+                    onClick={() => { toast.action.onClick?.(); onRemove(toast.id); }}
+                    style={{
+                        background: 'none', border: `1px solid ${colors.border}`, borderRadius: '6px', cursor: 'pointer',
+                        color: colors.text, fontWeight: 800, fontSize: '0.78rem', padding: '2px 10px', flexShrink: 0,
+                        fontFamily: 'var(--font-sans)',
+                    }}
+                >
+                    {toast.action.label}
+                </button>
+            )}
             <button
                 onClick={() => onRemove(toast.id)}
                 aria-label="Dismiss notification"
@@ -82,17 +97,20 @@ export const ToastProvider = ({ children }) => {
         }
     }, []);
 
+    // showToast(message, type, duration, action?) where action = { label, onClick }, e.g. an "Undo" button.
+    // A toast that carries an action stays long enough to be used.
     const showToast = useCallback(
-        (message, type = 'info', duration = DEFAULT_DURATION) => {
+        (message, type = 'info', duration = DEFAULT_DURATION, action = null) => {
             const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const shownFor = action ? Math.max(duration, ACTION_DURATION) : duration;
 
             setToasts((prev) => {
-                const next = [...prev, { id, message, type, duration }];
+                const next = [...prev, { id, message, type, duration: shownFor, action }];
                 // Cap at MAX_TOASTS — remove oldest
                 return next.length > MAX_TOASTS ? next.slice(next.length - MAX_TOASTS) : next;
             });
 
-            timerRefs.current[id] = setTimeout(() => removeToast(id), duration);
+            timerRefs.current[id] = setTimeout(() => removeToast(id), shownFor);
         },
         [removeToast]
     );

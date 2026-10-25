@@ -58,6 +58,7 @@ import adminChapterLeadRoutes from './routes/adminChapterLeads.js';
 import { initNewsFetchCron }        from './jobs/newsFetchJob.js';
 import { initMembershipExpiryCron } from './jobs/membershipExpiryJob.js';
 import { initChapterLeadCron }      from './jobs/chapterLeadJob.js';
+import { healReferralCodes }        from './services/chapterLeadService.js';
 
 // ─── Serve React Frontend in Production ──────────────────────────────────────
 import { fileURLToPath } from 'url';
@@ -134,9 +135,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ─── Rate Limiters ────────────────────────────────────────────────────────────
+// Per IP, per 15 minutes. Production keeps 300. Anywhere else (local development, testing) pages are
+// reloaded constantly and one dashboard load is about ten requests, so the default is ten times higher.
+// RATE_LIMIT_MAX overrides either.
 const generalLimiter = rateLimit({
     windowMs:       15 * 60 * 1000,
-    max:            300,
+    max:            Number(process.env.RATE_LIMIT_MAX) || (process.env.NODE_ENV === 'production' ? 300 : 3000),
     standardHeaders: true,
     legacyHeaders:  false,
     message: { success: false, message: 'Too many requests. Please try again later.' },
@@ -214,4 +218,7 @@ app.listen(PORT, () => {
 
     initChapterLeadCron();
     console.log('🏛️  Chapter Lead daily job initialized');
+
+    // A code created by the previous version of the app lives on the profile; copy it to the person.
+    healReferralCodes().then((n) => { if (n) console.log(`🔗 Referral codes copied to people: ${n}`); });
 });

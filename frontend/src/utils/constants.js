@@ -1,21 +1,4 @@
-// ─── Role constants ───────────────────────────────────────────────────────────
-export const ROLES = {
-    FOUNDING_MEMBER: 'founding_member',
-    EXECUTIVE: 'executive',
-    PROFESSIONAL: 'professional',
-};
-
-export const ROLE_LABELS = {
-    founding_member: 'Founding Member',
-    executive: 'Executive',
-    professional: 'Professional',
-};
-
-// Roles that can download frameworks (professional is free tier — no downloads)
-export const FRAMEWORK_DOWNLOAD_ROLES = [
-    ROLES.FOUNDING_MEMBER,
-    ROLES.EXECUTIVE,
-];
+// Role names and who may do what live in config/roles.js and the server's capability list (see utils/permissions.js).
 
 // ─── Event categories ─────────────────────────────────────────────────────────
 export const EVENT_CATEGORIES = ['all', 'webinar', 'seminar', 'workshop', 'podcast'];

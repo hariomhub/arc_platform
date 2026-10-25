@@ -1,7 +1,7 @@
 # AI Risk Council (ARC) Platform — Full Documentation
-> Last updated: March 2026  
+> Last updated: October 2026  
 > Stack: React (Vite) + Node.js/Express + MySQL (Azure) + Azure Blob Storage
-> **Note:** the role called "Executive" below is the **Chapter Lead** (`council_member` in the code). See section 12 for the Chapter Lead programme, which changes how that role works.
+> **Note:** the role once called "Executive" is the **Chapter Lead**, and a **Chapter Ambassador** is a second tier on the same database role (`council_member`). Sections 4, 5, 7 and 12 describe them; older feature notes below that still say "Executive" mean "chapter team".
 
 ---
 
@@ -17,7 +17,8 @@
 9. [Email Notifications](#9-email-notifications)
 10. [Database Schema Summary](#10-database-schema-summary)
 11. [Ongoing DB Migration Strategy](#11-ongoing-db-migration-strategy)
-12. [Chapter Lead Programme](#12-chapter-lead-programme)
+12. [Chapter teams: Chapter Lead and Chapter Ambassador](#12-chapter-teams-chapter-lead-and-chapter-ambassador)
+13. [Sign-in codes, password reset and email delivery](#13-sign-in-codes-password-reset-and-email-delivery)
 
 ---
 
@@ -67,7 +68,7 @@
 - Cookie expires in 7 days
 - Membership expiry also checked at login:
   - `founding_member` → `NULL` = lifetime, never expires
-  - `executive` → 3 years from approval date
+  - `council_member` (Chapter Lead or Ambassador) → end of the current 18-month term, extended automatically
   - `professional` → 1 year from approval date
 
 ### Logout
@@ -77,12 +78,32 @@ Clears the `arc_token` cookie. No server-side session to invalidate.
 
 ## 4. User Roles & Permissions
 
-There are **3 member roles** plus **unauthenticated (guest)** users.
+A person is one of four things. The database stores a **role**, and for chapter teams a **tier**:
 
-### Role Hierarchy (low → high)
-```
-Guest → Professional → Executive → Founding Member
-```
+| Person | `users.role` | Tier (`chapter_lead_profiles.tier_code`) |
+|---|---|---|
+| Professional (Working Professional or Final-Year Undergraduate) | `professional` | none |
+| **Chapter Ambassador** | `council_member` | `ambassador` |
+| **Chapter Lead** | `council_member` | `lead` |
+| Founding Member (admin) | `founding_member` | none |
+
+The old name "Executive" (`executive` in very old data) is the Chapter Lead. A **Chapter Ambassador** is a volunteer who supports a chapter's Chapter Lead.
+
+**Why the ambassador is a tier and not a new role.** Many controllers decide "team member vs admin" with `role === 'council_member'`. A new `users.role` value that missed one of those checks would fall through to admin behaviour. As a tier, an ambassador passes every existing team-member check unchanged, and only the few things that differ are checked by tier.
+
+**Who may do what is decided in one place.** `Backend/utils/permissions.js` maps (role, tier) to a list of capabilities. `GET /api/auth/me` sends that list, and the frontend asks `useAuth().can('feed.post')` (or `userCan(user, 'feed.post')` for a user passed as a prop). Backend routes use `requireCapability(...)`. Never compare roles to decide a permission; add a capability instead.
+
+| Capability | Professional (working) | Professional (final-year) | Chapter Ambassador | Chapter Lead | Founding Member |
+|---|---|---|---|---|---|
+| `resources.download`, `resources.upload` | yes | no | yes | yes | yes |
+| `framework.download` | no | no | yes | yes | yes |
+| `feed.post`, `blog.write`, `content.draft` | no | no | yes | yes | yes |
+| `team.dashboard`, `leaderboard.view`, `admin.panel` | no | no | yes | yes | yes |
+| `autonews.manage` (site-wide) | no | no | no | yes | yes |
+| `team.manage` (decide ambassador applications, remove ambassadors) | no | no | no | yes | yes |
+| `earnings.elect` (choose receive or waive) | no | no | no | yes | n/a |
+| `team.apply` | yes | yes | no | no | n/a |
+| `content.publish`, `resources.approve`, `admin.full` | no | no | no | no | yes |
 
 ---
 
@@ -118,7 +139,7 @@ Self-registers via `/register`. Account starts as `pending` until approved by a 
 | Download resources (whitepapers, articles, tools) | ✅ |
 | Upload resources | ✅ — requires admin approval before visible |
 | AI Risk Framework — browse all content | ✅ |
-| AI Risk Framework — download playbooks | ❌ Executive/Founding only |
+| AI Risk Framework — download playbooks | ❌ Chapter team / Founding only |
 | Certifications | ✅ Browse — completion flow not yet implemented |
 | Voting (Awards/Nominations) | ✅ Can vote and gets email notification |
 | User Dashboard | ✅ `/user/dashboard` |
@@ -128,49 +149,52 @@ Self-registers via `/register`. Account starts as `pending` until approved by a 
 
 ---
 
-### 4.3 Executive Member
-Applied for via `/membership` → `/executive-checkout`. Approved by Founding Member.
+### 4.3 Chapter Ambassador
+Applies from `/membership` (or a chapter's page `/chapters/:slug`), choosing one chapter. The chapter's Chapter Lead decides the application; if the chapter has no lead, the administrators do (an administrator can always decide any application).
 
-**Membership:** 3 years from approval date.
-
-| Feature | Access |
-|---|---|
-| Everything Professional can do | ✅ |
-| Download AI Risk Framework playbooks | ✅ |
-| Create & manage News articles | ✅ (create, edit, publish/unpublish, delete) |
-| Manage Automated News | ✅ (approve/reject RSS-fetched articles) |
-| Create & manage Events | ✅ (create, edit, publish, upload banner, delete) |
-| Upload resources | ✅ — auto-approved, no admin review needed |
-| Upload admin-only resource types (framework, news, homepage_video) | ✅ |
-| Approve/reject pending resources | ✅ |
-| Admin Dashboard — Pending Resources tab | ✅ |
-| Admin Dashboard — Automated News tab | ✅ |
-| Admin Dashboard — Manage News tab | ✅ |
-| Admin Dashboard — Manage Events tab | ✅ |
-| Admin Dashboard — Manage Resources tab | ✅ |
-| Approve members | ❌ Founding Member only |
-| Manage team, awards, nominations | ❌ Founding Member only |
-| Framework content management | ❌ Founding Member only |
-
----
-
-### 4.4 Founding Member (Admin)
-Manually created or promoted by another Founding Member via Admin Dashboard.
-
-**Membership:** Lifetime (`membership_expires_at = NULL`).
+**Term:** same 18-month term mechanism as a lead, continuing automatically. No rates apply.
 
 | Feature | Access |
 |---|---|
-| Everything Executive can do | ✅ |
-| Full Admin Dashboard | ✅ All tabs |
-| Approve / reject member registrations | ✅ |
-| Approve / reject membership upgrade applications | ✅ |
-| Manage team members (About page team section) | ✅ |
-| Manage Awards & Nominees | ✅ |
-| Manage Product Reviews (add, edit, delete) | ✅ |
-| Framework content management | ✅ |
-| User role management | ✅ (promote/demote any user) |
-| View full user list | ✅ `/admin-dashboard/users` |
+| Everything a Professional can do | ✅ |
+| Dashboard with quarterly goals (5 members, 1 podcast, 5-8 posts, 1 blog; 3 of 4 = met), referral code, team leaderboard | ✅ |
+| Post in the community feed, write blogs, request to host podcasts / workshops | ✅ |
+| Draft events, news and workshops | ✅ (saved as drafts; an administrator publishes) |
+| Download framework playbooks and resources, upload resources (pending approval) | ✅ |
+| Admin Dashboard: Manage News, Manage Events, Manage Resources | ✅ (drafts and own items) |
+| Automated News, approving ambassadors, Pending Resources, member approvals | ❌ |
+| Revenue share, commission, workshop fees | ❌ (volunteer role) |
+| Ask to become the Chapter Lead | ✅ (always decided by an administrator) |
+| Listed on the public chapter page | ✅ (name, role, chapter; photo / organisation / LinkedIn / bio only if they opt in) |
+
+### 4.4 Chapter Lead
+One per chapter. Applies from `/membership`; approved by an administrator.
+
+**Term:** 18 months, continues automatically. Revenue-share rates by term: 3% / 5% / 7%.
+
+| Feature | Access |
+|---|---|
+| Everything a Chapter Ambassador can do | ✅ |
+| Goals 20 members (the whole chapter's total), 3 podcasts, 10-15 posts, 3 blogs; 3 of 4 = met | ✅ |
+| See and decide applications to join their chapter (restricted view: no email or phone) | ✅ (a decision is final unless an administrator changes it) |
+| Remove an ambassador (reason recorded; the ambassador can appeal through the Contact page) | ✅ |
+| Review their ambassadors' quarterly results | ✅ |
+| Automated News management | ✅ |
+| Choose to **receive** or **waive** earnings (revenue share 3/5/7%, 10% direct commission, workshop fees) | ✅ (their own choice; see section 12) |
+| Approve members, manage users, publish content | ❌ Founding Member only |
+
+### 4.5 Founding Member (Admin)
+Manually created or promoted by another Founding Member in Admin Dashboard → Manage Users, or directly in the database. **Membership:** lifetime (`membership_expires_at = NULL`).
+
+| Feature | Access |
+|---|---|
+| Everything a Chapter Lead can do | ✅ |
+| Full Admin Dashboard, all tabs | ✅ |
+| Approve / reject registrations and every kind of application | ✅ |
+| Manage Chapter Teams: chapters, seats, leads, ambassadors, programme rules, term changes, requests, blogs, sessions | ✅ |
+| Manage Users: edit anyone's profile, role, tier, chapter and term start in one atomic change, with a change history | ✅ |
+| Hide a person from the public chapter pages; ask a lead to choose earnings again (never choose for them) | ✅ |
+| Manage Team (About page), Awards & Nominees, Product Reviews, Framework content | ✅ |
 | All site access | ✅ |
 
 ---
@@ -179,27 +203,31 @@ Manually created or promoted by another Founding Member via Admin Dashboard.
 
 ### 5.1 Professional Registration
 ```
-/register → fills form (name, email, password, org) 
+/register → fills form (name, email, password, org, country, optional referral code)
 → account created with status=pending, role=professional
 → Founding Member approves in Admin Dashboard → Member Approvals tab
-→ On approval: status=approved, membership_expires_at = now + 1yr
+→ On approval: status=approved, membership_expires_at = now + the complimentary period
 → User gets approval email
 → Can now log in
 ```
 
-### 5.2 Executive Upgrade (from Professional)
+### 5.2 Joining a chapter team (Ambassador or Lead)
 ```
-/membership → clicks "Executive" plan
-→ /executive-checkout → fills upgrade application form
-→ submitted to membership_applications table (status=pending)
-→ Founding Member approves in Admin Dashboard → Member Approvals tab
-→ On approval: user's role updated to 'executive', membership_expires_at = now + 3yr
-→ User gets approval email
+/membership → "Apply as Chapter Ambassador" or "Apply as Chapter Lead"
+  (or a chapter page /chapters/:slug → Apply, which opens the same form with the chapter chosen)
+→ 3-step form: role → about you (country, chapter, why) → confirm employer clearance + accept Privacy Policy and Terms
+→ POST /api/membership/apply/council → membership_applications (requested_tier, kind='application', routed_to='lead' | 'admin')
+→ Ambassador applications go to the chapter's Chapter Lead (routed_to='lead'); lead applications, and
+  chapters with no lead, go to the administrators. An administrator can always decide any of them.
+→ decideTeamApplication() (one code path for both deciders) → activateChapterLead() creates the profile,
+  referral code and term, and the member's role becomes council_member
+→ The applicant gets an email and a notification; the seat limit is enforced inside the transaction
 ```
+An ambassador who wants to lead sends a **promotion request** (`POST /api/membership/apply/promotion`); it is always decided by an administrator, never by the lead.
 
 ### 5.3 Founding Member (No self-registration)
 Founding Members are created manually by:
-- An existing Founding Member via Admin Dashboard → User Management → change role
+- An existing Founding Member via Admin Dashboard → Manage Users → Role and chapter
 - Or directly in the database
 
 ---
@@ -213,7 +241,7 @@ Founding Members are created manually by:
 - Platform stats
 - Featured events preview
 - Featured news preview
-- Membership tier cards (Professional / Executive / Founding Member)
+- Membership tier cards (Professional / Chapter Ambassador / Chapter Lead / Founding Member)
 - Testimonials / highlights
 
 ---
@@ -222,7 +250,7 @@ Founding Members are created manually by:
 
 **Public:** Everyone can view events.  
 **Professional+:** Can register for events (login required).  
-**Executive + Founding Member:** Can create, edit, publish/unpublish, and delete events.
+**Chapter team + Founding Member:** Can create, edit, publish/unpublish, and delete events.
 
 **Event Categories:** Webinar, Seminar, Workshop, Podcast
 
@@ -232,8 +260,8 @@ Founding Members are created manually by:
 - Search by title
 - Event card shows: title, date, location, category badge, description
 - **Register for Event:** Logged-in members fill a registration form (name, email, org, phone, notes, consent checkbox). On submit — confirmation email sent to registrant.
-- **Add Event (Executive/Founding):** Modal form with title, date, location, category, description, link, banner image upload (Azure Blob), publish toggle
-- **Edit/Delete:** Pencil and trash icons on cards (visible to Executive/Founding only)
+- **Add Event (Chapter team/Founding):** Modal form with title, date, location, category, description, link, banner image upload (Azure Blob), publish toggle
+- **Edit/Delete:** Pencil and trash icons on cards (visible to Chapter team/Founding only)
 - **Publish/Unpublish:** Toggle visibility on site
 
 ---
@@ -241,19 +269,19 @@ Founding Members are created manually by:
 ### 6.3 News (`/news`)
 
 **Public:** Everyone can view published news.  
-**Executive + Founding Member:** Can create, edit, publish/unpublish, and delete articles.
+**Chapter team + Founding Member:** Can create, edit, publish/unpublish, and delete articles.
 
 **Features:**
 - News cards with title, summary, image, source, date, external link
 - Filter: Manual news vs Automated (RSS-fetched) news
-- **Add Article button** (visible to Executive/Founding): Opens modal with fields — title, summary, link, image URL, published toggle
-- **Edit / Delete / Publish controls** on each card (Executive/Founding only)
+- **Add Article button** (visible to Chapter team/Founding): Opens modal with fields — title, summary, link, image URL, published toggle
+- **Edit / Delete / Publish controls** on each card (Chapter team/Founding only)
 - Automated news badge on RSS-fetched articles
 
 ---
 
 ### 6.4 Automated News Management (Admin Dashboard → Automated News tab)
-Available to: **Executive + Founding Member**
+Available to: **Chapter team + Founding Member**
 
 The platform has a background cron job that fetches AI risk/governance news from RSS feeds automatically.
 
@@ -274,7 +302,7 @@ The platform has a background cron job that fetches AI risk/governance news from
 A structured framework for AI governance, organized into pillars, phases, maturity levels, and security tools.
 
 **Public:** Can browse all framework content (pillars, phases, steps, maturity levels, tools).  
-**Executive + Founding Member:** Can download PDF playbooks.  
+**Chapter team + Founding Member:** Can download PDF playbooks.  
 **Professional:** Sees upgrade prompt when trying to download.  
 **Guest:** Sees login prompt.
 
@@ -293,9 +321,9 @@ A structured framework for AI governance, organized into pillars, phases, maturi
 ### 6.6 Research & Resources (`/resources`)
 
 **Public:** Browse resource listing (titles, descriptions, types).  
-**Professional + Executive + Founding Member:** Can download resources + upload new ones.  
-**Professional uploads:** Go to `status=pending` — require Founding Member or Executive approval.  
-**Executive + Founding Member uploads:** Auto-approved (`status=approved`), immediately visible.
+**Professional + Chapter team + Founding Member:** Can download resources + upload new ones.  
+**Professional uploads:** Go to `status=pending` — require Founding Member or chapter team approval.  
+**Chapter team + Founding Member uploads:** Auto-approved (`status=approved`), immediately visible.
 
 **Resource Types:** Framework, Whitepaper, Product, Video, Article, Tool, News
 
@@ -304,8 +332,8 @@ A structured framework for AI governance, organized into pillars, phases, maturi
 - Search by title/description
 - Download button (authenticated members only)
 - Upload form: title, description, abstract, file upload (Azure Blob), type selection, demo URL
-- **Admin-only types** (framework, news, homepage_video): Only Executive/Founding can upload these
-- Pending Resources tab in Admin Dashboard for Founding Member / Executive to approve/reject
+- **Admin-only types** (framework, news, homepage_video): Only Chapter team/Founding can upload these
+- Pending Resources tab in Admin Dashboard for Founding Member / chapter team to approve/reject
 
 ---
 
@@ -376,12 +404,12 @@ Sections:
 1. **Profile Summary** — name, role badge, membership status, expiry date, edit profile button
 2. **Membership Card** — current plan details with "Upgrade Membership" button (for Professional)
 3. **Platform Features** — role-gated feature tiles:
-   - Manage News → `/news` (Executive/Founding)
-   - Manage Events → `/events` (Executive/Founding)
-   - Manage Auto-News → `/admin-dashboard?tab=auto_news` (Executive/Founding)
-   - Approve Resources → `/admin-dashboard?tab=pending_resources` (Executive/Founding)
-   - Approve Members → `/admin-dashboard?tab=pending` (Founding only — shown as locked to Executive)
-   - Manage Awards → `/admin-dashboard?tab=nominations` (Founding only — shown as locked to Executive)
+   - Manage News → `/news` (Chapter team/Founding)
+   - Manage Events → `/events` (Chapter team/Founding)
+   - Manage Auto-News → `/admin-dashboard?tab=auto_news` (Chapter team/Founding)
+   - Approve Resources → `/admin-dashboard?tab=pending_resources` (Chapter team/Founding)
+   - Approve Members → `/admin-dashboard?tab=pending` (Founding only — shown as locked to the chapter team)
+   - Manage Awards → `/admin-dashboard?tab=nominations` (Founding only — shown as locked to the chapter team)
 4. **Upcoming Events** — next 3 events with register button
 5. **Latest News** — 3 most recent articles
 
@@ -406,7 +434,7 @@ Public page explaining the three tiers:
 | Plan | Price | Duration | CTA |
 |---|---|---|---|
 | Professional | Free | 1 year | Register → `/register` |
-| Executive | Paid | 3 years | Apply → `/executive-checkout` |
+| Chapter Ambassador / Chapter Lead | Free (application-based) | 18-month terms, continuing | Apply on `/membership` |
 | Founding Member | Invite only | Lifetime | Contact us |
 
 ---
@@ -435,23 +463,34 @@ Static contact form (email submission).
 ## 7. Admin Dashboard
 
 **URL:** `/admin-dashboard`  
-**Access:** Executive Member + Founding Member  
-**Route guard:** `AdminRoute` component — redirects non-admin/non-executive users to `/`
+**Access:** Chapter team (Lead or Ambassador, a limited panel) + Founding Member  
+**Route guard:** `AdminRoute` component, which redirects everyone else to `/`
 
 ### Tab Visibility by Role
 
-| Tab | Executive | Founding Member |
-|---|---|---|
-| Member Approvals | ❌ Hidden | ✅ |
-| Pending Resources | ✅ | ✅ |
-| Manage News | ✅ | ✅ |
-| Automated News | ✅ | ✅ |
-| Manage Events | ✅ | ✅ |
-| Manage Team | ❌ Hidden | ✅ |
-| Manage Resources | ✅ | ✅ |
-| Product Reviews | ❌ Hidden | ✅ |
-| Nominations | ❌ Hidden | ✅ |
-| Framework Content | ❌ Hidden | ✅ |
+The tab list comes from `tabsFor(user, can)` in `AdminDashboard.jsx`: founding members see every tab; the chapter team sees only `news`, `events`, `resources`, plus `auto_news` when they hold the `autonews.manage` capability (leads). A tab named in the URL that a user may not see falls back to the first tab they may see.
+
+| Tab | Chapter Ambassador | Chapter Lead | Founding Member |
+|---|---|---|---|
+| Member Approvals (registrations and all applications) | ❌ | ❌ | ✅ |
+| Pending Resources | ❌ | ❌ | ✅ |
+| Manage News | ✅ drafts | ✅ drafts | ✅ |
+| Automated News | ❌ | ✅ | ✅ |
+| Manage Events | ✅ drafts | ✅ drafts | ✅ |
+| Exec Workshops | ❌ | ❌ | ✅ |
+| **Chapter Teams** | ❌ | ❌ | ✅ |
+| Manage Team (About page) | ❌ | ❌ | ✅ |
+| Manage Resources | ✅ | ✅ | ✅ |
+| Product Reviews, Nominations, Framework Content, Contact Messages | ❌ | ❌ | ✅ |
+| Manage Users (`/admin-dashboard/users`) | ❌ | ❌ | ✅ |
+
+(Before this change the chapter team's dashboard opened on Pending Resources, an admin-only list, and showed an access-denied error. It now opens on Manage News.)
+
+### Chapter Teams tab (Founding Member)
+Sections: **Chapter teams** (everyone with tier, chapter, goals, standing and earnings choice; filters for role, status and search; a banner for chapters without a lead), Host requests, Blog review, Sessions, **Chapters** (lead, ambassadors, seats, applications waiting; "Team" opens one chapter's whole team and lets you make an ambassador the lead when the seat is empty), Term changes, **Programme rules** (goals and seat limit per tier; every save is a new dated version), **Tour video** (the one video every Chapter Lead and Chapter Ambassador sees at the top of their dashboard: paste a YouTube or Vimeo link, a direct .mp4/.webm link, or upload a file up to 100 MB; a live preview shows exactly what they see; setting a new video asks everyone to watch it again).
+
+### Manage Users (Founding Member)
+List with role, tier and chapter filters. **Manage user** edits profile, role, tier, chapter and term start in one transaction (`PATCH /api/admin/users/:id`), and shows the person's change history (`GET /api/admin/users/:id/audit`). Only the fields you changed are sent. The person is told what changed; an email change signs them out everywhere and warns the old address; changes to a founding member's email, role or password alert the other founding members.
 
 ### Header Stats Bar
 - **Pending Approvals** (Founding Member only) — click to jump to Member Approvals tab
@@ -471,21 +510,21 @@ Tabs can be opened directly via URL query param:
 
 #### Member Approvals (Founding Member)
 - Lists all pending user registrations (new sign-ups)
-- Lists all pending membership upgrade applications (Professional → Executive)
+- Lists all pending membership upgrade applications (applications to join a chapter team (Ambassador or Lead))
 - Actions: Approve / Reject with optional admin notes
 - On approval: role updated, membership_expires_at set, approval email sent
 
-#### Pending Resources (Executive + Founding)
+#### Pending Resources (Founding Member only)
 - Lists all resources with `status=pending` uploaded by Professional members
 - Actions: Approve (makes visible to all) / Reject
 - Shows uploader name, resource type, title, description
 
-#### Manage News (Executive + Founding)
+#### Manage News (chapter team: drafts; Founding Member: publishes)
 - Full CRUD for manual news articles
 - Create: title, summary, link, image URL, publish toggle
 - Edit / Delete / Publish toggle on each article
 
-#### Automated News (Executive + Founding)
+#### Automated News (Chapter Lead + Founding Member)
 - Manage RSS-fetched articles
 - Pending / Approved / Rejected filter
 - Approve / Reject / Bulk operations
@@ -493,7 +532,7 @@ Tabs can be opened directly via URL query param:
 - Manual fetch trigger
 - Fetch statistics
 
-#### Manage Events (Executive + Founding)
+#### Manage Events (chapter team: drafts; Founding Member: publishes)
 - Full CRUD for events
 - Create/edit: title, date, location, category, description, link, banner image, publish toggle
 - View registrations per event
@@ -502,7 +541,7 @@ Tabs can be opened directly via URL query param:
 - Add / edit / remove team members shown on `/about` page
 - Fields: name, role/title, bio, photo (Azure Blob), LinkedIn URL, display order
 
-#### Manage Resources (Executive + Founding)
+#### Manage Resources (chapter team + Founding Member)
 - View all approved resources
 - Edit metadata / delete
 - Upload new resources
@@ -532,14 +571,16 @@ Tabs can be opened directly via URL query param:
 |---|---|---|
 | `/` | Home | |
 | `/about` | About | Team loaded from DB |
+| `/chapters` | Chapters | Every active chapter, its lead and ambassadors, seats left |
+| `/chapters/:slug` | Chapter page | Public team page and the Apply button |
 | `/events` | Events | Role-gated UI |
 | `/services` | Services | |
-| `/framework` | AI Risk Framework | Download gated to Executive+ |
+| `/framework` | AI Risk Framework | Download gated to Chapter team+ |
 | `/resources` | Resources | Download/upload gated |
 | `/certification` | Certifications | Browse only |
 | `/community-qna` | Community Q&A | Post/vote requires login |
 | `/community-qna/:id` | Q&A Detail | |
-| `/news` | News | Write access gated to Executive+ |
+| `/news` | News | Write access gated to Chapter team+ |
 | `/contact` | Contact | |
 | `/services/product-reviews` | Product Reviews | |
 | `/services/product-reviews/:id` | Product Detail | |
@@ -555,11 +596,11 @@ Tabs can be opened directly via URL query param:
 ### Protected Routes (login required)
 | Path | Page |
 |---|---|
-| `/executive-checkout` | Executive Upgrade Application |
+| `/executive-checkout` | Legacy Chapter Lead checkout page |
 | `/profile` | Profile Edit |
 | `/user/dashboard` | User Dashboard |
 
-### Admin Routes (Executive or Founding Member only)
+### Admin Routes (Chapter team or Founding Member only)
 | Path | Page |
 |---|---|
 | `/admin-dashboard` | Admin Dashboard (all tabs) |
@@ -599,7 +640,7 @@ All emails are built in `Backend/services/emailService.js` from one shared layou
 | Table | Purpose |
 |---|---|
 | `users` | All platform members — role, status, membership_expires_at |
-| `membership_applications` | Executive/Founding upgrade applications |
+| `membership_applications` | Chapter team/Founding upgrade applications |
 | `events` | Events and workshops |
 | `event_registrations` | Who registered for which event |
 | `news` | Manual + automated news articles |
@@ -685,51 +726,85 @@ cmd /c "mysql -h racdatabase.mysql.database.azure.com -u racdbadmin -p --ssl-mod
 
 ---
 
-## 12. Chapter Lead Programme
+## 12. Chapter teams: Chapter Lead and Chapter Ambassador
 
-A Chapter Lead (`council_member`) has quarterly goals, a personal dashboard, a referral code and a revenue-share entitlement. Rules live in the database (`chapter_lead_policy`) and are editable by admins; the numbers below are the launch defaults.
+Every chapter has one **Chapter Lead** and up to a set number of **Chapter Ambassadors** (`council_member`, tier `lead` or `ambassador`). Both have quarterly goals, a personal dashboard and a referral code. Only a Chapter Lead can have earnings. Rules live in the database (`chapter_lead_policy` + `chapter_lead_policy_targets`) and are editable by admins; the numbers below are the launch defaults.
 
 ### Rules (defaults)
-| Item | Default |
-|---|---|
-| Quarterly goals | 20 new members, 3 podcasts, 10-15 posts, 3 blogs |
-| A quarter is "met" | at least 3 of the 4 goals |
-| Removal review | 3 consecutive missed quarters (an admin decides; never automatic) |
-| Quarters | Calendar quarters (UTC). A lead's first part-quarter is not scored. |
-| Term | 18 months, continues automatically into the next term unless the role is ended |
-| Revenue share | Term 1: 3%, Term 2: 5%, Term 3+: 7% |
-| Direct commission | 10% on value brought in directly (first payment only unless the policy flag is set) |
+| Item | Chapter Lead | Chapter Ambassador |
+|---|---|---|
+| Quarterly goals | 20 new members (whole chapter's total), 3 podcasts, 10-15 posts, 3 blogs | 5 members, 1 podcast, 5-8 posts, 1 blog |
+| A quarter is "met" | at least 3 of the 4 goals | at least 3 of the 4 goals |
+| Removal review | 3 consecutive missed quarters; an admin decides | same; reviewed by their Chapter Lead first (admins if the chapter has no lead) |
+| Seats per chapter | exactly 1 | 10 (a limit per policy version; admins can override; lowering it never removes anyone) |
+| Quarters | Calendar quarters (UTC). The first part-quarter is not scored. | same |
+| Term | 18 months, continues automatically | same |
+| Revenue share | Term 1: 3%, Term 2: 5%, Term 3+: 7% (only if they choose to receive) | none |
+| Direct commission | 10% on value they bring in directly | none |
+
+**Company rule (do not change without the company's say-so):** a Chapter Lead gets the *area share only*, not the 10% direct commission, on members brought in with an ambassador's code. Those members still count towards the chapter total and the lead's member goal.
 
 ### What counts
-- **Members:** referred sign-ups once an admin approves them (`referrals.qualified_at` in the quarter).
-- **Podcasts:** published podcast, lead is a host, an admin marked it conducted (`events.conducted_at`).
-- **Posts:** the lead's visible feed posts of type general / ai_product / event / troubleshooting (memes and polls excluded; credit stops at the maximum).
+- **Members:** referred sign-ups once an admin approves them (`referrals.qualified_at` in the quarter). A lead's member goal counts the whole chapter; an ambassador's counts their own.
+- **Podcasts:** published podcast, the person is a host, an admin marked it conducted (`events.conducted_at`).
+- **Posts:** the person's visible feed posts of type general / ai_product / event / troubleshooting (memes and polls excluded; credit stops at the maximum).
 - **Blogs:** `blog_posts` published in the quarter.
 
+### Earnings: receive or waive
+- The reason this exists: some people cannot take paid outside work because of an employment contract (moonlighting / outside-activity / conflict-of-interest clauses). Even an unpaid role can need the employer's approval.
+- **Everyone** (ambassadors included) confirms they checked their employment terms when they apply (`membership_applications.employer_confirmed_at`, and an `earnings_elections` row). A lead then chooses **receive** or **waive**. The choice is the person's own: an admin can only *reset* it (the person must choose again), never set it.
+- `earnings_elections` is append-only. "Receive" requires employer confirmation (a database CHECK enforces this). The first choice applies immediately; a later change applies from the next term boundary, going forward only. Waived amounts are not accrued.
+- Nothing is payable until the payment gateway exists. The checkpoint that asks existing leads to choose is behind `EARNINGS_GATE=on` (`Backend/utils/featureFlags.js`), to be switched on only after counsel approves the wording.
+
+### Hierarchy and approvals
+- Ambassador applications are routed to their chapter's Chapter Lead (`routed_to = 'lead'`), or to the administrators when the chapter has no lead. The lead's decision stands, but an administrator can decide any application, add, move or remove anyone, and override the seat limit. The first decision wins and every decision is logged.
+- A lead can remove an ambassador with a recorded reason; the ambassador is notified and can appeal through a prefilled Contact message.
+- When a chapter loses its lead (role ended, account deleted, admin change), all founding members are notified (`chapterNotices.js`), and reminded every 30 days while ambassadors or applications are waiting. The told/reminded state is recorded in `audit_log`, so alerts are not repeated.
+- Promotion: an ambassador may *request* to lead; an administrator decides. Promoting ends the ambassador stint and opens a lead stint with a new term clock (`predecessor_profile_id` links them). Demotion keeps tenure.
+
+### Public pages, leaderboard and privacy
+- `/chapters` and `/chapters/:slug` list each chapter's lead and ambassadors and the seats left. Name, role and chapter are always shown while active (disclosed in the Terms); photo, organisation (off by default), LinkedIn and bio are opt-in (`member_display_settings`). An administrator can hide anyone.
+- Dashboard → **Leaderboard** shows a team board and a chapters board (score = average of the four goal percentages, each capped at 100% against the person's own targets) and a **contribution breakdown** (who contributed what). Visible to the team and admins only; a person can opt out and shows as "Hidden member".
+- A lead sees applicants' name, job title, organisation, LinkedIn, country, member-since, their answers and whether they confirmed employer clearance, but never email or phone.
+- `audit_log` records approvals, role and tier changes, removals, password resets, earnings choices and admin edits (who, what, when, before and after). Deleting an account keeps the entry but erases personal data and the IP address.
+
 ### Where things are
-- Pure rules (terms, quarters, goals): `Backend/utils/chapterLeadRules.js`
-- Business logic: `Backend/services/chapterLeadService.js` (the one place that promotes / ends a lead)
-- Lead API: `/api/chapter-lead/*`; admin API: `/api/admin/chapter-leads/*`; blogs `/api/blogs`; views `/api/views`; chapters `/api/chapters`
-- Daily job: `Backend/jobs/chapterLeadJob.js` (01:00 UTC): rolls terms over, closes finished quarters, sends nudges. Idempotent; admins can run it from the Chapter Leads tab.
-- Frontend: the Chapter Lead programme is part of the one member dashboard at `/user/dashboard` (programme block on top for leads, tabs: Overview / Content performance / Referrals / Host requests / Quarter history; `?tab=` deep-links a tab). `/chapter-lead/dashboard` redirects there. Also `/blog`, `/chapter-lead/blog/*`, and Admin Dashboard -> **Chapter Leads** tab (founding members managing all leads).
+- Pure rules (terms, quarters, goals, tiers): `Backend/utils/chapterLeadRules.js`. Capabilities: `Backend/utils/permissions.js`.
+- Core service (the one place that promotes, moves or ends a seat): `Backend/services/chapterLeadService.js`. Team workflow: `chapterTeamService.js`. Earnings choice: `earningsElectionService.js`. Board: `leaderboardService.js`. Public pages: `publicChapterService.js`. Admin edits: `adminUserService.js`. Audit: `auditService.js`. Alerts: `chapterNotices.js`.
+- Member API: `/api/chapter-lead/*`; admin API: `/api/admin/chapter-leads/*`; admin users `/api/admin/users/*`; applications `/api/membership/*`; chapters (public) `/api/chapters/*`; blogs `/api/blogs`; views `/api/views`.
+- Daily job: `Backend/jobs/chapterLeadJob.js` (01:00 UTC): rolls terms over, closes finished quarters, sends nudges, raises chapter-vacancy alerts, tops up referral codes. Idempotent; admins can run it from the Chapter Teams tab.
+- Frontend: one member dashboard at `/user/dashboard`. The team's layout is `components/team/TeamDashboard.jsx` (see "The team dashboard" below); everyone else keeps the sidebar layout. Tabs: Overview / My team (leads) / Content performance / Referrals / Host requests / Leaderboard / Quarter history / Settings; `?tab=` deep-links. Role names and colours: `frontend/src/config/roles.js`. Shared UI: `components/ui/kit.jsx`.
+
+### The team dashboard
+Laid out top to bottom in full-width rows, so nothing sits beside a long sidebar:
+1. **Referral code** (large, with Copy code, Copy link, WhatsApp / LinkedIn / Email / system share, and how many joined, were counted and are waiting) next to the **tour video** (set by an admin; click-to-play, so nothing is fetched from YouTube or Vimeo until pressed).
+2. **Get started**: the first steps with a progress bar, each ticked from something real (a referral joined, a post published, a choice saved) or from a small memory in the browser ("watched the tour", "shared my link"). Leads also see "choose receive or waive". It folds away when all are done.
+3. **Your chapter** card under the video (chapter, seats or lead, term end, links to the public page and the profile).
+4. **Current quarter** with what is left to do, then the four goals.
+5. **Tabs.** Overview is "What you can do" tiles (only what the person's capabilities allow), then events, posts, messages, stats and registrations in balanced pairs. **Settings** holds the account details, the earnings choice (leads), the promotion request (ambassadors), what the public chapter page shows, the programme rules and quick links.
+On a phone the order is referral, video, chapter, checklist, quarter, tabs. The payload comes from `GET /api/chapter-lead/dashboard`, which now also carries `tour`, `referrals` (joined / counted / waiting) and `setup` (has posted, has chosen what shows publicly). `services/portalService.js` builds them; a failure in any of the three never takes the dashboard down.
 
 ### Behaviour worth knowing
-- Every route to "becomes a lead" (application approval, user approval, role change, admin-created user) goes through `activateChapterLead()`, so the profile, referral code and term are always created.
-- Roles are re-read from the database on every request (`middleware/auth.js`), so ending a lead's role (or deleting an account) takes effect immediately, not when the 7-day token expires.
-- Applying requires ticking the Privacy Policy + Terms box; acceptance is stored per version in `policy_acceptances`. Bump `POLICY_VERSION` in `chapterLeadRules.js` (and the dates on /privacy and /terms) to make every active lead accept again at next login.
-- Sign-up now requires a country. A referral code can be supplied by link (`/register?ref=RAC-XXXXXX`), by typing it, or through LinkedIn sign-up.
-- Deleting an account stays immediate. A lead's role ends, the code stops working, and referral / quarter / consent records are kept in anonymised form (IP address erased).
+- Every route to "becomes a team member" (application approval, user approval, role change, admin-created user) goes through `activateChapterLead()`, so the profile, referral code and term are always created. A person's referral code belongs to the *person* (`users.referral_code`) and survives a promotion.
+- Roles are re-read from the database on every request (`middleware/auth.js`), so ending a seat (or deleting an account) takes effect immediately, not when the 7-day token expires.
+- Applying requires ticking the Privacy Policy + Terms box; acceptance is stored per version in `policy_acceptances`. Bump `POLICY_VERSION` in `chapterLeadRules.js` (and the dates on /privacy and /terms) to make every active team member accept again at next login. **Do not bump it, or switch on `EARNINGS_GATE`, until counsel has approved the Ambassador, waiver and employer-clearance wording.**
+- Sign-up requires a country. A referral code can be supplied by link (`/register?ref=RAC-XXXXXX`), by typing it, or through LinkedIn sign-up.
+- Deleting an account stays immediate. The seat ends, the code stops working, and referral / quarter / consent records are kept in anonymised form (IP address erased; posts read "Former Chapter Lead" or "Former Chapter Ambassador").
+- `DEBUG_AUTH=on` turns on verbose session logging in the auth middleware; it is off by default.
 - Database session time zone is assumed to be UTC (the Azure default); quarter windows are UTC.
 
+### Database (migrations 0019 to 0024)
+`0019` and `0020` created the Chapter Lead programme. **`0022_chapter_team_foundation.sql`** is additive and safe to re-run: `team_tiers`, `tier_code` / `approved_by` / `predecessor_profile_id` on `chapter_lead_profiles`, the unique-lead-per-chapter index now lead-only (same name, `uq_clp_one_active_per_chapter`), `chapter_lead_policy_targets` (goals and seat cap per tier), `earnings_elections`, `audit_log`, application columns (tier, kind, routing, decision), `users.referral_code`, `referrals.referrer_profile_id`, `member_display_settings`, `chapters.slug`, and the view `chapter_team_summary`. **`0023_chapter_team_backfill.sql`** fills those from existing data (idempotent). **`0024_app_settings.sql`** adds `app_settings` (key, JSON value, who and when), used first for the tour video (key `team_tour`); until it is applied the dashboard simply shows no video, and saving one from the admin screen would fail, so run it before using that screen. The old target columns on `chapter_lead_policy` are kept for now; a later "contract" migration can drop them once nothing reads them.
+
 ### Not built yet (deliberately)
-Revenue ledger, earnings accrual and payouts wait for the payment gateway. The data needed later is already captured: chapter and country per member, referral attribution, hosts on sessions, term start dates, and workshop prices.
+Revenue ledger, earnings accrual and payouts wait for the payment gateway. Lead publishing of content (admins still publish everything), waitlists beyond routing applications to the administrators, and a different seat limit for one chapter (admins can still allow an extra ambassador case by case with the "allow this even if the chapter is at its limit" option).
 
 ### Deploying this change (order matters)
-1. Run migrations **before** deploying the new backend: `npm run db:migrate` in `Backend/` (applies 0019 and 0020; both are safe to re-run).
-2. Backfill existing leads: `npm run db:backfill-leads` (dry run, prints the plan), then `node db/backfill_chapter_leads.js --apply`. Leads whose membership already expired are listed and left untouched.
-3. In Admin Dashboard -> Chapter Leads -> Chapters, create chapters, then assign each existing lead to one.
-4. Deploy backend and frontend together (sign-up now sends `country_code`).
-5. Existing leads see a one-time "accept updated terms" prompt at their next login.
+1. Run migrations **before** deploying the new backend: `npm run db:migrate` in `Backend/` applies 0022, 0023 and 0024. All are idempotent. Some queries (Manage Users list, pending resources, the feed's `author_tier`) read `tier_code`, so deploying the backend first would error.
+2. Deploy backend and frontend together.
+3. Admin Dashboard → Chapter Teams → Chapters: assign each existing lead (the 16 leads had no chapter) to a chapter. Where two share a chapter, one stays lead and the other is moved to Ambassador with their consent (Manage Users → Role and chapter).
+4. Existing leads see the "accept updated terms" prompt only after `POLICY_VERSION` is bumped, and the earnings prompt only after `EARNINGS_GATE=on`. Both wait for counsel.
+5. Known drift to check on the live database: the repo's migrations do not create `notifications.is_immediate / push_sent / push_sent_at`, `users.linkedin_access_token` or `feed_comments.is_hidden`, yet the code uses them. The live database has them; a database built only from the migrations folder does not.
 
 ---
 

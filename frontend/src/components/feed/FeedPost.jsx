@@ -14,13 +14,8 @@ import { togglePostLike, savePost, unsavePost, deleteFeedPost, toggleHidePost, t
 import { getErrorMessage } from '../../utils/apiHelpers.js';
 import { timeAgo } from '../../utils/dateFormatter.js';
 import AuthorHoverCard from './AuthorHoverCard.jsx';
+import { roleMeta } from '../../config/roles.js';
 import MediaViewer from './MediaViewer.jsx';
-
-const ROLE_META = {
-    founding_member: { label: 'Founder',        color: '#7C3AED', bg: '#f5f3ff', border: '#ddd6fe' },
-    council_member:  { label: 'Chapter Lead', color: '#0369a1', bg: '#eff6ff', border: '#bfdbfe' },
-    professional:    { label: 'Professional',   color: '#057642', bg: '#f0fdf4', border: '#bbf7d0' },
-};
 
 const POST_TYPE_META = {
     ai_product:      { label: 'AI Product',      Icon: Bot,          color: '#7C3AED', bg: '#f5f3ff', border: '#ddd6fe' },
@@ -101,8 +96,8 @@ const PollBlock = ({ post, user, navigate }) => {
     );
 };
 
-const Avatar = ({ name, photoUrl, role, size = 40 }) => {
-    const meta = ROLE_META[role] || ROLE_META.professional;
+const Avatar = ({ name, photoUrl, role, tier, size = 40 }) => {
+    const meta = roleMeta(role, tier);
     return (
         <div style={{
             width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
@@ -231,7 +226,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
 
     const isOwner   = user?.id === post.author_id;
     const isFounder = user?.role === 'founding_member';
-    const rm        = ROLE_META[post.author_role] || ROLE_META.professional;
+    const rm        = roleMeta(post.author_role, post.author_tier);
 
     const like = useCallback(async () => {
         if (!user) { navigate('/login'); return; }
@@ -386,10 +381,11 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                         authorId={post.author_id}
                         authorName={post.author_name}
                         authorRole={post.author_role}
+                        authorTier={post.author_tier}
                         authorPhoto={post.author_photo}
                         authorOrg={post.author_org}
                         authorBio={post.author_bio}>
-                        <Avatar name={post.author_name} photoUrl={post.author_photo} role={post.author_role} size={40} />
+                        <Avatar name={post.author_name} photoUrl={post.author_photo} role={post.author_role} tier={post.author_tier} size={40} />
                     </AuthorHoverCard>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -398,6 +394,7 @@ const FeedPost = ({ post, onUpdate, onDelete, onTagClick, compact = false }) => 
                                 authorId={post.author_id}
                                 authorName={post.author_name}
                                 authorRole={post.author_role}
+                        authorTier={post.author_tier}
                                 authorPhoto={post.author_photo}
                                 authorOrg={post.author_org}
                                 authorBio={post.author_bio}>

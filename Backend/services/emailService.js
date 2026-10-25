@@ -707,14 +707,18 @@ export const sendExecutiveApplicationAdminEmail = ({ adminEmail, adminName, appl
  *
  * @param {{ name: string, email: string, requestedRole: 'council_member'|'founding_member' }} opts
  */
-export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedRole }) => {
+export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedRole, tier, reviewer }) => {
   const first = firstNameOf(name);
   const isFounding = requestedRole === 'founding_member';
-  const roleLabel = isFounding ? 'Founding Member' : 'Chapter Lead';
+  const isAmbassador = !isFounding && tier === 'ambassador';
+  const roleLabel = isFounding ? 'Founding Member' : (isAmbassador ? 'Chapter Ambassador' : 'Chapter Lead');
+  const byLead = isAmbassador && reviewer === 'lead';
 
   const summary = isFounding
     ? 'Your Founding Member invitation request has been received. Our team will carefully review your application and reach out if you are selected.'
-    : 'Your Chapter Lead application has been submitted and is under admin review. You will be notified once a decision is made.';
+    : isAmbassador
+      ? `Your Chapter Ambassador application has been submitted and is under review by ${byLead ? "your chapter's Chapter Lead" : 'our admin team'}. You will be notified once a decision is made.`
+      : 'Your Chapter Lead application has been submitted and is under admin review. You will be notified once a decision is made.';
 
   const steps = isFounding
     ? [
@@ -722,11 +726,17 @@ export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedR
       'You will be contacted directly if selected',
       "Founding Members help shape the Risk AI Council's future",
     ]
-    : [
-      'Our admin team reviews your Chapter Lead application',
-      'You receive an email with the decision',
-      'If approved, your account becomes a Chapter Lead account and your dashboard opens up',
-    ];
+    : isAmbassador
+      ? [
+        byLead ? "Your chapter's Chapter Lead reviews your application" : 'Our admin team reviews your application',
+        'You receive an email with the decision',
+        'If approved, your account becomes a Chapter Ambassador account and your dashboard opens up',
+      ]
+      : [
+        'Our admin team reviews your Chapter Lead application',
+        'You receive an email with the decision',
+        'If approved, your account becomes a Chapter Lead account and your dashboard opens up',
+      ];
 
   const html = layout(`
     ${heading('Application received')}
@@ -757,10 +767,11 @@ export const sendMembershipApplicationReceivedEmail = ({ name, email, requestedR
  *
  * @param {{ name: string, email: string, requestedRole: 'council_member'|'founding_member', status: 'approved'|'rejected', adminNotes?: string }} opts
  */
-export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRole, status, adminNotes, profile_badge }) => {
+export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRole, status, adminNotes, profile_badge, tier }) => {
   const first = firstNameOf(name, 'there');
   const isFounding = requestedRole === 'founding_member';
-  const roleLabel = isFounding ? 'Founding Member' : 'Chapter Lead';
+  const isAmbassador = !isFounding && tier === 'ambassador';
+  const roleLabel = isFounding ? 'Founding Member' : (isAmbassador ? 'Chapter Ambassador' : 'Chapter Lead');
   const isApproved = status === 'approved';
 
   const tag = profile_badge
@@ -777,12 +788,20 @@ export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRol
       'Exclusive founding member events and roundtables',
       'Recognition in the Risk AI Council founding members list',
     ]
-    : [
-      'Your Chapter Lead dashboard, with quarterly goals and tracking',
-      'Your personal referral code and link for inviting new members',
-      'Write blogs and request to host podcasts or workshops',
-      'Share posts in the Community Feed',
-    ];
+    : isAmbassador
+      ? [
+        'Your Chapter Ambassador dashboard, with quarterly goals and tracking',
+        'Your personal referral code and link for inviting new members',
+        'Write blogs and request to host podcasts or workshops',
+        'Share posts in the Community Feed',
+        'A volunteer role: it does not include revenue share or commission',
+      ]
+      : [
+        'Your Chapter Lead dashboard, with quarterly goals and tracking',
+        'Your personal referral code and link for inviting new members',
+        'Write blogs and request to host podcasts or workshops',
+        'Share posts in the Community Feed',
+      ];
 
   const notes = adminNotes
     ? `${sectionLabel('Note from the reviewer')}
@@ -1288,7 +1307,7 @@ export const sendChapterLeadNoticeEmail = ({
     ${ctaLabel && ctaPath ? ctaButton(escapeHtml(ctaLabel), `${APP_URL()}${ctaPath}`) : ''}
   `,
   oneLine(heading),
-  'You received this email because you are a Chapter Lead on the Risk AI Council platform.');
+  'You received this email because you are part of the Chapter programme on the Risk AI Council platform.');
 
   send({ from: FROM(), to: email, subject: oneLine(subject), html });
 };
@@ -1363,15 +1382,45 @@ export const sendPasswordChangedEmail = ({ name, email, changedAt = new Date() }
 };
 
 /**
+ * sendAccountChangedEmail
+ * Tells a person that an administrator changed details on their account, naming WHAT changed
+ * (not the new values), so a change they did not expect is noticed. For an email change this
+ * goes to the OLD address.
+ *
+ * @param {{ name?: string, email: string, changes: string[], when?: Date }} opts
+ */
+export const sendAccountChangedEmail = ({ name, email, changes = [], when = new Date() }) => {
+  const list = changes.length ? changes : ['your account details'];
+  const html = layout(`
+    ${heading('Your account was updated')}
+    ${lead(`Hi ${esc(firstNameOf(name))}, an administrator updated your Risk AI Council account on <strong>${esc(utcStamp(when))}</strong>.`)}
+    ${listBox('What changed', list.map((c) => esc(c)))}
+    ${banner('warning', 'Was this unexpected?', 'Contact us at <a href="mailto:support@riskaicouncil.org" style="color:#92400e;">support@riskaicouncil.org</a> and we will look into it straight away.')}
+    ${ctaButton('Open my dashboard', `${APP_URL()}/user/dashboard`)}
+  `,
+  'An administrator updated your Risk AI Council account.');
+
+  return send({ from: FROM(), to: email, subject: 'Your Risk AI Council account was updated', html });
+};
+
+/**
  * sendSecurityAlertAdminEmail
  * Sent to the OTHER founding members when a founding member account signs in with an
- * emailed code or has its password reset, so a takeover cannot go unnoticed.
+ * emailed code, has its password reset, or is changed by an administrator, so a takeover
+ * cannot go unnoticed.
  *
  * @param {{ adminEmail: string, adminName?: string, accountName: string, accountEmail: string,
- *           event: 'otp_login'|'password_reset', when?: Date }} opts
+ *           event: 'otp_login'|'password_reset'|'email_changed'|'role_changed', when?: Date }} opts
  */
+const SECURITY_EVENTS = {
+  otp_login: 'signed in with an emailed code',
+  password_reset: 'had its password reset',
+  email_changed: 'had its email address changed by an administrator',
+  role_changed: 'had its role changed by an administrator',
+};
+
 export const sendSecurityAlertAdminEmail = ({ adminEmail, adminName, accountName, accountEmail, event, when = new Date() }) => {
-  const what = event === 'password_reset' ? 'had its password reset' : 'signed in with an emailed code';
+  const what = SECURITY_EVENTS[event] || SECURITY_EVENTS.otp_login;
   const html = layout(`
     ${heading('Security alert')}
     ${lead(`Hi ${esc(firstNameOf(adminName, 'Admin'))}, the founding member account <strong>${esc(accountName)}</strong> (${esc(accountEmail)}) ${what} on <strong>${esc(utcStamp(when))}</strong>.`)}

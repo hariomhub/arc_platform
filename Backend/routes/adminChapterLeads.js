@@ -5,9 +5,11 @@
 
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
+import multer from 'multer';
 import * as ctrl from '../controllers/adminChapterLeadController.js';
 import auth from '../middleware/auth.js';
 import requireRole from '../middleware/requireRole.js';
+import { TOUR_UPLOAD_LIMIT_BYTES } from '../services/portalService.js';
 
 const router = Router();
 
@@ -20,6 +22,21 @@ const validate = (req, res, next) => {
 };
 
 router.use(auth, requireRole('founding_member'));
+
+// The tour video upload is held in memory, so it is capped; longer videos belong on YouTube or Vimeo.
+const tourUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: TOUR_UPLOAD_LIMIT_BYTES } });
+const tourFile = (req, res, next) => tourUpload.single('video')(req, res, (err) => {
+    if (!err) return next();
+    const tooBig = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(tooBig ? 413 : 400).json({
+        success: false,
+        message: tooBig ? 'That video is over 100 MB. Paste a YouTube or Vimeo link instead.' : 'The video could not be uploaded.',
+    });
+});
+const tourText = [
+    body('title').optional({ checkFalsy: true }).trim().isLength({ max: 120 }).withMessage('The title must be 120 characters or fewer.'),
+    body('description').optional({ checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('The description must be 500 characters or fewer.'),
+];
 
 const idParam = [param('id').isInt({ min: 1 }).withMessage('Invalid ID.')];
 const typeParam = [param('type').isIn(['event', 'workshop']).withMessage('Type must be event or workshop.')];
@@ -42,6 +59,8 @@ router.patch(
     [
         body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
         body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        body('tier').optional({ checkFalsy: true }).isIn(['lead', 'ambassador']).withMessage('Tier must be lead or ambassador.'),
+        body('override_cap').optional().isBoolean().withMessage('override_cap must be true or false.'),
     ],
     validate,
     ctrl.patchLead
@@ -97,9 +116,18 @@ router.post(
     '/policy',
     [
         body('effective_from').matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('effective_from must be YYYY-MM-DD.'),
-        intField('members_target'), intField('podcasts_target'),
-        intField('posts_min'), intField('posts_max'), intField('blogs_target'),
-        intField('min_goals_met', 1, 4), intField('consecutive_miss_limit', 1, 12), intField('term_months', 1, 60),
+        // Goals and the seat cap are per tier (body.tiers.lead / body.tiers.ambassador). The flat goal fields
+        // are still accepted and mean the lead's, for older callers.
+        ...['members_target', 'podcasts_target', 'posts_min', 'posts_max', 'blogs_target'].map((k) =>
+            body(k).optional().isInt({ min: 0, max: 1000 }).withMessage(`${k} must be a whole number between 0 and 1000.`).toInt()),
+        body('min_goals_met').optional().isInt({ min: 1, max: 4 }).withMessage('min_goals_met must be between 1 and 4.').toInt(),
+        ...['lead', 'ambassador'].flatMap((tier) => [
+            ...['members_target', 'podcasts_target', 'posts_min', 'posts_max', 'blogs_target'].map((k) =>
+                body(`tiers.${tier}.${k}`).optional().isInt({ min: 0, max: 1000 }).withMessage(`${tier} ${k} must be a whole number between 0 and 1000.`).toInt()),
+            body(`tiers.${tier}.min_goals_met`).optional().isInt({ min: 1, max: 4 }).withMessage(`${tier} min_goals_met must be between 1 and 4.`).toInt(),
+            body(`tiers.${tier}.seat_cap`).optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 1000 }).withMessage(`${tier} seat_cap must be between 1 and 1000.`).toInt(),
+        ]),
+        intField('consecutive_miss_limit', 1, 12), intField('term_months', 1, 60),
         pctField('rate_term1'), pctField('rate_term2'), pctField('rate_term3'), pctField('direct_commission_pct'),
         body('commission_on_renewals').optional().isBoolean().toBoolean(),
     ],
@@ -157,6 +185,30 @@ router.patch(
     validate,
     ctrl.patchReferral
 );
+
+// ── Teams: one chapter, the earnings choice, the leaderboard, public visibility ──
+router.get('/chapters/:id/team', idParam, validate, ctrl.getChapterTeam);
+router.post(
+    '/leads/:id/reset-election',
+    idParam,
+    [body('reason').optional({ checkFalsy: true }).trim().isLength({ max: 500 })],
+    validate,
+    ctrl.resetLeadElection
+);
+router.get('/leaderboard', ctrl.getBoard);
+router.patch(
+    '/members/:userId/visibility',
+    [param('userId').isInt({ min: 1 }), body('hidden').isBoolean({ strict: true }).withMessage('hidden must be true or false.')],
+    validate,
+    ctrl.patchMemberVisibility
+);
+
+// ── Tour video ───────────────────────────────────────────────────────────────
+router.get('/tour', ctrl.getTour);
+router.put('/tour', [body('url').trim().notEmpty().withMessage('Paste the video link.').isLength({ max: 500 }), ...tourText], validate, ctrl.putTour);
+router.post('/tour/upload', tourFile, tourText, validate, ctrl.uploadTour);
+router.patch('/tour', tourText, validate, ctrl.patchTour);
+router.delete('/tour', ctrl.deleteTour);
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
 router.post('/run-daily', ctrl.runDaily);

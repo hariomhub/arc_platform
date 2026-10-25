@@ -74,7 +74,9 @@ export const listPublished = async (req, res, next) => {
         );
         const { page, limit, offset, totalPages } = paginate(req.query, total);
         const [rows] = await pool.query(
+            // read_minutes: about 6 characters a word, 200 words a minute (the same estimate the editor uses)
             `SELECT b.id, b.title, b.slug, b.summary, b.cover_url, b.published_at,
+                    GREATEST(1, CEIL(CHAR_LENGTH(b.body) / 1200)) AS read_minutes,
                     u.name AS author_name, u.photo_url AS author_photo, u.organization_name AS author_org
              FROM blog_posts b
              JOIN users u ON u.id = b.author_id

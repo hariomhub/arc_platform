@@ -9,6 +9,7 @@
 import pool from '../db/connection.js';
 import { sendAccountDeletedEmail } from '../services/emailService.js';
 import { softDeleteUser, purgeProfilePhoto } from '../services/accountDeletionService.js';
+import { notifyVacancyIfNeeded } from '../services/chapterNotices.js';
 
 // ─── POST /api/account-deletion/submit ────────────────────────────────────────
 // Authenticated user submits a deletion request.
@@ -70,9 +71,12 @@ export const submitDeletionRequest = async (req, res, next) => {
         // Scrub identifying data in place and remove purely-private records.
         // Posts, resources, reviews, and votes are left untouched — they keep
         // pointing at this same (now-anonymized) user row.
-        await softDeleteUser(conn, user);
+        const { vacatedChapterId } = await softDeleteUser(conn, user);
 
         await conn.commit();
+
+        // A Chapter Lead leaving empties their chapter's lead seat: tell the admins.
+        if (vacatedChapterId) notifyVacancyIfNeeded(vacatedChapterId, { immediate: true });
 
         // Purge profile photo from Azure Blob Storage (fire-and-forget)
         await purgeProfilePhoto(user);

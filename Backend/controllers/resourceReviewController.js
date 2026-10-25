@@ -13,6 +13,7 @@
  */
 
 import pool from '../db/connection.js';
+import { AUTHOR_TIER_SQL } from '../utils/sqlFragments.js';
 
 // ── Helper: recalculate avg_rating + review_count on resources table ──────────
 const syncResourceStats = async (resourceId) => {
@@ -54,7 +55,7 @@ export const getReviews = async (req, res, next) => {
         const [rows] = await pool.query(
             `SELECT rr.*,
                     u.name             AS author_name,
-                    u.role             AS author_role,
+                    u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url        AS author_photo,
                     u.organization_name AS author_org
              FROM resource_reviews rr
@@ -162,7 +163,7 @@ export const createReview = async (req, res, next) => {
         await syncResourceStats(resourceId);
 
         const [rows] = await pool.query(
-            `SELECT rr.*, u.name AS author_name, u.role AS author_role,
+            `SELECT rr.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo, u.organization_name AS author_org
              FROM resource_reviews rr JOIN users u ON rr.user_id = u.id
              WHERE rr.id = ?`,
@@ -212,7 +213,7 @@ export const updateReview = async (req, res, next) => {
         await syncResourceStats(resourceId);
 
         const [rows] = await pool.query(
-            `SELECT rr.*, u.name AS author_name, u.role AS author_role,
+            `SELECT rr.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo, u.organization_name AS author_org
              FROM resource_reviews rr JOIN users u ON rr.user_id = u.id
              WHERE rr.id = ?`,

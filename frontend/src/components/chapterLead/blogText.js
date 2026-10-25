@@ -101,3 +101,18 @@ export const stageMessage = (chars, min) => {
     if (p < 1) return { tone: 'go', text: 'Almost there. A few more lines and you can submit.' };
     return { tone: 'done', text: 'Long enough to submit. Read it once more, then send it for review.' };
 };
+
+// ── Reading side: the same blocks drive the page body and its "On this page" outline ──
+
+/** Blank lines separate blocks. Shared by BlogBody and the outline so heading ids always line up. */
+export const parseBlocks = (text) =>
+    String(text || '').replace(/\r\n/g, '\n').split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+
+export const headingId = (title, index) =>
+    `s${index}-${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48)}`;
+
+/** [{ id, title }] for every "## " heading, in order. */
+export const outlineOf = (text) =>
+    parseBlocks(text).flatMap((block, index) => (block.startsWith('## ')
+        ? [{ id: headingId(block.slice(3), index), title: block.slice(3).trim() }]
+        : []));

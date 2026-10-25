@@ -8,6 +8,9 @@ export const getAdminStats     = ()           => api.get('/admin/stats');
 export const createAdminUser   = (data)       => api.post('/admin/users', data);
 export const updateUserStatus  = (id, status) => api.patch(`/admin/users/${id}/status`, { status });
 export const updateUserRole    = (id, role)   => api.patch(`/admin/users/${id}/role`, { role });
+// One edit for everything an admin may change: profile, role, and the chapter-team seat (tier, chapter, term start)
+export const patchUser         = (id, data)   => api.patch(`/admin/users/${id}`, data);
+export const getUserAudit      = (id)         => api.get(`/admin/users/${id}/audit`);
 export const updateUserBadge   = (id, data)   => api.patch(`/admin/users/${id}/badge`, data);
 export const updateUserDetails = (id, data)   => api.patch(`/admin/users/${id}/details`, data);
 export const resetUserPassword = (id, newPassword) => api.patch(`/admin/users/${id}/password`, { newPassword });

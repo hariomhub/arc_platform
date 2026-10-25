@@ -385,8 +385,8 @@ const Register = () => {
                             </Link>
                             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.65rem', fontWeight: 800, color: '#fff', lineHeight: 1.22, letterSpacing: '-0.01em' }}>Join the Risk AI Council</h2>
                             <p style={{ margin: '0 0 2rem', fontSize: '0.86rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
-                                Join as a <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Professional</strong> for community access, or apply for{' '}
-                                <strong style={{ color: '#93C5FD' }}>Chapter Lead</strong> for premium platform benefits.
+                                Join as a <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Professional</strong> for community access, or join a{' '}
+                                <strong style={{ color: '#93C5FD' }}>chapter team</strong> as an Ambassador or Lead once registered.
                             </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                 {PERKS.map(({ icon: Icon, text }) => (
@@ -402,7 +402,7 @@ const Register = () => {
                             </div>
                             <div style={{ marginTop: '1.75rem', padding: '0.9rem 1rem', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.42)', lineHeight: 1.65 }}>
-                                    ✅&nbsp; Free to join as Professional. No credit card required.<br />🏛️&nbsp; Apply for Chapter Lead once registered.<br />🔒&nbsp; Enterprise-grade security & privacy.
+                                    ✅&nbsp; Free to join as Professional. No credit card required.<br />🏛️&nbsp; Join a chapter team once registered.<br />🔒&nbsp; Enterprise-grade security & privacy.
                                 </p>
                             </div>
                         </div>
@@ -589,7 +589,7 @@ const Register = () => {
                                 }}
                             />
 
-                            <Field id="ra-ref" label="Referral code" hint="Optional — if a Chapter Lead invited you" error={fieldErrors.ref_code}>
+                            <Field id="ra-ref" label="Referral code" hint="Optional — if a Chapter Lead or Ambassador invited you" error={fieldErrors.ref_code}>
                                 <input id="ra-ref" type="text" name="ref_code" value={form.ref_code}
                                     onChange={(e) => {
                                         setForm(p => ({ ...p, ref_code: cleanRefCode(e.target.value) }));

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users, Inbox, FileText, Mic, MapPin, SlidersHorizontal, CalendarClock } from 'lucide-react';
+import { Users, Inbox, FileText, Mic, MapPin, SlidersHorizontal, CalendarClock, Video } from 'lucide-react';
 import { getChapterLeadSummary } from '../../api/adminChapterLeads.js';
 import LeadsOverview from './chapterLeads/LeadsOverview.jsx';
 import LeadDetailModal from './chapterLeads/LeadDetailModal.jsx';
@@ -9,24 +9,26 @@ import SessionsManager from './chapterLeads/SessionsManager.jsx';
 import ChaptersManager from './chapterLeads/ChaptersManager.jsx';
 import PolicyManager from './chapterLeads/PolicyManager.jsx';
 import TermChanges from './chapterLeads/TermChanges.jsx';
+import TourManager from './chapterLeads/TourManager.jsx';
 
 const VIEWS = [
-    { key: 'leads',    label: 'Chapter Leads',  icon: Users },
+    { key: 'leads',    label: 'Chapter teams',  icon: Users },
     { key: 'requests', label: 'Host requests',  icon: Inbox,   badge: 'pending_requests' },
     { key: 'blogs',    label: 'Blog review',    icon: FileText, badge: 'pending_blogs' },
     { key: 'sessions', label: 'Sessions',       icon: Mic },
     { key: 'chapters', label: 'Chapters',       icon: MapPin },
     { key: 'terms',    label: 'Term changes',   icon: CalendarClock },
     { key: 'policy',   label: 'Programme rules', icon: SlidersHorizontal },
+    { key: 'tour',     label: 'Tour video',     icon: Video },
 ];
 
 /**
  * Admin → "Chapter Leads" tab (founding members only).
- * One place to run the programme: see every lead's progress and standing, review
+ * One place to run the programme: see every Chapter Lead's and Ambassador's progress and standing, review
  * host requests and blogs, mark sessions as conducted, manage chapters and the
  * rules, and end a lead's role when needed.
  */
-const ChapterLeadsManagement = ({ showToast }) => {
+const ChapterLeadsManagement = ({ showToast, onOpenApprovals }) => {
     const [view, setView] = useState('leads');
     const [openLeadId, setOpenLeadId] = useState(null);
     const [summary, setSummary] = useState(null);
@@ -50,7 +52,7 @@ const ChapterLeadsManagement = ({ showToast }) => {
         <div style={{ display: 'grid', gap: '1rem' }}>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-            <div role="tablist" aria-label="Chapter Leads sections" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div role="tablist" aria-label="Chapter team sections" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {VIEWS.map(({ key, label, icon: Icon, badge }) => {
                     const active = view === key;
                     const count = badge && summary ? summary[badge] : 0;
@@ -80,13 +82,14 @@ const ChapterLeadsManagement = ({ showToast }) => {
                 })}
             </div>
 
-            {view === 'leads' && <LeadsOverview showToast={showToast} onOpenLead={setOpenLeadId} onJump={setView} refreshKey={refreshKey} />}
+            {view === 'leads' && <LeadsOverview showToast={showToast} onOpenLead={setOpenLeadId} onJump={setView} onOpenApprovals={onOpenApprovals} refreshKey={refreshKey} />}
             {view === 'requests' && <RequestsQueue showToast={showToast} onChanged={changed} />}
             {view === 'blogs' && <BlogReview showToast={showToast} onChanged={changed} />}
             {view === 'sessions' && <SessionsManager showToast={showToast} onChanged={changed} />}
-            {view === 'chapters' && <ChaptersManager showToast={showToast} onChanged={changed} />}
+            {view === 'chapters' && <ChaptersManager showToast={showToast} onChanged={changed} onOpenLead={setOpenLeadId} onOpenApprovals={onOpenApprovals} />}
             {view === 'terms' && <TermChanges onOpenLead={setOpenLeadId} />}
             {view === 'policy' && <PolicyManager showToast={showToast} />}
+            {view === 'tour' && <TourManager showToast={showToast} />}
 
             {openLeadId && (
                 <LeadDetailModal

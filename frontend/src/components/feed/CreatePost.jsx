@@ -1,3 +1,4 @@
+import { metaOfUser } from '../../config/roles.js';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     Image, FileText, Youtube, Tag, X, Send, Loader2, AlertCircle, Plus,
@@ -12,12 +13,6 @@ import { getErrorMessage } from '../../utils/apiHelpers.js';
 const MAX_CHARS = 5000;
 const MAX_MEDIA = 5;
 const MAX_TAGS  = 5;
-
-const ROLE_META = {
-    founding_member: { color:'#7C3AED', label:'Founding Member' },
-    council_member:  { color:'#003366', label:'Chapter Lead'  },
-    professional:    { color:'#059669', label:'Professional'    },
-};
 
 const FilePreview = ({ file, onRemove }) => {
     const isImage = file.type.startsWith('image/');
@@ -86,7 +81,7 @@ const CreatePost = ({ onPostCreated, openSignal = 0 }) => {
         else setTypeStep(true);
         wrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, [openSignal]);
-    const roleMeta = ROLE_META[user?.role] || ROLE_META.professional;
+    const roleMeta = metaOfUser(user);
     const mediaCount = files.length + (videoUrl ? 1 : 0);
     const charsLeft  = MAX_CHARS - content.length;
     const pollValid  = postType !== 'poll' || pollOptions.filter(o => o.trim()).length >= 2;

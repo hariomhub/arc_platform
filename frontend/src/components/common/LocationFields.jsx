@@ -31,15 +31,22 @@ const LocationFields = ({
     inputStyle,
     labelStyle,
     idPrefix = 'loc',
+    // The Chapter Ambassador application: a chapter is required, and each one says whether it has a lead and free seats.
+    chapterRequired = false,
+    chapterError = '',
+    describeChapter = null,
+    emptyChaptersMessage = '',
 }) => {
     const [chapters, setChapters] = useState([]);
+    const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
-        if (!showChapter || !country) { setChapters([]); return undefined; }
+        if (!showChapter || !country) { setChapters([]); setLoaded(false); return undefined; }
         let cancelled = false;
+        setLoaded(false);
         getChapters(country)
-            .then((res) => { if (!cancelled) setChapters(res.data?.data || []); })
-            .catch(() => { if (!cancelled) setChapters([]); });
+            .then((res) => { if (!cancelled) { setChapters(res.data?.data || []); setLoaded(true); } })
+            .catch(() => { if (!cancelled) { setChapters([]); setLoaded(true); } });
         return () => { cancelled = true; };
     }, [country, showChapter]);
 
@@ -75,10 +82,18 @@ const LocationFields = ({
                 )}
             </div>
 
+            {showChapter && chapterRequired && country && loaded && chapters.length === 0 && emptyChaptersMessage && (
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '0.6rem 0.8rem', lineHeight: 1.55 }}>
+                    {emptyChaptersMessage}
+                </p>
+            )}
+
             {showChapter && chapters.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                        <label htmlFor={`${idPrefix}-chapter`} style={label}>{chapterLabel}</label>
+                        <label htmlFor={`${idPrefix}-chapter`} style={{ ...label, color: chapterError ? '#DC2626' : label.color }}>
+                            {chapterLabel}{chapterRequired && <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>}
+                        </label>
                         <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{chapterHint}</span>
                     </div>
                     <select
@@ -86,11 +101,18 @@ const LocationFields = ({
                         value={chapterId || ''}
                         disabled={disabled}
                         onChange={(e) => onChange({ country_code: country, chapter_id: e.target.value })}
-                        style={{ ...input, cursor: disabled ? 'not-allowed' : 'pointer' }}
+                        style={{ ...input, ...(chapterError ? { borderColor: '#FCA5A5', background: '#FFF5F5' } : {}), cursor: disabled ? 'not-allowed' : 'pointer' }}
                     >
-                        <option value="">No chapter / not listed</option>
-                        {chapters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        <option value="">{chapterRequired ? 'Choose a chapter…' : 'No chapter / not listed'}</option>
+                        {chapters.map((c) => (
+                            <option key={c.id} value={c.id}>{describeChapter ? `${c.name} — ${describeChapter(c)}` : c.name}</option>
+                        ))}
                     </select>
+                    {chapterError && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', color: '#DC2626' }}>
+                            <AlertCircle size={11} />{chapterError}
+                        </span>
+                    )}
                 </div>
             )}
         </>

@@ -13,6 +13,7 @@
  *   Sessions     GET /sessions, GET|PUT /sessions/:type/:id/hosts,
  *                PATCH /sessions/:type/:id/conducted
  *   Referrals    PATCH /referrals/:id
+ *   Tour video   GET|PUT|PATCH|DELETE /tour, POST /tour/upload
  *   Jobs         POST /run-daily
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -20,11 +21,17 @@
 import pool from '../db/connection.js';
 import {
     getAdminSummary, listLeadsOverview, getLeadDetail, listTermChanges, listLeadOptions,
-    updateLeadProfile, endLeadRole, regenerateReferralCode, waiveQuarter,
+    updateTeamProfile, endLeadRole, regenerateReferralCode, waiveQuarter,
     getPolicyAt, getPolicyHistory, listRequests, decideRequest,
-    getHosts, setHosts, markConducted, runChapterLeadDaily, isDuplicate,
+    getHosts, setHosts, markConducted, runChapterLeadDaily, isDuplicate, teamError,
 } from '../services/chapterLeadService.js';
-import { dbDate, toSqlDate } from '../utils/chapterLeadRules.js';
+import { listChapterTeams, getAdminChapterTeam, assignChapterSlug } from '../services/chapterTeamService.js';
+import { resetElection } from '../services/earningsElectionService.js';
+import { getTeamBoard, getChaptersBoard } from '../services/leaderboardService.js';
+import { setHiddenByAdmin } from '../services/publicChapterService.js';
+import { getTourForAdmin, saveTourLink, saveTourUpload, updateTourText, removeTour } from '../services/portalService.js';
+import { recordAudit } from '../services/auditService.js';
+import { dbDate, toSqlDate, TIERS, DEFAULT_TIER_TARGETS } from '../utils/chapterLeadRules.js';
 
 const fail = (res, out) => res.status(out.code || 400).json({ success: false, message: out.error });
 
@@ -39,11 +46,13 @@ export const getSummary = async (req, res, next) => {
     }
 };
 
-// GET /leads?status=active|all
+// GET /leads?status=active|all&tier=lead|ambassador&chapter_id=
 export const getLeads = async (req, res, next) => {
     try {
         const status = req.query.status === 'all' ? 'all' : 'active';
-        return res.json({ success: true, data: await listLeadsOverview({ status }) });
+        const tier = [TIERS.LEAD, TIERS.AMBASSADOR].includes(req.query.tier) ? req.query.tier : null;
+        const chapterId = parseInt(req.query.chapter_id, 10) || null;
+        return res.json({ success: true, data: await listLeadsOverview({ status, tier, chapterId }) });
     } catch (err) {
         next(err);
     }
@@ -81,20 +90,24 @@ export const getLeadOptions = async (req, res, next) => {
 
 // ── Lead edits ───────────────────────────────────────────────────────────────
 
-// PATCH /leads/:id   body: { chapter_id?, term_started_at? }
+// PATCH /leads/:id   body: { chapter_id?, term_started_at?, tier?, override_cap? }
+// Moving someone between lead and ambassador is a tier change: it ends the current stint and opens a new one.
 export const patchLead = async (req, res, next) => {
     try {
-        const { chapter_id, term_started_at } = req.body;
+        const { chapter_id, term_started_at, tier, override_cap } = req.body;
         if (chapter_id !== undefined && chapter_id !== null && chapter_id !== '') {
             const [[chapter]] = await pool.query(`SELECT id FROM chapters WHERE id = ? AND status = 'active'`, [parseInt(chapter_id, 10)]);
             if (!chapter) return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
         }
-        const out = await updateLeadProfile(parseInt(req.params.id, 10), {
+        const out = await updateTeamProfile(parseInt(req.params.id, 10), {
             chapterId: chapter_id === '' ? null : chapter_id,
             termStartedAt: term_started_at || null,
+            tier: tier || null,
+            overrideCap: override_cap === true,
+            actor: req.user,
         });
         if (out.error) return fail(res, out);
-        return res.json({ success: true, data: { message: 'Lead updated.' } });
+        return res.json({ success: true, data: { message: 'Updated.', profile_id: out.profileId } });
     } catch (err) {
         if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
             return res.status(409).json({ success: false, message: 'That chapter already has an active Chapter Lead.' });
@@ -103,16 +116,71 @@ export const patchLead = async (req, res, next) => {
     }
 };
 
-// POST /leads/:id/end   body: { reason, outcome?: 'removed'|'ended' }
+// POST /leads/:id/end   body: { reason, outcome?: 'removed'|'ended' }   (either tier)
 export const endLead = async (req, res, next) => {
     try {
+        const stepped = req.body.outcome === 'ended';
         const out = await endLeadRole(parseInt(req.params.id, 10), {
-            status: req.body.outcome === 'ended' ? 'ended' : 'removed',
+            status: stepped ? 'ended' : 'removed',
             reason: req.body.reason || null,
-            adminId: req.user.id,
+            actorId: req.user.id,
+            endCode: stepped ? 'stepped_down' : 'removed_by_admin',
         });
         if (out.error) return fail(res, out);
-        return res.json({ success: true, data: { message: 'Chapter Lead role ended. The member is now a Professional.' } });
+        await recordAudit(pool, {
+            actor: req.user, action: 'team.role_ended', entityType: 'team_profile', entityId: parseInt(req.params.id, 10),
+            after: { outcome: stepped ? 'ended' : 'removed', tier: out.tier }, reason: req.body.reason || null, ip: req.ip,
+        });
+        return res.json({ success: true, data: { message: 'The role has ended. The member is now a Professional.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /leads/:id/reset-election   — the person must choose "receive or waive" again (never sets it for them)
+export const resetLeadElection = async (req, res, next) => {
+    try {
+        await resetElection(parseInt(req.params.id, 10), req.user, req.body.reason || null);
+        return res.json({ success: true, data: { message: 'They will be asked to choose again the next time they open their dashboard.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /chapters/:id/team   — lead, ambassadors, who is waiting, and who could be promoted
+export const getChapterTeam = async (req, res, next) => {
+    try {
+        const data = await getAdminChapterTeam(parseInt(req.params.id, 10));
+        if (!data) return res.status(404).json({ success: false, message: 'Chapter not found.' });
+        return res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /leaderboard?scope=team|chapters&chapter_id=
+export const getBoard = async (req, res, next) => {
+    try {
+        if (req.query.scope === 'chapters') return res.json({ success: true, data: await getChaptersBoard(req.user) });
+        const chapterId = parseInt(req.query.chapter_id, 10);
+        if (!chapterId) throw teamError(422, 'chapter_id is required.');
+        return res.json({ success: true, data: await getTeamBoard(req.user, chapterId) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /members/:userId/visibility   body: { hidden: boolean }  — hide or show someone on the public pages
+export const patchMemberVisibility = async (req, res, next) => {
+    try {
+        const userId = parseInt(req.params.userId, 10);
+        const hidden = req.body.hidden === true;
+        const out = await setHiddenByAdmin(userId, hidden);
+        await recordAudit(pool, {
+            actor: req.user, action: hidden ? 'team.hidden_from_public' : 'team.shown_publicly', entityType: 'user',
+            entityId: userId, targetUserId: userId, ip: req.ip,
+        });
+        return res.json({ success: true, data: out });
     } catch (err) {
         next(err);
     }
@@ -143,21 +211,60 @@ export const waiveLeadQuarter = async (req, res, next) => {
     }
 };
 
+// ── Tour video (what every Chapter Lead and Chapter Ambassador sees on their dashboard) ──────────────────────
+
+// GET /tour
+export const getTour = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await getTourForAdmin() });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PUT /tour   body: { url, title?, description? }   a YouTube / Vimeo link or a direct video-file link
+export const putTour = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await saveTourLink(req.user, req.body, req.ip) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// POST /tour/upload   multipart: video, title?, description?
+export const uploadTour = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await saveTourUpload(req.user, req.file, req.body, req.ip) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PATCH /tour   body: { title?, description? }   edit the words without touching the video
+export const patchTour = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await updateTourText(req.user, req.body, req.ip) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// DELETE /tour
+export const deleteTour = async (req, res, next) => {
+    try {
+        await removeTour(req.user, req.ip);
+        return res.json({ success: true, data: null });
+    } catch (err) {
+        next(err);
+    }
+};
+
 // ── Chapters ─────────────────────────────────────────────────────────────────
 
-// GET /chapters
+// GET /chapters   — every chapter with its lead, ambassador count, free seats and waiting applications
 export const getChapters = async (req, res, next) => {
     try {
-        const [rows] = await pool.query(
-            `SELECT c.id, c.name, c.country_code, c.status, c.created_at,
-                    p.id AS lead_profile_id, u.name AS lead_name,
-                    (SELECT COUNT(*) FROM users m WHERE m.chapter_id = c.id AND m.status = 'approved') AS member_count
-             FROM chapters c
-             LEFT JOIN chapter_lead_profiles p ON p.chapter_id = c.id AND p.status = 'active'
-             LEFT JOIN users u ON u.id = p.user_id
-             ORDER BY c.country_code, c.name`
-        );
-        return res.json({ success: true, data: rows.map((r) => ({ ...r, created_at: dbDate(r.created_at) })) });
+        return res.json({ success: true, data: await listChapterTeams() });
     } catch (err) {
         next(err);
     }
@@ -171,6 +278,11 @@ export const createChapter = async (req, res, next) => {
             'INSERT INTO chapters (name, country_code) VALUES (?, ?)',
             [name.trim(), country_code.trim().toUpperCase()]
         );
+        await assignChapterSlug(result.insertId);
+        await recordAudit(pool, {
+            actor: req.user, action: 'chapter.created', entityType: 'chapter', entityId: result.insertId, chapterId: result.insertId,
+            after: { name: name.trim(), country_code: country_code.trim().toUpperCase() }, ip: req.ip,
+        });
         return res.status(201).json({ success: true, data: { id: result.insertId } });
     } catch (err) {
         if (isDuplicate(err, 'uq_chapters_name')) {
@@ -190,11 +302,11 @@ export const updateChapter = async (req, res, next) => {
         if (!chapter) return res.status(404).json({ success: false, message: 'Chapter not found.' });
 
         if (status === 'inactive') {
-            const [[lead]] = await pool.query(
+            const [[member]] = await pool.query(
                 `SELECT p.id FROM chapter_lead_profiles p WHERE p.chapter_id = ? AND p.status = 'active' LIMIT 1`, [id]
             );
-            if (lead) {
-                return res.status(409).json({ success: false, message: 'This chapter has an active Chapter Lead. Move or end that lead first, then deactivate the chapter.' });
+            if (member) {
+                return res.status(409).json({ success: false, message: 'This chapter still has an active Chapter Lead or Chapter Ambassador. Move or end their roles first, then deactivate the chapter.' });
             }
         }
         await pool.query(
@@ -222,8 +334,11 @@ export const getPolicy = async (req, res, next) => {
     }
 };
 
-// POST /policy  — adds a NEW policy version that takes effect from `effective_from`
+// POST /policy  — adds a NEW policy version that takes effect from `effective_from`.
+// Goals and the seat cap are per tier: body.tiers = { lead: {...}, ambassador: {...} }. For older callers,
+// the flat goal fields (members_target, ...) are taken as the lead's.
 export const createPolicy = async (req, res, next) => {
+    const conn = await pool.getConnection();
     try {
         const b = req.body;
         // Past quarters have already been scored under an older policy; a new version
@@ -231,28 +346,69 @@ export const createPolicy = async (req, res, next) => {
         if (b.effective_from < toSqlDate(new Date())) {
             return res.status(422).json({ success: false, message: 'A new policy version cannot take effect in the past.' });
         }
-        if (Number(b.posts_max) < Number(b.posts_min)) {
-            return res.status(422).json({ success: false, message: 'Maximum posts cannot be lower than minimum posts.' });
+        const current = await getPolicyAt(new Date());
+        const tiers = {};
+        for (const tier of [TIERS.LEAD, TIERS.AMBASSADOR]) {
+            const sent = (b.tiers && b.tiers[tier]) || (tier === TIERS.LEAD ? b : {});
+            const base = current.tiers[tier] || DEFAULT_TIER_TARGETS[tier];
+            const pick = (k) => Number(sent[k] ?? base[k]);
+            tiers[tier] = {
+                members_target: pick('members_target'), podcasts_target: pick('podcasts_target'), posts_min: pick('posts_min'),
+                posts_max: pick('posts_max'), blogs_target: pick('blogs_target'), min_goals_met: pick('min_goals_met'),
+                seat_cap: sent.seat_cap === '' || sent.seat_cap === null ? null : (sent.seat_cap === undefined ? base.seat_cap : Number(sent.seat_cap)),
+            };
+            const t = tiers[tier];
+            if (Object.values({ ...t, seat_cap: t.seat_cap ?? 0 }).some((v) => !Number.isFinite(v) || v < 0)) {
+                return res.status(422).json({ success: false, message: 'Goals and limits must be zero or more.' });
+            }
+            if (t.posts_max < t.posts_min) {
+                return res.status(422).json({ success: false, message: 'Maximum posts cannot be lower than minimum posts.' });
+            }
+            if (t.min_goals_met < 1 || t.min_goals_met > 4) {
+                return res.status(422).json({ success: false, message: 'The number of goals needed must be between 1 and 4.' });
+            }
         }
-        await pool.query(
+        if (tiers.lead.seat_cap !== 1) {
+            return res.status(422).json({ success: false, message: 'A chapter has exactly one Chapter Lead.' });
+        }
+
+        await conn.beginTransaction();
+        const lead = tiers.lead;
+        const [result] = await conn.query(
             `INSERT INTO chapter_lead_policy
                (effective_from, members_target, podcasts_target, posts_min, posts_max, blogs_target,
                 min_goals_met, consecutive_miss_limit, term_months,
                 rate_term1, rate_term2, rate_term3, direct_commission_pct, commission_on_renewals, created_by)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                b.effective_from, b.members_target, b.podcasts_target, b.posts_min, b.posts_max, b.blogs_target,
-                b.min_goals_met, b.consecutive_miss_limit, b.term_months,
+                b.effective_from, lead.members_target, lead.podcasts_target, lead.posts_min, lead.posts_max, lead.blogs_target,
+                lead.min_goals_met, b.consecutive_miss_limit, b.term_months,
                 b.rate_term1, b.rate_term2, b.rate_term3, b.direct_commission_pct, b.commission_on_renewals ? 1 : 0,
                 req.user.id,
             ]
         );
+        for (const [tier, t] of Object.entries(tiers)) {
+            await conn.query(
+                `INSERT INTO chapter_lead_policy_targets
+                   (policy_id, tier_code, members_target, podcasts_target, posts_min, posts_max, blogs_target, min_goals_met, seat_cap)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [result.insertId, tier, t.members_target, t.podcasts_target, t.posts_min, t.posts_max, t.blogs_target, t.min_goals_met, t.seat_cap],
+            );
+        }
+        await recordAudit(conn, {
+            actor: req.user, action: 'policy.created', entityType: 'policy', entityId: result.insertId,
+            after: { effective_from: b.effective_from, tiers }, ip: req.ip,
+        });
+        await conn.commit();
         return res.status(201).json({ success: true, data: { message: 'New policy version saved.' } });
     } catch (err) {
+        await conn.rollback().catch(() => {});
         if (isDuplicate(err, 'uq_clpol_effective')) {
             return res.status(409).json({ success: false, message: 'A policy version already takes effect on that date. Pick a different date.' });
         }
         next(err);
+    } finally {
+        conn.release();
     }
 };
 
@@ -409,14 +565,23 @@ export const patchReferral = async (req, res, next) => {
             );
         } else if (action === 'reassign') {
             const [[lead]] = await pool.query(
-                `SELECT user_id, referral_code FROM chapter_lead_profiles WHERE user_id = ? AND status = 'active'`,
+                `SELECT p.id AS profile_id, p.user_id, COALESCE(u.referral_code, p.referral_code) AS referral_code
+                 FROM chapter_lead_profiles p JOIN users u ON u.id = p.user_id
+                 WHERE p.user_id = ? AND p.status = 'active'`,
                 [parseInt(lead_user_id, 10) || 0]
             );
-            if (!lead) return res.status(422).json({ success: false, message: 'The new lead must be an active Chapter Lead.' });
+            if (!lead) return res.status(422).json({ success: false, message: 'The new referrer must be an active chapter team member.' });
             if (lead.user_id === ref.referred_user_id) {
                 return res.status(422).json({ success: false, message: 'A member cannot be referred by themselves.' });
             }
-            await pool.query('UPDATE referrals SET lead_user_id = ?, code_used = ? WHERE id = ?', [lead.user_id, lead.referral_code, id]);
+            await pool.query(
+                'UPDATE referrals SET lead_user_id = ?, code_used = ?, referrer_profile_id = ? WHERE id = ?',
+                [lead.user_id, lead.referral_code, lead.profile_id, id]
+            );
+            await recordAudit(pool, {
+                actor: req.user, action: 'referral.reassigned', entityType: 'referral', entityId: id,
+                targetUserId: ref.referred_user_id, before: { lead_user_id: ref.lead_user_id }, after: { lead_user_id: lead.user_id }, ip: req.ip,
+            });
         }
         return res.json({ success: true, data: { message: 'Referral updated.' } });
     } catch (err) {

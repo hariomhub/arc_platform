@@ -7,7 +7,13 @@ import { AlertCircle } from 'lucide-react';
  * tab so a half-filled form is never lost. Used by the Chapter Lead application
  * and the re-acceptance prompt for existing leads.
  */
-const PolicyAgreement = ({ checked, onChange, error, disabled = false, id = 'accept-privacy' }) => (
+const SCOPE = {
+    lead: ', including the Chapter Lead role, quarterly goals and revenue-share terms.',
+    ambassador: ', including the Chapter Ambassador role, quarterly goals, and that my name, role and chapter are listed publicly while I hold the role.',
+    team: ', including the chapter team roles, quarterly goals, the public chapter page and, for Chapter Leads, the revenue-share terms.',
+};
+
+const PolicyAgreement = ({ checked, onChange, error, disabled = false, id = 'accept-privacy', scope = 'lead' }) => (
     <div>
         <label
             htmlFor={id}
@@ -30,7 +36,7 @@ const PolicyAgreement = ({ checked, onChange, error, disabled = false, id = 'acc
                 <Link to="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#003366', fontWeight: 600 }}>Privacy Policy</Link>
                 {' '}and{' '}
                 <Link to="/terms#chapter-lead" target="_blank" rel="noopener noreferrer" style={{ color: '#003366', fontWeight: 600 }}>Terms</Link>
-                , including the Chapter Lead role, quarterly goals and revenue-share terms. <span style={{ color: '#EF4444' }}>*</span>
+                {SCOPE[scope] || SCOPE.lead} <span style={{ color: '#EF4444' }}>*</span>
             </span>
         </label>
         {error && (

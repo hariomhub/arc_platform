@@ -11,8 +11,8 @@ import { submitDeletionRequest, getMyDeletionRequest } from '../api/accountDelet
 // ─── Static data ──────────────────────────────────────────────────────────────
 const FAQS = [
   { q: 'Can I recover my account after deletion?', a: 'No. Once you confirm, your login credentials and personal information are permanently and irreversibly erased and cannot be recovered. Contact our support team before submitting if you have concerns.' },
-  { q: 'What happens to my community posts?', a: 'Posts, comments, resource uploads, reviews, and award votes are retained but anonymized — displayed as "Former Member" (or "Former Chapter Lead" for former Chapter Leads and Founding Members) — to preserve community knowledge continuity for everyone.' },
-  { q: 'I am a Chapter Lead — what happens to my referral code and records?', a: 'Your Chapter Lead role ends immediately and your referral code stops accepting new sign-ups. Members you referred stay on the platform. Referral records, quarter results and your agreement record are kept in anonymised form (shown as "Former Chapter Lead"), and the IP address on your agreement record is erased. Deletion is immediate and cannot be undone, so if you want to discuss anything first, such as earnings recorded to date, contact support@riskaicouncil.org before you delete.' },
+  { q: 'What happens to my community posts?', a: 'Posts, comments, resource uploads, reviews, and award votes are retained but anonymized — displayed as "Former Member" (or "Former Chapter Lead" / "Former Chapter Ambassador" for former chapter team members and Founding Members) — to preserve community knowledge continuity for everyone.' },
+  { q: 'I am a Chapter Lead or Ambassador — what happens to my referral code and records?', a: 'Your chapter role ends immediately and your referral code stops accepting new sign-ups. Members you referred stay on the platform. Referral records, quarter results and your agreement record are kept in anonymised form (shown as "Former Chapter Lead" or "Former Chapter Ambassador"), and the IP address on your agreement record is erased. Deletion is immediate and cannot be undone, so if you want to discuss anything first, such as earnings recorded to date, contact support@riskaicouncil.org before you delete.' },
   { q: 'How long does the deletion process take?', a: 'Deletion happens immediately upon submission — there is no waiting period or administrator review.' },
   { q: 'Will I receive a confirmation?', a: 'Yes. You will receive a confirmation email once your account has been permanently deleted.' },
   { q: 'What if I signed in with LinkedIn?', a: 'Deleting your Risk AI Council account does not affect your LinkedIn account. Your OAuth connection will be removed. You can also revoke app access from LinkedIn\'s security settings.' },
@@ -442,7 +442,7 @@ export default function DeleteAccount() {
                 <strong>not</strong> removed — your name is anonymized to{' '}
                 <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Member"</em>{' '}
                 (or <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Chapter Lead"</em>{' '}
-                if you were a Chapter Lead or Founding Member) to preserve community integrity and
+                if you were a Chapter Lead or Founding Member, or <em style={{ color: 'var(--primary)', fontWeight: 600 }}>"Former Chapter Ambassador"</em> if you were an Ambassador) to preserve community integrity and
                 keep review ratings and vote tallies accurate for everyone else.
               </p>
             </div>

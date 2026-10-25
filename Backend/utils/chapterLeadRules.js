@@ -23,6 +23,37 @@ export const POLICY_VERSION = '2026-10-17';
 // Feed post types that count toward the "posts" goal (memes and polls do not).
 export const COUNTED_POST_TYPES = ['general', 'ai_product', 'event', 'troubleshooting'];
 
+// ── Team tiers ────────────────────────────────────────────────────────────────
+// Two tiers share one role (`council_member`). A lead is the single approver and
+// earner of a chapter; ambassadors (many per chapter) support the lead, approve
+// nothing and earn nothing. The tier lives on the profile row (chapter_lead_profiles.tier_code).
+export const TIERS = Object.freeze({ LEAD: 'lead', AMBASSADOR: 'ambassador' });
+
+export const TIER_LABELS = Object.freeze({
+    lead: 'Chapter Lead',
+    ambassador: 'Chapter Ambassador',
+});
+
+export const isTier = (value) => value === TIERS.LEAD || value === TIERS.AMBASSADOR;
+
+/** Unknown / missing tier is treated as lead: that is what every row was before tiers existed. */
+export const tierOf = (value) => (isTier(value) ? value : TIERS.LEAD);
+
+export const tierLabel = (tier) => TIER_LABELS[tierOf(tier)];
+
+// Goals and seat cap per tier. Used only if chapter_lead_policy_targets has no row
+// (it is seeded by migration 0023): admins edit the live values in the policy screen.
+export const DEFAULT_TIER_TARGETS = Object.freeze({
+    lead: Object.freeze({
+        members_target: 20, podcasts_target: 3, posts_min: 10, posts_max: 15, blogs_target: 3,
+        min_goals_met: 3, seat_cap: 1,
+    }),
+    ambassador: Object.freeze({
+        members_target: 5, podcasts_target: 1, posts_min: 5, posts_max: 8, blogs_target: 1,
+        min_goals_met: 3, seat_cap: 10,
+    }),
+});
+
 // Used only if chapter_lead_policy has no row (should not happen after migration 0020).
 export const DEFAULT_POLICY = Object.freeze({
     id: null,
@@ -40,7 +71,50 @@ export const DEFAULT_POLICY = Object.freeze({
     rate_term3: 7,
     direct_commission_pct: 10,
     commission_on_renewals: 0,
+    tiers: DEFAULT_TIER_TARGETS,
 });
+
+const TARGET_KEYS = ['members_target', 'podcasts_target', 'posts_min', 'posts_max', 'blogs_target', 'min_goals_met'];
+
+const normaliseTargets = (row) => {
+    const out = {};
+    TARGET_KEYS.forEach((k) => { out[k] = Number(row[k]); });
+    out.seat_cap = row.seat_cap === null || row.seat_cap === undefined ? null : Number(row.seat_cap);
+    return out;
+};
+
+/**
+ * Attaches `tiers` (targets + seat cap per tier) to a policy row and keeps the old flat
+ * target fields equal to the LEAD's, so code that has not been made tier-aware keeps working.
+ * `targetRows` = rows of chapter_lead_policy_targets for that policy.
+ */
+export const withTiers = (policy, targetRows = []) => {
+    const tiers = {};
+    Object.keys(DEFAULT_TIER_TARGETS).forEach((tier) => {
+        const row = targetRows.find((r) => r.tier_code === tier);
+        const legacy = tier === TIERS.LEAD && policy ? { ...DEFAULT_TIER_TARGETS.lead, ...pickTargets(policy) } : null;
+        tiers[tier] = normaliseTargets(row || legacy || DEFAULT_TIER_TARGETS[tier]);
+    });
+    const { seat_cap: _leadSeatCap, ...leadFlat } = tiers.lead;
+    return { ...policy, ...leadFlat, tiers };
+};
+
+function pickTargets(policy) {
+    const out = {};
+    TARGET_KEYS.forEach((k) => { if (policy[k] !== undefined && policy[k] !== null) out[k] = policy[k]; });
+    return out;
+}
+
+/**
+ * The policy as seen by one tier: same shape, with that tier's goals in the flat fields,
+ * so evaluateGoals / buildGoalCards / the quarter snapshot work for either tier unchanged.
+ */
+export const policyForTier = (policy, tier) => {
+    const t = policy?.tiers?.[tierOf(tier)];
+    if (!t) return policy;
+    const { seat_cap: _seatCap, ...targets } = t;
+    return { ...policy, ...targets };
+};
 
 // ── Referral codes ────────────────────────────────────────────────────────────
 export const REFERRAL_PREFIX = 'RAC-';
@@ -274,6 +348,28 @@ export const standingFor = (consecutiveMisses, policy = DEFAULT_POLICY) => {
     if (consecutiveMisses === limit - 1 && consecutiveMisses > 0) return 'at_risk';
     if (consecutiveMisses > 0) return 'warning';
     return 'ok';
+};
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+/**
+ * One number per person per quarter: the average of the four goal percentages, each already
+ * capped at 100 by buildGoalCards. Everyone is measured against their OWN tier's targets, so
+ * leads and ambassadors compare fairly, and posting beyond the cap cannot inflate it.
+ */
+export const contributionScore = (goalCards) =>
+    goalCards.length ? Math.round(goalCards.reduce((sum, c) => sum + c.percent, 0) / goalCards.length) : 0;
+
+/** Competition ranking (1, 2, 2, 4): rows must already be sorted best-first; equal keys share a rank. */
+export const assignRanks = (rows, keyFn) => {
+    let rank = 0;
+    let previous;
+    rows.forEach((row, i) => {
+        const key = keyFn(row);
+        if (i === 0 || key !== previous) rank = i + 1;
+        row.rank = rank;
+        previous = key;
+    });
+    return rows;
 };
 
 // ── Misc ──────────────────────────────────────────────────────────────────────

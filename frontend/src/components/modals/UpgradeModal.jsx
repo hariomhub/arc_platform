@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from '../common/Modal.jsx';
-import { FRAMEWORK_DOWNLOAD_ROLES, ROLE_LABELS } from '../../utils/constants.js';
+import { roleMeta, TIER } from '../../config/roles.js';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -10,9 +10,9 @@ import { useNavigate } from 'react-router-dom';
 const UpgradeModal = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
 
-    const eligibleLabels = FRAMEWORK_DOWNLOAD_ROLES.map(
-        (r) => ROLE_LABELS[r]
-    ).join(', ');
+    const eligibleLabels = [roleMeta('council_member', TIER.LEAD), roleMeta('council_member', TIER.AMBASSADOR), roleMeta('founding_member')]
+        .map((m) => m.label)
+        .join(', ');
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Access Restricted" size="sm">

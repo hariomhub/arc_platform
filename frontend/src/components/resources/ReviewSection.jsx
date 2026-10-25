@@ -17,12 +17,7 @@ import {
 import { getErrorMessage } from '../../utils/apiHelpers.js';
 import { timeAgo } from '../../utils/dateFormatter.js';
 import StarRating from './StarRating.jsx';
-
-const ROLE_META = {
-    founding_member: { label: 'Founder',        color: '#7c3aed', bg: '#f5f3ff' },
-    council_member:  { label: 'Chapter Lead', color: '#0369a1', bg: '#eff6ff' },
-    professional:    { label: 'Professional',   color: '#057642', bg: '#f0fdf4' },
-};
+import { roleMeta } from '../../config/roles.js';
 
 const SORT_OPTIONS = [
     { key: 'recent',  label: 'Most Recent'  },
@@ -147,7 +142,7 @@ const ReviewCard = ({ review, resourceId, onUpdate, onDelete }) => {
     const [deleting,  setDeleting]  = useState(false);
     const [uvAnim,    setUvAnim]    = useState(false);
 
-    const rm = ROLE_META[review.author_role] || ROLE_META.professional;
+    const rm = roleMeta(review.author_role, review.author_tier);
 
     const handleUpvote = async () => {
         if (!user) return;

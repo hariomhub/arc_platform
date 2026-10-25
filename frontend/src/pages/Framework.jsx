@@ -543,7 +543,7 @@ const AuditTemplatesSection = ({ auditTemplates = AUDIT_TEMPLATES }) => {
             <div className="cta-banner">
                 <Lock size={18} color="#93C5FD" />
                 <div style={{ flex: 1, minWidth: '160px' }}>
-                    <p className="cta-banner-title">Full templates available to Chapter Leads</p>
+                    <p className="cta-banner-title">Full templates available to chapter teams</p>
                     <p className="cta-banner-sub">Join the Risk AI Council to download editable versions in Excel, Word, and PDF formats.</p>
                 </div>
                 <Link to="/membership" className="cta-banner-btn">Join the Council</Link>
@@ -587,7 +587,7 @@ const PlaybooksSection = () => {
 
     const handleDownload = async (pb) => {
         if (!isLoggedIn) { alert('Please sign in to download playbooks.'); return; }
-        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available for Chapter Lead and Founding Member plans.'); return; }
+        if (!canDownloadFramework?.()) { alert('Framework playbook downloads are available to Chapter Leads, Chapter Ambassadors and Founding Members.'); return; }
         try {
             const res = await fetch(`/api/playbooks/${pb.id}/download`, { headers: { Authorization: `Bearer ${token}` } });
             if (!res.ok) throw new Error();
@@ -604,8 +604,8 @@ const PlaybooksSection = () => {
     return (
         <div>
             <SectionHeader center title="Governance Playbooks" subtitle="Download comprehensive governance playbooks aligned with major AI risk frameworks." />
-            {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '1.25rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require a Chapter Lead or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
-            {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '1.25rem', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download — available for Chapter Lead &amp; Founding Member plans.</span></div>}
+            {isLoggedIn && !canDownloadFramework?.() && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '1.25rem', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#DC2626" /><span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600' }}>Framework downloads require a Chapter Lead, Chapter Ambassador or Founding Member plan. <a href="/membership" style={{ color: '#DC2626', textDecoration: 'underline' }}>Upgrade →</a></span></div>}
+            {!isLoggedIn && <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '1.25rem', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '7px', padding: '7px 12px' }}><Lock size={12} color="#D97706" /><span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '600' }}>Sign in to download. Available to chapter teams and Founding Members.</span></div>}
 
             {loading && <div style={{ textAlign: 'center', padding: '3rem', color: '#94A3B8' }}><BookOpen size={32} style={{ marginBottom: '8px', opacity: 0.4 }} /><p style={{ margin: 0, fontSize: '0.875rem' }}>Loading playbooks...</p></div>}
             {!loading && Object.entries(grouped).map(([framework, items]) => (

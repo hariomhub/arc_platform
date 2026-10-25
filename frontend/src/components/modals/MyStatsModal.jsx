@@ -1,3 +1,4 @@
+import { userCan } from '../../utils/permissions.js';
 import React from 'react';
 import Modal from '../common/Modal.jsx';
 import { BarChart2, MessageSquare, Heart, Bookmark, FileText, CheckCircle2 } from 'lucide-react';
@@ -15,7 +16,7 @@ const StatCard = ({ icon: Icon, label, value, color = '#003366', bg = '#EFF6FF' 
 );
 
 const MyStatsModal = ({ isOpen, onClose, stats, usage, user, loading }) => {
-    const canPost = ['founding_member', 'council_member'].includes(user?.role);
+    const canPost = userCan(user, 'feed.post');
     const isUndergrad = user?.role === 'professional' && user?.professional_sub_type === 'final_year_undergrad';
     const isPendingUpgrade = !!user?.pending_sub_type_upgrade;
 

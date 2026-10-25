@@ -47,7 +47,7 @@ const DownloadLimitModal = ({ isOpen, onClose, onConfirm, confirming }) => {
                     {usage.unlimited ? (
                         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '0.9rem 1rem' }}>
                             <CheckCircle2 size={18} color="#16A34A" style={{ flexShrink: 0, marginTop: 1 }} />
-                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#166534', lineHeight: 1.6 }}>You have <strong>unlimited downloads</strong> as a Chapter Lead.</p>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#166534', lineHeight: 1.6 }}>You have <strong>unlimited downloads</strong> as a member of a chapter team.</p>
                         </div>
                     ) : blocked ? (
                         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '0.9rem 1rem' }}>

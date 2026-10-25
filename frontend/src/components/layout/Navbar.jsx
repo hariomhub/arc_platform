@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 import NotificationBell from './NotificationBell.jsx';
+import { metaOfUser } from '../../config/roles.js';
 
 const PUBLIC_NAV = [
     { label: 'Home',                 path: '/',              icon: Home },
@@ -22,12 +23,9 @@ const PUBLIC_NAV = [
     { label: 'Contact Us',           path: '/contact',       icon: Phone },
 ];
 
-const ROLE_META = {
-    founding_member: { bg: '#6D28D9', text: 'Founder' },
-    council_member:  { bg: '#1D4ED8', text: 'Council' },
-    executive:       { bg: '#1D4ED8', text: 'Council' },  // legacy alias
-    professional:    { bg: '#059669', text: 'Pro' },
-};
+// The small badge next to the name: colour and label come from the shared role config.
+const BADGE_TEXT = { founding_member: 'Founder', chapter_lead: 'Lead', chapter_ambassador: 'Ambassador', professional: 'Pro' };
+
 
 const Navbar = () => {
     const location  = useLocation();
@@ -40,7 +38,8 @@ const Navbar = () => {
     const mobileDropdownRef = useRef(null);
 
     const adminUser = isAdmin && isAdmin();
-    const role      = ROLE_META[user?.role] || ROLE_META.professional;
+    const roleInfo  = metaOfUser(user);
+    const role      = { bg: roleInfo.color, text: BADGE_TEXT[roleInfo.key] };
 
     useEffect(() => {
         const handler = (e) => {

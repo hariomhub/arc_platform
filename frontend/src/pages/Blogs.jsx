@@ -1,44 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { PenSquare, Search, Loader2, BookOpenText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { PenSquare, Search, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { getBlogs } from '../api/blogs.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
 import Pagination from '../components/common/Pagination.jsx';
-import { colors, fmtDate } from '../components/chapterLead/ui.jsx';
+import { colors } from '../components/chapterLead/ui.jsx';
+import { BlogGrid } from '../components/blog/BlogCard.jsx';
 
 const PAGE_SIZE = 9;
 
-const BlogCard = ({ blog }) => (
-    <Link
-        to={`/blog/${blog.slug}`}
-        style={{
-            textDecoration: 'none', background: 'white', border: `1px solid ${colors.border}`, borderRadius: 14, overflow: 'hidden',
-            display: 'flex', flexDirection: 'column', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', transition: 'transform 0.18s, box-shadow 0.18s',
-        }}
-        onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,51,102,0.12)'; }}
-        onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(0,0,0,0.04)'; }}
-    >
-        {blog.cover_url ? (
-            <img src={blog.cover_url} alt="" loading="lazy" style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
-        ) : (
-            <div style={{ height: 170, background: 'linear-gradient(135deg,#002244,#003366 60%,#005599)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <BookOpenText size={38} color="rgba(255,255,255,0.45)" />
-            </div>
-        )}
-        <div style={{ padding: '1rem 1.1rem 1.15rem', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: colors.text, lineHeight: 1.35 }}>{blog.title}</h2>
-            {blog.summary && <p style={{ margin: 0, fontSize: '0.86rem', color: colors.muted, lineHeight: 1.6 }}>{blog.summary}</p>}
-            <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: '0.76rem', color: colors.faint, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, color: colors.muted }}>{blog.author_name}</span>
-                <span>·</span>
-                <span>{fmtDate(blog.published_at)}</span>
-            </div>
-        </div>
-    </Link>
-);
-
-/** Public blog index: published blogs written by Chapter Leads. */
+/** Public blog index: published blogs written by Chapter Leads and Ambassadors. */
 const Blogs = () => {
     const navigate = useNavigate();
     const { isCouncilMember, isAdmin } = useAuth();
@@ -76,6 +48,9 @@ const Blogs = () => {
 
     const canWrite = isCouncilMember?.() || isAdmin?.();
 
+    // On the first page of an unfiltered list with at least three blogs, the newest one is featured (two columns wide).
+    const feature = page === 1 && !query && blogs.length >= 3;
+
     return (
         <div style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: '3rem' }}>
             {/* Hero: same treatment as About and the other content pages (gradient + two soft circles) */}
@@ -83,7 +58,7 @@ const Blogs = () => {
                 <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
                 <div style={{ position: 'absolute', bottom: '-60px', left: '-60px', width: '240px', height: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
                 <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 clamp(0.75rem,1.6vw,1rem)', boxSizing: 'border-box', position: 'relative', zIndex: 1 }}>
-                    <h1 style={{ margin: '0 0 0.6rem', fontSize: 'clamp(1.75rem,5vw,2.75rem)', fontWeight: 800, color: 'white', fontFamily: 'var(--font-serif)' }}>Insights from our Chapter Leads</h1>
+                    <h1 style={{ margin: '0 0 0.6rem', fontSize: 'clamp(1.75rem,5vw,2.75rem)', fontWeight: 800, color: 'white', fontFamily: 'var(--font-serif)' }}>Insights from our chapter teams</h1>
                     <p style={{ margin: 0, maxWidth: 620, fontSize: '0.98rem', color: '#CBD5E1', lineHeight: 1.65 }}>
                         Practical writing on AI governance, risk and assurance from practitioners across the Risk AI Council network.
                     </p>
@@ -124,9 +99,7 @@ const Blogs = () => {
                     </p>
                 ) : (
                     <>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1.25rem' }}>
-                            {blogs.map((b) => <BlogCard key={b.id} blog={b} />)}
-                        </div>
+                        <BlogGrid blogs={blogs} feature={feature} />
                         <div style={{ marginTop: '1.75rem' }}>
                             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
                         </div>

@@ -6,6 +6,7 @@ import {
     Plus, AlertCircle, Edit2, Shield, Loader2, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
+import { userCan } from '../utils/permissions.js';
 import { useToast } from '../hooks/useToast.js';
 import { getResources, uploadResource, updateResource, deleteResource, downloadResource } from '../api/resources.js';
 import { requestSubTypeUpgrade } from '../api/auth.js';
@@ -15,13 +16,6 @@ import StarRating from '../components/resources/StarRating.jsx';
 import DownloadLimitModal from '../components/resources/DownloadLimitModal.jsx';
 
 const TYPE_OPTIONS = ['article', 'whitepaper', 'tech_reels', 'tool', 'news', 'homepage_video', 'lab_result', 'product'];
-const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
-// Helper: working_professional sub-type also gets download access
-const canDownloadResources = (u) =>
-    u && (
-        DOWNLOAD_ROLES.includes(u.role) ||
-        (u.role === 'professional' && u.professional_sub_type === 'working_professional')
-    );
 
 const getUploadableTypes = (role) => {
     if (role === 'founding_member') return TYPE_OPTIONS;
@@ -315,7 +309,7 @@ const DeleteDialog = ({ onConfirm, onCancel }) => (
 // ─── Resource Card ────────────────────────────────────────────────────────────
 const ResourceCard = ({ resource, currentUser, onDownload, onEdit, onDelete, downloading, onUpgradeRequest, upgradeRequested }) => {
     const accent      = TYPE_COLORS[resource.type] || '#003366';
-    const canDownload = canDownloadResources(currentUser);
+    const canDownload = userCan(currentUser, 'resources.download');
     const isUndergrad = currentUser?.role === 'professional' && currentUser?.professional_sub_type === 'final_year_undergrad';
     const canEdit   = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
     const canDelete  = currentUser?.role === 'founding_member' || (currentUser && resource.uploader_id === currentUser?.id);
@@ -818,8 +812,8 @@ const Resources = () => {
                                 </div>
                             )}
                         </div>
-                        {/* Upload button — council_member, founding_member, and working_professional only */}
-                        {user && (['founding_member', 'council_member'].includes(user.role) || (user.role === 'professional' && user.professional_sub_type === 'working_professional')) && (
+                        {/* Upload button: anyone with the resources.upload capability */}
+                        {userCan(user, 'resources.upload') && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                                 <button onClick={() => setModal({ mode: 'create' })}
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', background: '#003366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'var(--font-sans)', boxShadow: '0 2px 8px rgba(0,51,102,0.2)', transition: 'background 0.15s,transform 0.15s', whiteSpace: 'nowrap' }}

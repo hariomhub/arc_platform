@@ -28,25 +28,8 @@ import { getErrorMessage } from '../utils/apiHelpers.js';
 import { formatDate, timeAgo } from '../utils/dateFormatter.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import { passwordProblem } from '../components/auth/authUi.jsx';
-
-const ROLE_LABELS = {
-    founding_member: 'Founding Member',
-    council_member: 'Chapter Lead',
-    executive: 'Chapter Lead',   // legacy safety
-    professional: 'Professional',
-};
-const ROLE_COLORS = {
-    founding_member: '#7C3AED',
-    council_member: '#003366',
-    executive: '#003366',
-    professional: '#0369A1',
-};
-const ROLE_BG = {
-    founding_member: 'rgba(124,58,237,0.1)',
-    council_member: 'rgba(0,51,102,0.09)',
-    executive: 'rgba(0,51,102,0.09)',
-    professional: 'rgba(3,105,161,0.09)',
-};
+import { metaOfUser } from '../config/roles.js';
+import { userCan } from '../utils/permissions.js';
 
 const Field = ({ label, hint, error, children }) => (
     <div style={{ marginBottom: '1.25rem' }}>
@@ -622,11 +605,10 @@ const Profile = () => {
 
     if (!user) return null;
 
-    const roleColor = ROLE_COLORS[user.role] || '#64748B';
-    const roleLabel = ROLE_LABELS[user.role] || user.role;
+    const { color: roleColor, label: roleLabel } = metaOfUser(user);
     const initial = user.name?.charAt(0).toUpperCase() || '?';
 
-    const canPost = ['founding_member', 'council_member'].includes(user.role);
+    const canPost = userCan(user, 'feed.post');
 
     const TABS = [
         { key: 'info',     label: 'Profile Info', icon: User,         show: true   },

@@ -508,7 +508,8 @@ export const getPendingResources = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT r.*, u.name AS uploader_name, u.email AS uploader_email, u.role AS uploader_role,
-                    u.organization_name AS uploader_org, u.linkedin_url AS uploader_linkedin
+                    u.organization_name AS uploader_org, u.linkedin_url AS uploader_linkedin,
+                    (SELECT p.tier_code FROM chapter_lead_profiles p WHERE p.user_id = u.id AND p.status = 'active' LIMIT 1) AS uploader_tier
              FROM resources r
              LEFT JOIN users u ON r.uploader_id = u.id
              WHERE r.status = 'pending'

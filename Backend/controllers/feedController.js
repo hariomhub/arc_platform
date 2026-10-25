@@ -26,6 +26,7 @@ import { uploadToBlob, deleteFromBlob } from '../services/azureBlobService.js';
 import axios from 'axios';
 import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 import multer from 'multer';
+import { AUTHOR_TIER_SQL } from '../utils/sqlFragments.js';
 
 // ── Multer — memory storage for Azure Blob upload ─────────────────────────────
 export const feedUpload = multer({
@@ -202,7 +203,7 @@ export const getFeed = async (req, res, next) => {
             SELECT fp.*,
                    u.name AS author_name,
                    u.email AS author_email,
-                   u.role AS author_role,
+                   u.role AS author_role, ${AUTHOR_TIER_SQL},
                    u.photo_url AS author_photo,
                    u.organization_name AS author_org,
                    u.profile_badge AS author_badge
@@ -273,7 +274,7 @@ export const getPostById = async (req, res, next) => {
             `SELECT fp.*,
                     u.name AS author_name,
                     u.email AS author_email,
-                    u.role AS author_role,
+                    u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo,
                     u.bio AS author_bio,
                     u.organization_name AS author_org,
@@ -453,7 +454,7 @@ export const createPost = async (req, res, next) => {
 
         // Fetch the created post with author info
         const [rows] = await pool.query(
-            `SELECT fp.*, u.name AS author_name, u.role AS author_role,
+            `SELECT fp.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo, u.organization_name AS author_org, u.profile_badge AS author_badge
              FROM feed_posts fp JOIN users u ON fp.author_id = u.id
              WHERE fp.id = ?`,
@@ -504,7 +505,7 @@ export const updatePost = async (req, res, next) => {
         );
 
         const [rows] = await pool.query(
-            `SELECT fp.*, u.name AS author_name, u.role AS author_role,
+            `SELECT fp.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo, u.organization_name AS author_org, u.profile_badge AS author_badge
              FROM feed_posts fp JOIN users u ON fp.author_id = u.id
              WHERE fp.id = ?`,
@@ -845,7 +846,7 @@ export const getComments = async (req, res, next) => {
         const [rows] = await pool.query(
             `SELECT fc.*,
                     u.name AS author_name,
-                    u.role AS author_role,
+                    u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo,
                     u.profile_badge AS author_badge
              FROM feed_comments fc
@@ -949,7 +950,7 @@ export const createComment = async (req, res, next) => {
         );
 
         const [rows] = await pool.query(
-            `SELECT fc.*, u.name AS author_name, u.role AS author_role, u.photo_url AS author_photo, u.profile_badge AS author_badge
+            `SELECT fc.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL}, u.photo_url AS author_photo, u.profile_badge AS author_badge
              FROM feed_comments fc JOIN users u ON fc.author_id = u.id
              WHERE fc.id = ?`,
             [result.insertId]
@@ -1024,7 +1025,7 @@ export const updateComment = async (req, res, next) => {
         );
 
         const [rows] = await pool.query(
-            `SELECT fc.*, u.name AS author_name, u.role AS author_role, u.photo_url AS author_photo
+            `SELECT fc.*, u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL}, u.photo_url AS author_photo
              FROM feed_comments fc JOIN users u ON fc.author_id = u.id
              WHERE fc.id = ?`,
             [req.params.id]
@@ -1194,7 +1195,7 @@ export const getSavedPosts = async (req, res, next) => {
 
         const [rows] = await pool.query(
             `SELECT fp.*,
-                    u.name AS author_name, u.role AS author_role,
+                    u.name AS author_name, u.role AS author_role, ${AUTHOR_TIER_SQL},
                     u.photo_url AS author_photo, u.organization_name AS author_org,
                     fs.created_at AS saved_at
              FROM feed_saves fs

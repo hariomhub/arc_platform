@@ -1,5 +1,7 @@
 import React from 'react';
 import { Pill, colors } from '../../chapterLead/ui.jsx';
+import { TIER, tierLabel } from '../../../config/roles.js';
+import { countryName } from '../../../utils/countries.js';
 
 /** Standing of a lead, as the admin sees it. */
 export const StandingPill = ({ standing, misses = 0 }) => {
@@ -12,6 +14,32 @@ export const StandingPill = ({ standing, misses = 0 }) => {
     };
     const s = map[standing] || map.ok;
     return <Pill tone={s.tone}>{s.label}</Pill>;
+};
+
+/** Chapter Lead or Chapter Ambassador, coloured like the role badge elsewhere. */
+export const TierPill = ({ tier }) => <Pill tone={tier === TIER.AMBASSADOR ? 'green' : 'blue'}>{tierLabel(tier)}</Pill>;
+
+const EARNINGS = {
+    receive:    { tone: 'green', label: 'Receives earnings' },
+    waive:      { tone: 'gray',  label: 'Volunteer (waived)' },
+    not_chosen: { tone: 'amber', label: 'Not chosen yet' },
+};
+
+/** A lead's earnings choice. Ambassadors are volunteers, so they have none to show. */
+export const EarningsPill = ({ earnings, tier }) => {
+    if (tier === TIER.AMBASSADOR) return <Pill tone="gray">Volunteer</Pill>;
+    const e = EARNINGS[earnings?.choice] || EARNINGS.not_chosen;
+    const next = earnings?.pending ? `Changes to "${earnings.pending.choice}" on ${earnings.pending.effective_from}` : undefined;
+    return <Pill tone={e.tone} title={next}>{e.label}{earnings?.pending ? ' *' : ''}</Pill>;
+};
+
+/** What a chapter dropdown says about a chapter, for the role the person would hold there. */
+export const chapterOption = (c, tier, currentChapterId) => {
+    const here = c.id === currentChapterId;
+    let note = '';
+    if (!here && tier === TIER.LEAD && c.has_lead) note = ' - has a lead';
+    if (!here && tier === TIER.AMBASSADOR && c.seats_left === 0) note = ' - full';
+    return `${c.name} (${countryName(c.country_code)})${note}`;
 };
 
 const PACE_COLOR = { done: colors.green, on_track: colors.blue, behind: colors.amber };

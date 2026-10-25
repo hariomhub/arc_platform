@@ -72,7 +72,10 @@ const Login = () => {
         login(u);
         showToast('Welcome back!', 'success');
         if (u.role === 'founding_member') navigate('/admin-dashboard', { replace: true });
-        else navigate(location.state?.from?.pathname || '/', { replace: true });
+        else {
+            const from = location.state?.from;
+            navigate(from?.pathname ? `${from.pathname}${from.search || ''}` : '/', { replace: true });
+        }
     };
     const reportError = (msg) => {
         if (msg?.toLowerCase().includes('pending')) setIsPending(true);

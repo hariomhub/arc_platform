@@ -1,3 +1,4 @@
+import { userCan } from '../utils/permissions.js';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getMe, logoutUser } from '../api/auth.js';
 import useNotifications from '../hooks/useNotifications.js';
@@ -69,11 +70,20 @@ export const AuthProvider = ({ children }) => {
         }
     }, [removeToken]);
 
+    // ── What this person may do ──────────────────────────────────────
+    // The server decides (utils/permissions.js) and sends the list with /auth/me, so there is one
+    // copy of the rules. Prefer can('feed.post') over comparing roles.
+    const capabilities = user?.capabilities || [];
+    const can = (capability) => userCan(user, capability);
+
     // ── Role helpers ─────────────────────────────────────────────────
     const isAdmin            = () => user?.role === 'founding_member';
     const isFoundingMember   = () => user?.role === 'founding_member';
-    // Chapter Lead (was Executive) — primary helper name
+    // Anyone on a chapter team: a Chapter Lead OR a Chapter Ambassador (database role council_member).
     const isCouncilMember    = () => user?.role === 'council_member';
+    const isTeamMember       = isCouncilMember;
+    const isLead             = () => user?.role === 'council_member' && user?.tier !== 'ambassador';
+    const isAmbassador       = () => user?.role === 'council_member' && user?.tier === 'ambassador';
     // Legacy alias — kept so any existing component refs still work
     const isExecutive        = () => user?.role === 'council_member';
     const isProfessional     = () => user?.role === 'professional';
@@ -83,15 +93,9 @@ export const AuthProvider = ({ children }) => {
         user?.role === 'professional' && user?.professional_sub_type === 'working_professional';
     const isFinalYearUndergrad = () =>
         user?.role === 'professional' && user?.professional_sub_type === 'final_year_undergrad';
-    // Professionals can view but NOT download resources/framework
-    const canDownloadFramework = () => ['founding_member', 'council_member'].includes(user?.role);
-    const canUploadWhitepaper  = () => ['founding_member', 'council_member'].includes(user?.role);
-    const canUploadProduct     = () => ['founding_member', 'council_member'].includes(user?.role);
-    // Resources: council_member, founding_member, and working_professional can download
-    const canDownloadResources = () =>
-        user?.role === 'founding_member' ||
-        user?.role === 'council_member'  ||
-        (user?.role === 'professional' && user?.professional_sub_type === 'working_professional');
+    // Professionals can view but not download; working professionals can download resources (not the framework).
+    const canDownloadFramework = () => can('framework.download');
+    const canDownloadResources = () => can('resources.download');
 
 
     const API       = 'http://localhost:5000/api';
@@ -108,6 +112,13 @@ export const AuthProvider = ({ children }) => {
                 isAdmin,
                 isFoundingMember,
                 isCouncilMember,
+                isTeamMember,       // same as isCouncilMember: lead or ambassador
+                isLead,
+                isAmbassador,
+                can,
+                capabilities,
+                tier: user?.tier || null,
+                gates: user?.gates || { policy: false, earnings: false },
                 isExecutive,        // legacy alias — same as isCouncilMember
                 isProfessional,
                 isMember,
@@ -115,8 +126,6 @@ export const AuthProvider = ({ children }) => {
                 isFinalYearUndergrad,
                 canDownloadFramework,
                 canDownloadResources,
-                canUploadWhitepaper,
-                canUploadProduct,
                 isLoggedIn: !!user,
                 refreshUser,
                 API,

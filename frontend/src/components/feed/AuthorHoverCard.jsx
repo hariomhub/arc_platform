@@ -1,14 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, X } from 'lucide-react';
+import { roleMeta } from '../../config/roles.js';
 
-const ROLE_META = {
-    founding_member: { label: 'Founding Member', color: '#7C3AED', bg: '#f5f3ff' },
-    council_member:  { label: 'Chapter Lead',  color: '#0369a1', bg: '#eff6ff' },
-    professional:    { label: 'Professional',    color: '#057642', bg: '#f0fdf4' },
-};
-
-const AuthorHoverCard = ({ authorId, authorName, authorRole, authorPhoto, authorOrg, authorBio, children }) => {
+const AuthorHoverCard = ({ authorId, authorName, authorRole, authorTier, authorPhoto, authorOrg, authorBio, children }) => {
     const [visible,  setVisible]  = useState(false);
     const [pos,      setPos]      = useState({ top: 0, left: 0 });
     const [pinned,   setPinned]   = useState(false); // click = pinned open
@@ -16,7 +11,7 @@ const AuthorHoverCard = ({ authorId, authorName, authorRole, authorPhoto, author
     const showTimer  = useRef(null);
     const triggerRef = useRef(null);
 
-    const rm = ROLE_META[authorRole] || ROLE_META.professional;
+    const rm = roleMeta(authorRole, authorTier);
 
     const clearTimers = () => {
         clearTimeout(hideTimer.current);

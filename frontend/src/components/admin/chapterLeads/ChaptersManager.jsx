@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Check, X, Loader2, Users } from 'lucide-react';
 import { getAdminChapters, createChapter, updateChapter } from '../../../api/adminChapterLeads.js';
 import { getErrorMessage } from '../../../utils/apiHelpers.js';
 import { COUNTRIES_PINNED, COUNTRIES_REST, countryName } from '../../../utils/countries.js';
 import { colors, Card, SectionTitle, Pill, Empty, Table, Td, Button, fieldStyle, labelStyle } from '../../chapterLead/ui.jsx';
 import { ErrorNote, Spinner } from './shared.jsx';
+import ChapterTeamModal from './ChapterTeamModal.jsx';
 
 const CountrySelect = ({ value, onChange, id, disabled }) => (
     <select id={id} value={value} onChange={(e) => onChange(e.target.value)} style={fieldStyle} disabled={disabled}>
@@ -15,11 +16,11 @@ const CountrySelect = ({ value, onChange, id, disabled }) => (
 );
 
 /**
- * Chapters are the geographic areas a lead represents. Each chapter has at most one
- * active lead, and members pick a chapter at sign-up. Chapters are deactivated, never
- * deleted, so history stays attached to them.
+ * Chapters are the geographic areas a team represents. Each chapter has at most one active Chapter
+ * Lead and up to a set number of ambassadors, and members pick a chapter at sign-up. Chapters are
+ * deactivated, never deleted, so history stays attached to them.
  */
-const ChaptersManager = ({ showToast, onChanged }) => {
+const ChaptersManager = ({ showToast, onChanged, onOpenLead, onOpenApprovals }) => {
     const [rows, setRows] = useState(null);
     const [error, setError] = useState('');
     const [form, setForm] = useState({ name: '', country_code: '' });
@@ -27,6 +28,7 @@ const ChaptersManager = ({ showToast, onChanged }) => {
     const [editId, setEditId] = useState(null);
     const [edit, setEdit] = useState({ name: '', country_code: '', status: 'active' });
     const [savingEdit, setSavingEdit] = useState(false);
+    const [teamOf, setTeamOf] = useState(null);
 
     const load = useCallback(async () => {
         try {
@@ -94,7 +96,7 @@ const ChaptersManager = ({ showToast, onChanged }) => {
                     </div>
                 </form>
                 <p style={{ margin: '0.7rem 0 0', fontSize: '0.76rem', color: colors.muted, lineHeight: 1.6 }}>
-                    A chapter can be a country, state or city. Members choose one when they sign up, and each chapter can have one active Chapter Lead.
+                    A chapter can be a country, state or city. Members choose one when they sign up. Each chapter has one Chapter Lead and a limited number of Chapter Ambassadors (set under Programme rules).
                 </p>
             </Card>
 
@@ -103,13 +105,14 @@ const ChaptersManager = ({ showToast, onChanged }) => {
             {rows && (
                 <Card padded={false}>
                     {rows.length === 0 ? <Empty>No chapters yet. Add the first one above.</Empty> : (
-                        <Table minWidth={720} columns={[{ label: 'Chapter' }, { label: 'Country' }, { label: 'Active lead' }, { label: 'Members', align: 'right' }, { label: 'Status' }, { label: '' }]}>
+                        <Table minWidth={900} columns={[{ label: 'Chapter' }, { label: 'Country' }, { label: 'Chapter Lead' }, { label: 'Ambassadors' }, { label: 'Members', align: 'right' }, { label: 'Status' }, { label: '' }]}>
                             {rows.map((c) => (
                                 editId === c.id ? (
                                     <tr key={c.id} style={{ background: '#F8FAFC' }}>
                                         <Td><input value={edit.name} maxLength={150} onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))} style={fieldStyle} aria-label="Chapter name" /></Td>
                                         <Td><CountrySelect value={edit.country_code} onChange={(v) => setEdit((p) => ({ ...p, country_code: v }))} id={`ch-e-${c.id}`} /></Td>
                                         <Td muted>{c.lead_name || '—'}</Td>
+                                        <Td muted>{c.ambassadors_active}</Td>
                                         <Td align="right">{c.member_count}</Td>
                                         <Td>
                                             <select value={edit.status} onChange={(e) => setEdit((p) => ({ ...p, status: e.target.value }))} style={{ ...fieldStyle, width: 'auto' }} aria-label="Status">
@@ -129,15 +132,35 @@ const ChaptersManager = ({ showToast, onChanged }) => {
                                         <Td style={{ fontWeight: 700 }}>{c.name}</Td>
                                         <Td muted>{countryName(c.country_code)}</Td>
                                         <Td>{c.lead_name ? c.lead_name : <Pill tone="amber">No lead yet</Pill>}</Td>
+                                        <Td>
+                                            {c.ambassadors_active}{c.seat_cap === null ? '' : ` of ${c.seat_cap}`}
+                                            {c.pending_applications > 0 && <> <Pill tone="amber">{c.pending_applications} waiting</Pill></>}
+                                        </Td>
                                         <Td align="right">{c.member_count}</Td>
                                         <Td>{c.status === 'active' ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Inactive</Pill>}</Td>
-                                        <Td align="right"><Button small tone="ghost" onClick={() => startEdit(c)}><Pencil size={12} /> Edit</Button></Td>
+                                        <Td align="right">
+                                            <span style={{ display: 'inline-flex', gap: 6 }}>
+                                                <Button small tone="ghost" onClick={() => setTeamOf(c.id)}><Users size={12} /> Team</Button>
+                                                <Button small tone="ghost" onClick={() => startEdit(c)}><Pencil size={12} /> Edit</Button>
+                                            </span>
+                                        </Td>
                                     </tr>
                                 )
                             ))}
                         </Table>
                     )}
                 </Card>
+            )}
+
+            {teamOf && (
+                <ChapterTeamModal
+                    chapterId={teamOf}
+                    onClose={() => setTeamOf(null)}
+                    onOpenMember={(id) => { setTeamOf(null); onOpenLead?.(id); }}
+                    onOpenApprovals={onOpenApprovals}
+                    onChanged={() => { load(); onChanged?.(); }}
+                    showToast={showToast}
+                />
             )}
         </div>
     );

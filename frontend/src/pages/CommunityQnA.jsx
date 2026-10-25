@@ -71,7 +71,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                 </div>
                 <div style={{ background: 'white', padding: '12px 18px' }}>
                     {[
-                        { dot: '#003366', text: 'Chapter Leads can post' },
+                        { dot: '#003366', text: 'Chapter teams can post' },
                         { dot: '#057642', text: 'All members can engage' },
                         { dot: '#f59e0b', text: 'Ranked by engagement' },
                     ].map(({ dot, text }) => (
@@ -113,7 +113,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                     <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: 'rgba(245,158,11,0.1)' }} />
                     <p style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: '800', color: 'white', position: 'relative', zIndex: 1 }}>Want to post?</p>
                     <p style={{ margin: '0 0 12px', fontSize: '0.86rem', color: 'rgba(147,197,253,0.9)', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                        Chapter Leads share knowledge and build their professional presence.
+                        Chapter Leads and Ambassadors share knowledge and build their professional presence.
                     </p>
                     <a href="/membership"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f59e0b', color: '#1e293b', padding: '8px 14px', borderRadius: 8, fontWeight: '800', fontSize: '0.88rem', textDecoration: 'none', position: 'relative', zIndex: 1 }}
@@ -371,8 +371,8 @@ const CommunityQnA = () => {
                             </button>
                         ) : user ? (
                             <>
-                                <a href="/membership" className="cf-panel-cta">Become a Chapter Lead</a>
-                                <p className="cf-panel-note">Chapter Leads can post. Everyone can engage.</p>
+                                <a href="/membership" className="cf-panel-cta">Join a chapter team</a>
+                                <p className="cf-panel-note">Chapter teams can post. Everyone can engage.</p>
                             </>
                         ) : (
                             <>
@@ -439,7 +439,7 @@ const CommunityQnA = () => {
                                     {tagFilter || searchInput ? 'No matching posts' : 'The feed is empty'}
                                 </p>
                                 <p style={{ margin:0, fontSize:'0.8rem', color:'#64748b' }}>
-                                    {tagFilter || searchInput ? 'Try a different filter.' : 'Be the first Chapter Lead to share something.'}
+                                    {tagFilter || searchInput ? 'Try a different filter.' : 'Be the first on a chapter team to share something.'}
                                 </p>
                             </div>
                         ) : (

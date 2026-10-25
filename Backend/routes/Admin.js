@@ -17,6 +17,12 @@ const validate = (req, res, next) => {
 // All admin routes require authentication AND founding_member role
 router.use(auth, requireRole('founding_member'));
 
+// A chapter-team seat is a tier plus a chapter. override_cap lets an admin go past the ambassador limit.
+const teamSeatRules = [
+    body('tier').optional({ checkFalsy: true }).isIn(['lead', 'ambassador']).withMessage('Tier must be lead or ambassador.'),
+    body('override_cap').optional().isBoolean().withMessage('override_cap must be true or false.'),
+];
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 router.get('/stats', adminController.getStats);
 
@@ -51,10 +57,37 @@ router.post(
             .withMessage('Invalid professional sub-type.'),
         body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
         body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        ...teamSeatRules,
     ],
     validate,
     adminController.createUser
 );
+
+// PATCH /api/admin/users/:id  — edit anything an administrator may change about a person
+// (profile, country, expiry, role, and the chapter-team seat: tier, chapter, term start).
+router.patch(
+    '/users/:id',
+    [
+        body('name').optional().trim().notEmpty().withMessage('Name cannot be empty.').isLength({ max: 255 }),
+        body('email').optional().trim().isEmail().withMessage('A valid email is required.'),
+        body('bio').optional({ nullable: true }).trim().isLength({ max: 2000 }).withMessage('Bio must be under 2000 characters.'),
+        body('organization_name').optional({ nullable: true }).trim().isLength({ max: 255 }),
+        body('linkedin_url').optional({ nullable: true, checkFalsy: true }).trim().isURL().withMessage('LinkedIn URL must be a valid URL.'),
+        body('profile_badge').optional({ nullable: true }).trim().isLength({ max: 100 }).withMessage('Profile tag must be under 100 characters.'),
+        body('country_code').optional({ nullable: true, checkFalsy: true }).matches(/^[A-Za-z]{2}$/).withMessage('Choose a valid country.'),
+        body('professional_sub_type').optional({ nullable: true, checkFalsy: true }).isIn(['working_professional', 'final_year_undergrad']).withMessage('Invalid professional type.'),
+        body('membership_expires_at').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Invalid membership expiry date.'),
+        body('role').optional().isIn(['founding_member', 'council_member', 'professional']).withMessage('Invalid role.'),
+        body('chapter_id').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
+        body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        ...teamSeatRules,
+    ],
+    validate,
+    adminController.patchUser
+);
+
+// GET /api/admin/users/:id/audit  — the change history of one person
+router.get('/users/:id/audit', adminController.getUserAudit);
 
 // PATCH /api/admin/users/:id/details  — edit name/email/bio/org/linkedin/sub-type
 router.patch(
@@ -94,6 +127,7 @@ router.patch(
         body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.'),
         body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
         body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        ...teamSeatRules,
     ],
     validate,
     adminController.approveUser
@@ -122,6 +156,7 @@ router.patch(
             .withMessage('Invalid role.'),
         body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
         body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        ...teamSeatRules,
     ],
     validate,
     adminController.updateUserRole
@@ -146,10 +181,11 @@ router.get('/membership-applications', adminController.getMembershipApplications
 router.patch(
     '/membership-applications/:id/approve',
     [
-        body('admin_notes').optional().trim().isLength({ max: 1000 }),
+        body('admin_notes').optional().trim().isLength({ max: 500 }).withMessage('The note must be 500 characters or fewer.'),
         body('profile_badge').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Profile badge must be under 100 characters.'),
         body('chapter_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('chapter_id must be a positive integer.'),
         body('term_started_at').optional({ checkFalsy: true }).isISO8601().withMessage('term_started_at must be a valid date.'),
+        body('override_cap').optional().isBoolean().withMessage('override_cap must be true or false.'),
     ],
     validate,
     adminController.approveMembershipApplication
@@ -158,7 +194,7 @@ router.patch(
 // PATCH /api/admin/membership-applications/:id/reject
 router.patch(
     '/membership-applications/:id/reject',
-    [body('admin_notes').optional().trim().isLength({ max: 1000 })],
+    [body('admin_notes').optional().trim().isLength({ max: 500 }).withMessage('The note must be 500 characters or fewer.')],
     validate,
     adminController.rejectMembershipApplication
 );

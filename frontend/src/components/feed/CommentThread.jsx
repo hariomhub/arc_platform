@@ -22,16 +22,11 @@ import {
 } from '../../api/feed.js';
 import { getErrorMessage } from '../../utils/apiHelpers.js';
 import { timeAgo } from '../../utils/dateFormatter.js';
-
-const ROLE_META = {
-    founding_member: { label: 'Founding Member', color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' },
-    council_member:  { label: 'Chapter Lead',  color: '#003366', bg: 'rgba(0,51,102,0.09)'  },
-    professional:    { label: 'Professional',    color: '#0369A1', bg: 'rgba(3,105,161,0.09)'  },
-};
+import { roleMeta as metaFor } from '../../config/roles.js';
 
 // ── Small Avatar ──────────────────────────────────────────────────────────────
-const MiniAvatar = ({ name, photo, role, size = 32 }) => {
-    const meta = ROLE_META[role] || ROLE_META.professional;
+const MiniAvatar = ({ name, photo, role, tier, size = 32 }) => {
+    const meta = metaFor(role, tier);
     return (
         <div style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, background: photo ? 'transparent' : `linear-gradient(135deg,${meta.color}cc,${meta.color}77)`, border: `1.5px solid ${meta.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: '800', color: 'white', overflow: 'hidden' }}>
             {photo ? <img src={photo} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (name || 'A').charAt(0).toUpperCase()}
@@ -67,7 +62,7 @@ const CommentInput = ({ postId, parentId, onSuccess, onCancel, placeholder = 'Wr
 
     return (
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-            <MiniAvatar name={user?.name} role={user?.role} size={32} />
+            <MiniAvatar name={user?.name} role={user?.role} tier={user?.tier} size={32} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <textarea
                     ref={textareaRef}
@@ -119,7 +114,7 @@ const CommentRow = ({ comment, postId, depth = 0, onCommentAdded, onCommentDelet
 
     const isOwner   = user?.id === comment.author_id;
     const isFounder = user?.role === 'founding_member';
-    const roleMeta  = ROLE_META[comment.author_role] || ROLE_META.professional;
+    const roleMeta  = metaFor(comment.author_role, comment.author_tier);
     const hasReplies = comment.replies && comment.replies.length > 0;
 
     const handleLike = async () => {
@@ -166,7 +161,7 @@ const CommentRow = ({ comment, postId, depth = 0, onCommentAdded, onCommentDelet
 
     return (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-            <MiniAvatar name={comment.author_name} photo={comment.author_photo} role={comment.author_role} size={depth === 0 ? 34 : 28} />
+            <MiniAvatar name={comment.author_name} photo={comment.author_photo} role={comment.author_role} tier={comment.author_tier} size={depth === 0 ? 34 : 28} />
 
             <div style={{ flex: 1, minWidth: 0 }}>
                 {/* Comment bubble */}

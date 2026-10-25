@@ -49,6 +49,15 @@ export const NOTIF_TYPES = {
     LEAD_BLOG_DECIDED:         'lead_blog_decided',
     LEAD_BLOG_SUBMITTED:       'lead_blog_submitted',
 
+    // ── Chapter team (leads + ambassadors) — immediate ───────────────────────
+    CHAPTER_VACANT:            'chapter_vacant',
+    TEAM_APPLICATION_SUBMITTED: 'team_application_submitted',
+    TEAM_APPLICATION_DECIDED:  'team_application_decided',
+    TEAM_MEMBER_JOINED:        'team_member_joined',
+    TEAM_MEMBER_REMOVED:       'team_member_removed',
+    TEAM_TIER_CHANGED:         'team_tier_changed',
+    ACCOUNT_CHANGED:           'account_changed',
+
     // ── Feed — immediate ──────────────────────────────────────────────────────
     FEED_POST_COMMENTED:       'feed_post_commented',
     FEED_COMMENT_REPLIED:      'feed_comment_replied',
@@ -88,6 +97,14 @@ const IMMEDIATE_TYPES = new Set([
     NOTIF_TYPES.LEAD_REQUEST_SUBMITTED,
     NOTIF_TYPES.LEAD_BLOG_DECIDED,
     NOTIF_TYPES.LEAD_BLOG_SUBMITTED,
+    // Chapter team
+    NOTIF_TYPES.CHAPTER_VACANT,
+    NOTIF_TYPES.TEAM_APPLICATION_SUBMITTED,
+    NOTIF_TYPES.TEAM_APPLICATION_DECIDED,
+    NOTIF_TYPES.TEAM_MEMBER_JOINED,
+    NOTIF_TYPES.TEAM_MEMBER_REMOVED,
+    NOTIF_TYPES.TEAM_TIER_CHANGED,
+    NOTIF_TYPES.ACCOUNT_CHANGED,
     // Feed immediate
     NOTIF_TYPES.FEED_POST_COMMENTED,
     NOTIF_TYPES.FEED_COMMENT_REPLIED,

@@ -4,8 +4,13 @@ import { sendAccountApprovedEmail, sendMembershipApplicationStatusEmail } from '
 import { notifyUser, NOTIF_TYPES } from '../services/notificationService.js';
 import { softDeleteUser, purgeProfilePhoto } from '../services/accountDeletionService.js';
 import {
-    applyRole, activateChapterLead, qualifyReferral, voidReferral, isDuplicate,
+    activateChapterLead, qualifyReferral, voidReferral, isDuplicate, roleExpiry,
 } from '../services/chapterLeadService.js';
+import { decideTeamApplication } from '../services/chapterTeamService.js';
+import { updateUserAsAdmin, resetUserPassword as resetPasswordFor } from '../services/adminUserService.js';
+import { notifyVacancyIfNeeded } from '../services/chapterNotices.js';
+import { recordAudit, getAuditForUser } from '../services/auditService.js';
+import { TIERS } from '../utils/chapterLeadRules.js';
 
 const CHAPTER_TAKEN_MESSAGE =
     'That chapter already has an active Chapter Lead. End their role first or choose a different chapter.';
@@ -31,12 +36,18 @@ const paginate = (query, total) => {
 export const getUsers = async (req, res, next) => {
     try {
         const { role, status, search } = req.query;
+        const tier = [TIERS.LEAD, TIERS.AMBASSADOR].includes(req.query.tier) ? req.query.tier : null;
+        const chapterId = parseInt(req.query.chapter_id, 10) || null;
 
         let countSql = 'SELECT COUNT(*) AS total FROM users WHERE 1=1';
         // country_code and who referred the member help an admin vet a new sign-up.
-        let dataSql  = `SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at, country_code,
+        let dataSql  = `SELECT id, name, email, role, status, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at, country_code, membership_expires_at, bio,
                                (SELECT l.name FROM referrals r JOIN users l ON l.id = r.lead_user_id
-                                WHERE r.referred_user_id = users.id LIMIT 1) AS referred_by_name
+                                WHERE r.referred_user_id = users.id LIMIT 1) AS referred_by_name,
+                               (SELECT p.tier_code FROM chapter_lead_profiles p WHERE p.active_user_id = users.id) AS tier,
+                               (SELECT p.chapter_id FROM chapter_lead_profiles p WHERE p.active_user_id = users.id) AS team_chapter_id,
+                               (SELECT c.name FROM chapter_lead_profiles p JOIN chapters c ON c.id = p.chapter_id WHERE p.active_user_id = users.id) AS team_chapter_name,
+                               (SELECT p.term_started_at FROM chapter_lead_profiles p WHERE p.active_user_id = users.id) AS team_started_at
                         FROM users WHERE 1=1`;
         const params = [];
 
@@ -44,6 +55,13 @@ export const getUsers = async (req, res, next) => {
             const clause = ' AND role = ?';
             countSql += clause; dataSql += clause;
             params.push(role);
+        }
+        if (tier || chapterId) {
+            // Team seat filters: who holds a lead / ambassador seat, and in which chapter.
+            const clause = ` AND EXISTS (SELECT 1 FROM chapter_lead_profiles p WHERE p.active_user_id = users.id${tier ? ' AND p.tier_code = ?' : ''}${chapterId ? ' AND p.chapter_id = ?' : ''})`;
+            countSql += clause; dataSql += clause;
+            if (tier) params.push(tier);
+            if (chapterId) params.push(chapterId);
         }
         if (status) {
             const clause = ' AND status = ?';
@@ -112,17 +130,22 @@ export const approveUser = async (req, res, next) => {
                 `UPDATE users SET status = 'approved', approved_at = COALESCE(approved_at, UTC_TIMESTAMP())${badgeSql} WHERE id = ?`,
                 [...badgeParam, userId]
             );
-            await activateChapterLead(conn, userId, { chapterId, termStartedAt: req.body.term_started_at || null });
+            await activateChapterLead(conn, userId, {
+                chapterId, termStartedAt: req.body.term_started_at || null,
+                tier: req.body.tier || TIERS.LEAD, approvedBy: req.user.id, overrideCap: req.body.override_cap === true,
+            });
         } else {
-            const expiresAt = role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
             await conn.query(
                 `UPDATE users SET status = 'approved', membership_expires_at = ?, approved_at = COALESCE(approved_at, UTC_TIMESTAMP())${badgeSql} WHERE id = ?`,
-                [expiresAt, ...badgeParam, userId]
+                [roleExpiry(role), ...badgeParam, userId]
             );
         }
         // A referred member now counts toward their lead's quarterly goal.
         await qualifyReferral(userId, conn);
+        await recordAudit(conn, {
+            actor: req.user, action: 'user.approved', entityType: 'user', entityId: userId, targetUserId: userId,
+            before: { status: 'pending' }, after: { status: 'approved', role }, ip: req.ip,
+        });
 
         await conn.commit();
 
@@ -202,16 +225,18 @@ export const updateUserStatus = async (req, res, next) => {
         if (status === 'approved') {
             await conn.query('UPDATE users SET approved_at = COALESCE(approved_at, UTC_TIMESTAMP()) WHERE id = ?', [userId]);
             if (rows[0].role === 'council_member') {
-                await activateChapterLead(conn, userId, { chapterId });
+                await activateChapterLead(conn, userId, { chapterId, tier: req.body.tier || TIERS.LEAD, approvedBy: req.user.id });
             } else {
-                const expiresAt = rows[0].role === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                    : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
-                await conn.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [expiresAt, userId]);
+                await conn.query('UPDATE users SET membership_expires_at = ? WHERE id = ?', [roleExpiry(rows[0].role), userId]);
             }
             await qualifyReferral(userId, conn);
         } else if (status === 'rejected') {
             await voidReferral(userId, 'Referred account was rejected', conn);
         }
+        await recordAudit(conn, {
+            actor: req.user, action: 'user.status_changed', entityType: 'user', entityId: userId, targetUserId: userId,
+            after: { status }, ip: req.ip,
+        });
         await conn.commit();
 
         if (status === 'approved') {
@@ -246,47 +271,37 @@ export const updateUserStatus = async (req, res, next) => {
     }
 };
 
-// PATCH /api/admin/users/:id/role
+// PATCH /api/admin/users/:id/role   body: { role, chapter_id?, tier?, term_started_at?, override_cap? }
+// A thin wrapper: every Manage Users edit goes through services/adminUserService.js.
 export const updateUserRole = async (req, res, next) => {
-    const conn = await pool.getConnection();
     try {
-        const { role } = req.body;
         const userId = parseInt(req.params.id, 10);
-
-        if (userId === req.user.id) {
-            return res.status(403).json({ success: false, message: 'You cannot change your own role.' });
-        }
-
-        const [check] = await conn.query('SELECT id, status FROM users WHERE id = ?', [userId]);
-        if (check.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found.' });
-        }
-
-        const chapterId = await resolveChapterId(conn, req.body.chapter_id);
-        if (chapterId === false) {
-            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
-        }
-
-        await conn.beginTransaction();
-        // One shared path: promoting creates the lead profile + referral code,
-        // demoting ends the active stint.
-        await applyRole(conn, userId, role, {
-            adminId: req.user.id,
-            chapterId,
-            termStartedAt: req.body.term_started_at || null,
-            approved: check[0].status === 'approved',
-        });
-        await conn.commit();
-
-        return res.json({ success: true, data: { message: `User role updated to "${role}".` } });
+        const { role, chapter_id, tier, term_started_at, override_cap } = req.body;
+        const { user } = await updateUserAsAdmin(req.user, userId, { role, chapter_id, tier, term_started_at, override_cap }, req.ip);
+        return res.json({ success: true, data: { message: `User role updated to "${user.role}".` } });
     } catch (err) {
-        await conn.rollback().catch(() => {});
-        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
-            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
-        }
         next(err);
-    } finally {
-        conn.release();
+    }
+};
+
+// PATCH /api/admin/users/:id   body: any of name, email, bio, organization_name, linkedin_url, profile_badge,
+//   country_code, professional_sub_type, membership_expires_at, role, tier, chapter_id, term_started_at, override_cap
+export const patchUser = async (req, res, next) => {
+    try {
+        const out = await updateUserAsAdmin(req.user, parseInt(req.params.id, 10), req.body, req.ip);
+        return res.json({ success: true, data: out });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/admin/users/:id/audit  — the change history of one person
+export const getUserAudit = async (req, res, next) => {
+    try {
+        const rows = await getAuditForUser(parseInt(req.params.id, 10), 100);
+        return res.json({ success: true, data: rows });
+    } catch (err) {
+        next(err);
     }
 };
 
@@ -322,9 +337,16 @@ export const deleteUser = async (req, res, next) => {
         // Scrub identifying data in place and remove purely-private records.
         // Posts, resources, reviews, and votes are left untouched — they keep
         // pointing at this same (now-anonymized) user row.
-        await softDeleteUser(conn, user);
+        const { vacatedChapterId } = await softDeleteUser(conn, user);
+        await recordAudit(conn, {
+            actor: req.user, action: 'user.deleted', entityType: 'user', entityId: user.id, targetUserId: user.id,
+            before: { role: user.role, status: user.status }, after: { status: 'deleted' }, ip: req.ip,
+        });
 
         await conn.commit();
+
+        // A Chapter Lead removed this way empties their chapter's lead seat: tell the admins.
+        if (vacatedChapterId) notifyVacancyIfNeeded(vacatedChapterId, { immediate: true });
 
         // Purge profile photo from Azure Blob Storage (fire-and-forget)
         await purgeProfilePhoto(user);
@@ -388,11 +410,8 @@ export const createUser = async (req, res, next) => {
         const assignedStatus = status || 'approved';
         const subType         = assignedRole === 'professional' ? (professional_sub_type || null) : null;
 
-        // Chapter Leads get their term-based expiry from the shared service below.
-        const expiresAt = assignedStatus === 'approved'
-            ? (assignedRole === 'founding_member' ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000))
-            : null;
+        // Chapter team members get their term-based expiry from the shared service below.
+        const expiresAt = assignedStatus === 'approved' ? roleExpiry(assignedRole) : null;
 
         await conn.beginTransaction();
         const [result] = await conn.query(
@@ -403,8 +422,15 @@ export const createUser = async (req, res, next) => {
              organization_name || null, linkedin_url || null, subType]
         );
         if (assignedRole === 'council_member' && assignedStatus === 'approved') {
-            await activateChapterLead(conn, result.insertId, { chapterId, termStartedAt: req.body.term_started_at || null });
+            await activateChapterLead(conn, result.insertId, {
+                chapterId, termStartedAt: req.body.term_started_at || null,
+                tier: req.body.tier || TIERS.LEAD, approvedBy: req.user.id, overrideCap: req.body.override_cap === true,
+            });
         }
+        await recordAudit(conn, {
+            actor: req.user, action: 'user.created', entityType: 'user', entityId: result.insertId, targetUserId: result.insertId,
+            after: { role: assignedRole, status: assignedStatus, tier: assignedRole === 'council_member' ? (req.body.tier || TIERS.LEAD) : null, chapter_id: chapterId }, ip: req.ip,
+        });
         await conn.commit();
 
         const [rows] = await pool.query(
@@ -425,35 +451,16 @@ export const createUser = async (req, res, next) => {
 };
 
 // PATCH /api/admin/users/:id/details  — edit name/email/bio/org/linkedin/sub-type
+// Kept for the existing screen; it is the same service as PATCH /users/:id.
 export const updateUserDetails = async (req, res, next) => {
     try {
-        const targetId = parseInt(req.params.id, 10);
         const { name, email, bio, organization_name, linkedin_url, professional_sub_type } = req.body;
-
-        const [rows] = await pool.query('SELECT id, role FROM users WHERE id = ?', [targetId]);
-        if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found.' });
-        }
-
-        const normalizedEmail = email.trim().toLowerCase();
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ? AND id != ?', [normalizedEmail, targetId]);
-        if (existing.length > 0) {
-            return res.status(409).json({ success: false, message: 'This email is already registered to another user.' });
-        }
-
-        const subType = rows[0].role === 'professional' ? (professional_sub_type || null) : null;
-
-        await pool.query(
-            `UPDATE users SET name = ?, email = ?, bio = ?, organization_name = ?, linkedin_url = ?, professional_sub_type = ? WHERE id = ?`,
-            [name.trim(), normalizedEmail, bio || null, organization_name || null, linkedin_url || null, subType, targetId]
+        const { user } = await updateUserAsAdmin(
+            req.user, parseInt(req.params.id, 10),
+            { name, email, bio, organization_name, linkedin_url, professional_sub_type },
+            req.ip,
         );
-
-        const [updated] = await pool.query(
-            'SELECT id, name, email, role, status, bio, organization_name, linkedin_url, professional_sub_type, profile_badge, created_at FROM users WHERE id = ?',
-            [targetId]
-        );
-
-        return res.json({ success: true, data: updated[0] });
+        return res.json({ success: true, data: user });
     } catch (err) {
         next(err);
     }
@@ -462,18 +469,8 @@ export const updateUserDetails = async (req, res, next) => {
 // PATCH /api/admin/users/:id/password  — admin-initiated password reset
 export const resetUserPassword = async (req, res, next) => {
     try {
-        const targetId = parseInt(req.params.id, 10);
-        const { newPassword } = req.body;
-
-        const [rows] = await pool.query('SELECT id, name FROM users WHERE id = ?', [targetId]);
-        if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found.' });
-        }
-
-        const password_hash = await bcrypt.hash(newPassword, 12);
-        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash, targetId]);
-
-        return res.json({ success: true, data: { message: `Password reset for ${rows[0].name}.` } });
+        const out = await resetPasswordFor(req.user, parseInt(req.params.id, 10), req.body.newPassword, req.ip);
+        return res.json({ success: true, data: { message: `Password reset for ${out.name}.` } });
     } catch (err) {
         next(err);
     }
@@ -507,20 +504,26 @@ export const getStats = async (req, res, next) => {
 // GET /api/admin/membership-applications
 export const getMembershipApplications = async (req, res, next) => {
     try {
-        const { status, role } = req.query;
+        const { status, role, tier } = req.query;
         let countSql = `SELECT COUNT(*) AS total FROM membership_applications ma JOIN users u ON u.id = ma.user_id WHERE 1=1`;
         let dataSql  = `
             SELECT ma.*, u.name AS current_name, u.role AS current_role, u.status AS account_status, u.profile_badge,
-                   c.name AS requested_chapter_name
+                   c.name AS requested_chapter_name,
+                   (SELECT COUNT(*) FROM chapter_lead_profiles p WHERE p.active_chapter_id = ma.requested_chapter_id) AS chapter_has_lead,
+                   (SELECT COUNT(*) FROM chapter_lead_profiles p
+                      WHERE p.chapter_id = ma.requested_chapter_id AND p.status = 'active' AND p.tier_code = 'ambassador') AS chapter_ambassadors,
+                   lu.name AS routed_lead_name
             FROM membership_applications ma
             JOIN users u ON u.id = ma.user_id
             LEFT JOIN chapters c ON c.id = ma.requested_chapter_id
+            LEFT JOIN users lu ON lu.id = ma.approver_user_id
             WHERE 1=1
         `;
         const params = [];
 
         if (status) { const clause = ' AND ma.status = ?';       countSql += clause; dataSql += clause; params.push(status); }
         if (role)   { const clause = ' AND ma.requested_role = ?'; countSql += clause; dataSql += clause; params.push(role); }
+        if (tier)   { const clause = ' AND ma.requested_tier = ?'; countSql += clause; dataSql += clause; params.push(tier); }
 
         const [[{ total }]] = await pool.query(countSql, params);
         const { page, limit, offset, totalPages } = paginate(req.query, total);
@@ -533,8 +536,32 @@ export const getMembershipApplications = async (req, res, next) => {
     }
 };
 
-// PATCH /api/admin/membership-applications/:id/approve
-export const approveMembershipApplication = async (req, res, next) => {
+// Applications for a team seat (Chapter Lead or Chapter Ambassador) are decided by the shared team service;
+// that is the same code path a Chapter Lead uses for their own chapter's ambassadors.
+const decideRoleApplication = (status) => async (req, res, next) => {
+    try {
+        const [[app]] = await pool.query('SELECT id, requested_role FROM membership_applications WHERE id = ?', [req.params.id]);
+        if (!app) return res.status(404).json({ success: false, message: 'Application not found.' });
+
+        if (app.requested_role === 'council_member') {
+            await decideTeamApplication(app.id, req.user, {
+                status,
+                note: req.body.admin_notes || null,
+                chapterId: req.body.chapter_id,
+                termStartedAt: req.body.term_started_at || null,
+                profileBadge: req.body.profile_badge || null,
+                overrideCap: req.body.override_cap === true,
+            });
+            return res.json({ success: true, message: status === 'approved' ? 'Application approved. User role updated.' : 'Application rejected.' });
+        }
+        return decideLegacyApplication(status, req, res, next);
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Old Founding Member requests (no longer created, but old rows can still be decided).
+const decideLegacyApplication = async (status, req, res, next) => {
     const conn = await pool.getConnection();
     try {
         const [[app]] = await conn.query(
@@ -547,127 +574,54 @@ export const approveMembershipApplication = async (req, res, next) => {
         if (app.status !== 'pending') {
             return res.status(409).json({ success: false, message: 'Application has already been processed.' });
         }
-
-        const requestedRole = app.requested_role;
-
-        // Admin may override the chapter the applicant asked for.
-        const chosenChapter = req.body.chapter_id !== undefined && req.body.chapter_id !== ''
-            ? req.body.chapter_id
-            : app.requested_chapter_id;
-        const chapterId = await resolveChapterId(conn, chosenChapter);
-        if (chapterId === false) {
-            return res.status(422).json({ success: false, message: 'Chapter not found or inactive.' });
-        }
+        const approved = status === 'approved';
 
         await conn.beginTransaction();
-
-        if (requestedRole === 'council_member') {
-            // One shared path: role, term-based expiry, lead profile and referral code.
-            await conn.query(`UPDATE users SET role = 'council_member' WHERE id = ?`, [app.user_id]);
-            await activateChapterLead(conn, app.user_id, { chapterId, termStartedAt: req.body.term_started_at || null });
-            await conn.query(
-                `UPDATE users
-                 SET country_code = COALESCE(country_code, ?), chapter_id = COALESCE(chapter_id, ?)
-                 WHERE id = ?`,
-                [app.requested_country_code || null, chapterId, app.user_id]
-            );
-        } else {
-            const expiresAt = requestedRole === 'founding_member'
-                ? new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000)
-                : new Date(Date.now() + 1 * 365 * 24 * 60 * 60 * 1000);
+        if (approved) {
             await conn.query(
                 `UPDATE users SET role = ?, membership_expires_at = ? WHERE id = ?`,
-                [requestedRole, expiresAt, app.user_id]
+                [app.requested_role, roleExpiry(app.requested_role), app.user_id]
             );
-        }
-        if (req.body.profile_badge) {
-            await conn.query(`UPDATE users SET profile_badge = ? WHERE id = ?`, [req.body.profile_badge, app.user_id]);
+            if (req.body.profile_badge) {
+                await conn.query(`UPDATE users SET profile_badge = ? WHERE id = ?`, [req.body.profile_badge, app.user_id]);
+            }
         }
         await conn.query(
-            `UPDATE membership_applications SET status = 'approved', processed_at = NOW(), admin_notes = ? WHERE id = ?`,
-            [req.body.admin_notes || null, req.params.id]
+            `UPDATE membership_applications SET status = ?, processed_at = NOW(), admin_notes = ?, decided_by = ? WHERE id = ?`,
+            [status, req.body.admin_notes || null, req.user.id, req.params.id]
         );
-
+        await recordAudit(conn, {
+            actor: req.user, action: approved ? 'application.approved' : 'application.rejected', entityType: 'application',
+            entityId: app.id, targetUserId: app.user_id, after: { status, role: app.requested_role }, ip: req.ip,
+        });
         await conn.commit();
 
-        // Email notification
         sendMembershipApplicationStatusEmail({
-            name:          app.name,
-            email:         app.email,
-            requestedRole: requestedRole,
-            status:        'approved',
-            profile_badge: req.body.profile_badge,
+            name: app.name, email: app.email, requestedRole: app.requested_role, status,
+            adminNotes: req.body.admin_notes || null, profile_badge: req.body.profile_badge,
         });
-
-        // Push notification — immediate
-        const roleLabel = requestedRole === 'founding_member' ? 'Founding Member'
-            : requestedRole === 'council_member' ? 'Chapter Lead' : 'Professional';
         notifyUser(
             app.user_id,
-            NOTIF_TYPES.MEMBERSHIP_APPROVED,
-            `${roleLabel} membership approved!`,
-            requestedRole === 'council_member'
-                ? 'Congratulations! Your Chapter Lead role is now active. Open your Chapter Lead dashboard to see your goals and referral code.'
-                : `Congratulations! Your ${roleLabel} membership is now active.`,
-            { url: '/user/dashboard' }
+            approved ? NOTIF_TYPES.MEMBERSHIP_APPROVED : NOTIF_TYPES.MEMBERSHIP_REJECTED,
+            approved ? 'Founding Member membership approved!' : 'Membership application update',
+            approved ? 'Congratulations! Your Founding Member membership is now active.'
+                : 'Your Founding Member membership application was not approved at this time.',
+            { url: approved ? '/user/dashboard' : '/contact' }
         );
-
-        return res.json({ success: true, message: 'Application approved. User role updated.' });
+        return res.json({ success: true, message: approved ? 'Application approved. User role updated.' : 'Application rejected.' });
     } catch (err) {
         await conn.rollback().catch(() => {});
-        if (isDuplicate(err, 'uq_clp_one_active_per_chapter')) {
-            return res.status(409).json({ success: false, message: CHAPTER_TAKEN_MESSAGE });
-        }
         next(err);
     } finally {
         conn.release();
     }
 };
 
+// PATCH /api/admin/membership-applications/:id/approve
+export const approveMembershipApplication = decideRoleApplication('approved');
+
 // PATCH /api/admin/membership-applications/:id/reject
-export const rejectMembershipApplication = async (req, res, next) => {
-    try {
-        const [[app]] = await pool.query(
-            `SELECT ma.*, u.name, u.email FROM membership_applications ma
-             JOIN users u ON u.id = ma.user_id
-             WHERE ma.id = ?`,
-            [req.params.id]
-        );
-        if (!app) return res.status(404).json({ success: false, message: 'Application not found.' });
-        if (app.status !== 'pending') {
-            return res.status(409).json({ success: false, message: 'Application has already been processed.' });
-        }
-
-        await pool.query(
-            `UPDATE membership_applications SET status = 'rejected', processed_at = NOW(), admin_notes = ? WHERE id = ?`,
-            [req.body.admin_notes || null, req.params.id]
-        );
-
-        // Email notification
-        sendMembershipApplicationStatusEmail({
-            name:          app.name,
-            email:         app.email,
-            requestedRole: app.requested_role,
-            status:        'rejected',
-            adminNotes:    req.body.admin_notes || null,
-        });
-
-        // Push notification — immediate
-        const roleLabel = app.requested_role === 'founding_member' ? 'Founding Member'
-            : app.requested_role === 'council_member' ? 'Chapter Lead' : 'Professional';
-        notifyUser(
-            app.user_id,
-            NOTIF_TYPES.MEMBERSHIP_REJECTED,
-            'Membership application update',
-            `Your ${roleLabel} membership application was not approved at this time.`,
-            { url: '/contact' }
-        );
-
-        return res.json({ success: true, message: 'Application rejected.' });
-    } catch (err) {
-        next(err);
-    }
-};
+export const rejectMembershipApplication = decideRoleApplication('rejected');
 
 // ─── Sub-Type Upgrade Requests (final_year_undergrad → working_professional) ──
 

@@ -3,8 +3,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sendWelcomeEmail, sendVerificationEmail } from '../services/emailService.js';
 import {
-    attachReferral, findActiveProfileByCode, extendLeadTermIfDue, needsPolicyAcceptance,
+    attachReferral, findActiveProfileByCode, extendLeadTermIfDue,
 } from '../services/chapterLeadService.js';
+import { getPendingGates } from '../services/earningsElectionService.js';
+import { capabilitiesFor } from '../utils/permissions.js';
 import { normalizeReferralCode, isCountryCode, POLICY_VERSION } from '../utils/chapterLeadRules.js';
 import { COOKIE_OPTIONS, completeLogin } from '../services/sessionService.js';
 
@@ -247,18 +249,36 @@ export const getMe = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
-        // Active Chapter Leads must accept the current Privacy Policy + Terms version.
-        // A failure here must never break session restore, so it degrades to "no prompt".
-        let needsPolicy = false;
-        try {
-            needsPolicy = await needsPolicyAcceptance(rows[0].id, rows[0].role);
-        } catch (err) {
-            console.error('[getMe] policy acceptance check failed:', err.message);
+        // What a chapter team member still has to do before carrying on (accept the current Privacy Policy
+        // + Terms; choose "receive or waive" earnings once that step is switched on). A failure here must
+        // never break session restore, so it degrades to "no prompt".
+        const gates = await getPendingGates(rows[0].id, rows[0].role);
+
+        // The chapter seat (tier + chapter) was read with the session itself; add the chapter's name.
+        let team = null;
+        if (req.user.team_profile_id) {
+            let chapter = null;
+            if (req.user.team_chapter_id) {
+                const [[c]] = await pool.query('SELECT id, name, slug, country_code FROM chapters WHERE id = ?', [req.user.team_chapter_id]);
+                chapter = c || null;
+            }
+            team = { profile_id: req.user.team_profile_id, tier: req.user.tier, chapter };
         }
 
+        const me = { ...rows[0], tier: req.user.tier || null };
         return res.json({
             success: true,
-            data: { ...rows[0], has_password: !!rows[0].has_password, needs_policy_acceptance: needsPolicy, policy_version: POLICY_VERSION },
+            data: {
+                ...rows[0],
+                has_password: !!rows[0].has_password,
+                tier: me.tier,
+                team,
+                // The one list of what this person may do; the frontend never keeps its own copy.
+                capabilities: capabilitiesFor(me),
+                gates,
+                needs_policy_acceptance: gates.policy,
+                policy_version: POLICY_VERSION,
+            },
         });
     } catch (err) {
         next(err);

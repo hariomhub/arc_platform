@@ -7,6 +7,7 @@ import {
     ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
+import { userCan } from '../utils/permissions.js';
 import { useToast } from '../hooks/useToast.js';
 import { getResourceById, downloadResource, getVideoStreamUrl } from '../api/resources.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
@@ -26,15 +27,7 @@ const TYPE_ICONS = {
     framework: FileText, 'lab_result': FileText, 'homepage_video': Video,
 };
 
-const DOWNLOAD_ROLES = ['founding_member', 'council_member'];
-const VIEW_ROLES     = ['founding_member', 'council_member', 'professional'];
 const VIDEO_TYPES    = ['tech_reels', 'homepage_video'];
-// working_professional sub-type also gets download access
-const canDownloadResources = (u) =>
-    u && (
-        DOWNLOAD_ROLES.includes(u.role) ||
-        (u.role === 'professional' && u.professional_sub_type === 'working_professional')
-    );
 
 // Detect file type from URL extension
 const getFileType = (url) => {
@@ -111,7 +104,7 @@ const VideoPlayer = ({ resourceId, title, demoUrl }) => {
 };
 
 // ── PDF / Image / Office inline viewer (for council+founding) ─────────────────
-const FileViewer = ({ resourceId, fileType, title }) => {
+const FileViewer = ({ resourceId, fileType, title, canDownload }) => {
     const [url,       setUrl]       = useState('');
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState('');
@@ -214,7 +207,7 @@ const FileViewer = ({ resourceId, fileType, title }) => {
                             </p>
                             <p style={{ margin:0, fontSize:'0.8rem', color:'#9aaab7', lineHeight:'1.5' }}>
                                 This file type cannot be previewed in the browser.
-                                {canDownload ? ' Download it using the button above.' : ' Chapter Leads can download it.'}
+                                {canDownload ? ' Download it using the button above.' : ' Chapter teams can download it.'}
                             </p>
                         </div>
                     )}
@@ -233,7 +226,7 @@ const ViewGate = ({ type }) => (
         </p>
         <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7', lineHeight:'1.5' }}>
             All members can preview {type === 'pdf' ? 'PDFs' : type === 'image' ? 'images' : 'files'} on the portal.
-            Chapter Leads can also download.
+            Chapter teams can also download.
         </p>
         <Link to="/login"
             style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#003366', color:'white', padding:'8px 18px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
@@ -280,9 +273,8 @@ const ResourceDetail = () => {
         finally { setDownloading(false); }
     };
 
-    const canDownload = canDownloadResources(user);
-    const canView     = VIEW_ROLES.includes(user?.role);
-    const canViewFile = VIEW_ROLES.includes(user?.role); // all logged-in members can preview
+    const canDownload = userCan(user, 'resources.download');
+    const canViewFile = Boolean(user); // all signed-in members can preview
     const isVideo     = resource && VIDEO_TYPES.includes(resource.type);
     const accent      = resource ? (TYPE_COLORS[resource.type] || '#003366') : '#003366';
     const TypeIcon    = resource ? (TYPE_ICONS[resource.type] || FileText) : FileText;
@@ -488,7 +480,7 @@ const ResourceDetail = () => {
                                                     style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', background:'#0f766e', color:'white', borderRadius:9, fontWeight:'700', fontSize:'0.84rem', textDecoration:'none' }}>
                                                     <Lock size={14} /> Upgrade to Download
                                                 </Link>
-                                                <p style={{ margin:'4px 0 0', fontSize:'0.7rem', color:'#9aaab7' }}>Chapter Leads only</p>
+                                                <p style={{ margin:'4px 0 0', fontSize:'0.7rem', color:'#9aaab7' }}>Chapter teams only</p>
                                             </div>
                                         )}
                                         {user && !isVideo && (
@@ -531,7 +523,7 @@ const ResourceDetail = () => {
                         {!isVideo && user && (
                             <div className="rd-file-viewer" style={{ marginBottom:14, animation:'fadeup 0.35s ease 0.05s both' }}>
                                 {canViewFile
-                                    ? <FileViewer resourceId={parseInt(id,10)} fileType={fileType || 'pdf'} title={resource.title} />
+                                    ? <FileViewer resourceId={parseInt(id,10)} fileType={fileType || 'pdf'} title={resource.title} canDownload={canDownload} />
                                     : <ViewGate type={fileType || 'pdf'} />
                                 }
                             </div>
@@ -540,7 +532,7 @@ const ResourceDetail = () => {
                             <div style={{ marginBottom:14, background:'white', border:'1.5px dashed #e2e8f0', borderRadius:12, padding:'2rem', textAlign:'center', animation:'fadeup 0.35s ease 0.05s both' }}>
                                 <Lock size={28} color="#c4cdd6" style={{ margin:'0 auto 10px', display:'block' }} />
                                 <p style={{ margin:'0 0 4px', fontSize:'0.9rem', fontWeight:'700', color:'#1a1a2e' }}>Sign in to view this resource</p>
-                                <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7' }}>Chapter Leads can also download it.</p>
+                                <p style={{ margin:'0 0 14px', fontSize:'0.8rem', color:'#9aaab7' }}>Chapter teams can also download it.</p>
                                 <Link to="/login"
                                     style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#003366', color:'white', padding:'8px 18px', borderRadius:8, fontWeight:'700', fontSize:'0.82rem', textDecoration:'none' }}>
                                     Sign In

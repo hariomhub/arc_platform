@@ -25,6 +25,8 @@ const CommunityQnA = lazy(() => import('./pages/CommunityQnA.jsx'));
 const QnADetail = lazy(() => import('./pages/QnADetail.jsx'));
 const Contact = lazy(() => import('./pages/Contact.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
+const ChaptersPage = lazy(() => import('./pages/ChaptersPage.jsx'));
+const ChapterPage = lazy(() => import('./pages/ChapterPage.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
@@ -123,6 +125,8 @@ function App() {
               <Route path="/blog" element={<Blogs />} />
               <Route path="/blog/:slug" element={<BlogDetail />} />
               <Route path="/media-hub" element={<MediaHub />} />
+              <Route path="/chapters" element={<ChaptersPage />} />
+              <Route path="/chapters/:slug" element={<ChapterPage />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Terms />} />

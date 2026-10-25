@@ -27,6 +27,7 @@ import { getFetchStats } from '../api/autoNews.js';
 import { getProducts, getProductById as getProductByIdAPI, createProduct, updateProduct, deleteProduct, addFeatureTest, updateFeatureTest, deleteFeatureTest, uploadProductMedia, deleteProductMedia, uploadEvidence, deleteEvidence, submitUserReview, deleteUserReview, getProductCategories, createProductCategory, uploadProductLogo, uploadCompanyLogo } from '../api/productReviews.js';
 import { calcAvgTestScore } from '../utils/productScore.js';
 import { getErrorMessage } from '../utils/apiHelpers.js';
+import { roleMeta, TIER } from '../config/roles.js';
 import { formatDate, formatDateTime } from '../utils/dateFormatter.js';
 import Pagination from '../components/common/Pagination.jsx';
 import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
@@ -40,7 +41,7 @@ const TABS = [
     { key: 'auto_news', label: 'Automated News', icon: Newspaper },
     { key: 'events', label: 'Manage Events', icon: CalendarDays },
     { key: 'workshops', label: 'Exec Workshops', icon: BookOpen },
-    { key: 'chapter_leads', label: 'Chapter Leads', icon: Target },
+    { key: 'chapter_leads', label: 'Chapter Teams', icon: Target },
     { key: 'team', label: 'Manage Team', icon: Users },
     { key: 'resources', label: 'Manage Resources', icon: FileText },
     { key: 'product_reviews', label: 'Product Reviews', icon: ShieldCheck },
@@ -50,9 +51,13 @@ const TABS = [
     { key: 'users', label: 'Manage Users', icon: Users },
 ];
 
-const ROLE_OPTIONS = ['founding_member', 'council_member', 'professional'];
-const ROLE_LABELS = { founding_member: 'Founding Member', council_member: 'Chapter Lead', professional: 'Professional' };
-const ROLE_COLORS = { founding_member: '#7C3AED', council_member: '#0284C7', professional: '#059669' };
+// A chapter team member (lead or ambassador) sees only these tabs. Everything else, including Pending
+// Resources, belongs to administrators (the server refuses it for anyone else). A tab may also need a capability.
+const TEAM_TABS = { news: null, auto_news: 'autonews.manage', events: null, resources: null };
+const tabsFor = (user, can) => (user?.role === 'founding_member'
+    ? TABS
+    : TABS.filter((t) => t.key in TEAM_TABS && (!TEAM_TABS[t.key] || can(TEAM_TABS[t.key]))));
+const pillOfRole = (role, tier) => { const m = roleMeta(role, tier); return PILL(m.color, m.bg); };
 const EVENT_CATEGORIES = ['webinar', 'seminar', 'workshop', 'podcast', 'conference'];
 const CATCOLORS = { webinar: '#0284C7', seminar: '#059669', workshop: '#7C3AED', podcast: '#DC2626', conference: '#D97706' };
 
@@ -189,6 +194,7 @@ const PendingTab = ({ showToast, onApproved }) => {
     // Chapter Lead approvals: the admin confirms the chapter the new lead will represent.
     const [chapterChoice, setChapterChoice] = useState('');
     const [chapterOptions, setChapterOptions] = useState([]);
+    const [overrideCap, setOverrideCap] = useState(false);
     const [editBadgeModal, setEditBadgeModal] = useState(null);
     const [editBadgeText, setEditBadgeText] = useState('');
     const [editBadgeSaving, setEditBadgeSaving] = useState(false);
@@ -266,6 +272,7 @@ const PendingTab = ({ showToast, onApproved }) => {
         });
         setBadgeText(currentBadge || '');
         setChapterChoice(app?.requested_chapter_id ? String(app.requested_chapter_id) : '');
+        setOverrideCap(false);
         if (app?.requested_role === 'council_member') {
             getAdminChapters()
                 .then((res) => setChapterOptions((res.data?.data || []).filter((c) => c.status === 'active')))
@@ -278,6 +285,10 @@ const PendingTab = ({ showToast, onApproved }) => {
         const { type, id, name } = badgeModal;
         const data = { profile_badge: badgeText.trim() || null };
         if (type === 'council' && chapterChoice) data.chapter_id = Number(chapterChoice);
+        if (type === 'council' && badgeModal.app?.requested_tier === TIER.AMBASSADOR) {
+            if (!chapterChoice) { showToast('Choose the chapter this ambassador will join.', 'warning'); return; }
+            if (overrideCap) data.override_cap = true;
+        }
         setBadgeModal(null);
 
         if (type === 'subtype') {
@@ -341,7 +352,7 @@ const PendingTab = ({ showToast, onApproved }) => {
         finally { setEditBadgeSaving(false); }
     };
 
-    const ROLE_BADGE = { council_member: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, executive: { color: '#0284C7', bg: 'rgba(2,132,199,0.1)' }, founding_member: { color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' } };
+    const appRole = (a) => (a.requested_role === 'founding_member' ? roleMeta('founding_member') : roleMeta('council_member', a.requested_tier));
     const STATUS_BADGE = { pending: { color: '#92400e', bg: '#fffbeb' }, approved: { color: '#15803d', bg: '#f0fdf4' }, rejected: { color: '#991b1b', bg: '#fef2f2' } };
 
     return (
@@ -382,7 +393,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: '1 1 200px', minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                                     <span style={{ fontWeight: '700', fontSize: '0.975rem', color: '#1E293B' }}>{u.name}</span>
-                                    <span style={PILL(ROLE_COLORS[u.role] || '#64748B', `${ROLE_COLORS[u.role] || '#64748B'}18`)}>{ROLE_LABELS[u.role] || u.role}</span>
+                                    <span style={pillOfRole(u.role, u.tier)}>{roleMeta(u.role, u.tier).label}</span>
                                 </div>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#64748B' }}><Mail size={12} /> {u.email}</span>
                                 {u.organisation && <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#64748B' }}><Building size={12} /> {u.organisation}</span>}
@@ -459,7 +470,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>{badgeModal.type === 'council' ? 'Approve Chapter Lead' : 'Assign Profile Badge'}</h3>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1E293B' }}>{badgeModal.type === 'council' ? `Approve ${roleMeta('council_member', badgeModal.app?.requested_tier).label}` : 'Assign Profile Badge'}</h3>
                             <button onClick={() => setBadgeModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem' }}>
@@ -468,20 +479,29 @@ const PendingTab = ({ showToast, onApproved }) => {
                             </p>
                             {badgeModal.type === 'council' && (
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <label htmlFor="approve-chapter" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#374151' }}>Chapter this lead will represent</label>
+                                    <label htmlFor="approve-chapter" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: '700', color: '#374151' }}>{badgeModal.app?.requested_tier === TIER.AMBASSADOR ? 'Chapter this ambassador will join' : 'Chapter this lead will represent'}</label>
                                     <select id="approve-chapter" className="adm-input" value={chapterChoice} onChange={(e) => setChapterChoice(e.target.value)}>
                                         <option value="">Assign later</option>
                                         {chapterOptions.map((c) => (
-                                            <option key={c.id} value={c.id} disabled={!!c.lead_name && String(c.id) !== chapterChoice}>
-                                                {c.name} ({countryName(c.country_code)}){c.lead_name ? ` - already led by ${c.lead_name}` : ''}
+                                            <option key={c.id} value={c.id} disabled={badgeModal.app?.requested_tier === TIER.AMBASSADOR ? (c.seats_left === 0 && !overrideCap) : (!!c.lead_name && String(c.id) !== chapterChoice)}>
+                                                {c.name} ({countryName(c.country_code)})
+                                                {badgeModal.app?.requested_tier === TIER.AMBASSADOR
+                                                    ? (c.seats_left === 0 ? ' - full' : ` - ${c.ambassadors_active} ambassador${c.ambassadors_active === 1 ? '' : 's'}${c.has_lead ? '' : ', no lead'}`)
+                                                    : (c.lead_name ? ` - already led by ${c.lead_name}` : '')}
                                             </option>
                                         ))}
                                     </select>
                                     <p style={{ margin: '4px 0 0', fontSize: '0.74rem', color: '#64748B', lineHeight: 1.5 }}>
                                         {badgeModal.app?.requested_country_code ? `Applicant is in ${countryName(badgeModal.app.requested_country_code)}. ` : ''}
-                                        Approving starts their term today and creates their referral code. Each chapter can have one active lead.
+                                        Approving starts their term today and creates their referral code. {badgeModal.app?.requested_tier === TIER.AMBASSADOR ? 'A chapter takes a limited number of ambassadors.' : 'Each chapter can have one active lead.'}
                                     </p>
                                 </div>
+                            )}
+                            {badgeModal.type === 'council' && badgeModal.app?.requested_tier === TIER.AMBASSADOR && (
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '-0.4rem 0 1rem', fontSize: '0.78rem', color: '#475569', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={overrideCap} onChange={(e) => setOverrideCap(e.target.checked)} />
+                                    Allow this even if the chapter is at its ambassador limit
+                                </label>
                             )}
                             {badgeModal.currentBadge && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.75rem', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '7px', marginBottom: '0.75rem', fontSize: '0.78rem', color: '#15803D', fontWeight: '600' }}>
@@ -577,7 +597,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                         </div>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#1E293B' }}>Membership Upgrade Applications</h3>
-                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Chapter Lead &amp; Founding Member requests</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94A3B8' }}>Chapter Lead, Chapter Ambassador &amp; Founding Member requests</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -599,7 +619,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                 {!appsLoading && apps.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                         {apps.map(a => {
-                            const roleBadge = ROLE_BADGE[a.requested_role] || {};
+                            const roleBadge = appRole(a);
                             const statusBadge = STATUS_BADGE[a.status] || {};
                             const isExpanded = expanded === a.id;
                             const displayName = a.full_name || a.current_name || '—';
@@ -609,18 +629,28 @@ const PendingTab = ({ showToast, onApproved }) => {
                                         <div style={{ flex: 1, minWidth: '180px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '4px' }}>
                                                 <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{displayName}</span>
-                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{a.requested_role === 'founding_member' ? 'Founding Member' : 'Chapter Lead'}</span>
+                                                <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: roleBadge.bg, color: roleBadge.color }}>{roleBadge.label}</span>
+                                                {a.kind === 'promotion_request' && <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: '#FAF5FF', color: '#7E22CE' }}>Wants to lead</span>}
                                                 <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: '700', background: statusBadge.bg, color: statusBadge.color, textTransform: 'capitalize' }}>{a.status}</span>
                                             </div>
                                             <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
-                                                <Mail size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{a.email}
-                                                {a.organization_name && <>&nbsp;·&nbsp;<Building size={11} style={{ verticalAlign: 'middle', marginRight: '3px' }} />{a.organization_name}</>}
+                                                <Mail size={11} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }} />{a.email}
+                                                {a.organization_name && <>&nbsp;·&nbsp;<Building size={11} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '3px' }} />{a.organization_name}</>}
                                                 {a.job_title && <>&nbsp;·&nbsp;{a.job_title}</>}
                                             </p>
                                             {a.requested_role === 'council_member' && (a.requested_country_code || a.requested_chapter_name) && (
                                                 <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#475569' }}>
-                                                    <MapPin size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                                    <MapPin size={11} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }} />
                                                     {a.requested_chapter_name ? `${a.requested_chapter_name} · ` : 'No chapter chosen · '}{countryName(a.requested_country_code)}
+                                                </p>
+                                            )}
+                                            {a.requested_role === 'council_member' && (
+                                                <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748B', lineHeight: 1.6 }}>
+                                                    {a.requested_chapter_id
+                                                        ? (a.chapter_has_lead ? `Chapter has a Chapter Lead, ${a.chapter_ambassadors} ambassador${Number(a.chapter_ambassadors) === 1 ? '' : 's'}.` : `Chapter has no Chapter Lead, ${a.chapter_ambassadors} ambassador${Number(a.chapter_ambassadors) === 1 ? '' : 's'}.`)
+                                                        : 'No chapter chosen yet.'}
+                                                    {' '}{a.routed_to === 'lead' ? `Waiting for ${a.routed_lead_name || 'the chapter lead'}; you can decide it too.` : 'It comes to the administrators.'}
+                                                    {' '}{a.employer_confirmed_at ? 'Confirmed they checked their employment terms.' : 'No employment confirmation on record.'}
                                                 </p>
                                             )}
                                             <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>Applied: {a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</p>
@@ -846,7 +876,7 @@ const PendingResourcesTab = ({ showToast, onCountChange }) => {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '0.82rem', color: '#475569', fontWeight: '600' }}>{r.uploader_name || 'Unknown'}</span>
-                                <span style={PILL(ROLE_COLORS[r.uploader_role] || '#64748B', `${ROLE_COLORS[r.uploader_role] || '#64748B'}18`)}>{ROLE_LABELS[r.uploader_role] || r.uploader_role || 'Member'}</span>
+                                <span style={pillOfRole(r.uploader_role, r.uploader_tier)}>{r.uploader_role ? roleMeta(r.uploader_role, r.uploader_tier).label : 'Member'}</span>
                                 <span style={{ fontSize: '0.75rem', color: '#94A3B8', background: '#F1F5F9', padding: '2px 10px', borderRadius: '100px' }}>Submitted: {formatDate(r.created_at)}</span>
                             </div>
                             <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
@@ -2310,10 +2340,13 @@ const WorkshopsTab = ({ showToast }) => {
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { user } = useAuth();
+    const { user, can } = useAuth();
     const { showToast } = useToast();
-    const VALID_TABS = TABS.map(t => t.key);
-    const defaultTab = user?.role === 'council_member' ? 'pending_resources' : 'pending';
+    const isFoundingMember = user?.role === 'founding_member';
+    const canAutoNews = can('autonews.manage');
+    const visibleTabs = tabsFor(user, can);
+    const VALID_TABS = visibleTabs.map(t => t.key);
+    const defaultTab = isFoundingMember ? 'pending' : 'news';
     const urlTab = searchParams.get('tab');
     const [tab, setTab] = useState(urlTab && VALID_TABS.includes(urlTab) ? urlTab : defaultTab);
     const [pendingCount, setPendingCount] = useState(0);
@@ -2354,15 +2387,11 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         if (user?.role === 'founding_member') { refreshPending(); refreshPendingResources(); refreshPendingNews(); refreshContactCount(); }
-        else if (user?.role === 'council_member') { refreshPendingResources(); refreshPendingNews(); }
-    }, [user, refreshPending, refreshPendingResources, refreshPendingNews, refreshContactCount]);
+        else if (user?.role === 'council_member' && canAutoNews) { refreshPendingNews(); }
+    }, [user, canAutoNews, refreshPending, refreshPendingResources, refreshPendingNews, refreshContactCount]);
 
     if (!user || (user.role !== 'founding_member' && user.role !== 'council_member')) return null;
 
-    const isFoundingMember = user.role === 'founding_member';
-    const COUNCIL_TABS = ['pending_resources', 'news', 'auto_news', 'events', 'resources'];
-    // workshops tab is founding_member only — not in COUNCIL_TABS
-    const visibleTabs = isFoundingMember ? TABS : TABS.filter(t => COUNCIL_TABS.includes(t.key));
     const activeTabInfo = TABS.find(t => t.key === tab);
     const ActiveTabIcon = activeTabInfo?.icon;
 
@@ -2387,7 +2416,7 @@ const AdminDashboard = () => {
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
                             <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Logged in as</span>
                             <span style={{ fontSize: '0.78rem', color: '#F1F5F9', fontWeight: '600' }}>{user.name}</span>
-                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : 'Chapter Lead'}</span>
+                            <span style={{ marginLeft: '4px', background: '#003366', border: '1px solid #0a4f99', borderRadius: '5px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: '700', color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isFoundingMember ? 'Admin' : roleMeta(user.role, user.tier).label}</span>
                         </div>
                     </div>
 
@@ -2421,6 +2450,7 @@ const AdminDashboard = () => {
                                 </div>
                             )}
 
+                            {isFoundingMember && (
                             <div className="adm-stat-card" onClick={() => setTab('pending_resources')} style={{ flex: '0 0 auto', paddingRight: '2rem', marginRight: '2rem', borderRight: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
                                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pendingResourcesCount > 0 ? '#F59E0B' : '#334155', flexShrink: 0 }} />
@@ -2432,6 +2462,9 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
 
+                            )}
+
+                            {canAutoNews && (
                             <div className="adm-stat-card" onClick={() => setTab('auto_news')} style={{ flex: '0 0 auto', paddingRight: '2rem', marginRight: '2rem', borderRight: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
                                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pendingNewsCount > 0 ? '#8B5CF6' : '#334155', flexShrink: 0 }} />
@@ -2442,6 +2475,8 @@ const AdminDashboard = () => {
                                     {pendingNewsCount > 0 && <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#A78BFA', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Needs review</span>}
                                 </div>
                             </div>
+
+                            )}
 
                             <div style={{ flex: '0 0 auto' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
@@ -2484,7 +2519,7 @@ const AdminDashboard = () => {
             {/* ── Content ── */}
             <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'clamp(1rem,3vw,1.75rem) clamp(1rem,3vw,1.5rem) 5rem' }}>
                 {tab === 'pending' && <PendingTab showToast={showToast} onApproved={refreshPending} />}
-                {tab === 'pending_resources' && <PendingResourcesTab showToast={showToast} onCountChange={setPendingResourcesCount} />}
+                {tab === 'pending_resources' && isFoundingMember && <PendingResourcesTab showToast={showToast} onCountChange={setPendingResourcesCount} />}
                 {tab === 'news' && <NewsTab showToast={showToast} />}
                 {tab === 'auto_news' && <AutomatedNewsManagement />}
                 {tab === 'events' && <EventsTab showToast={showToast} />}
@@ -2492,7 +2527,7 @@ const AdminDashboard = () => {
                 {tab === 'resources' && <ResourcesTab showToast={showToast} />}
                 {tab === 'product_reviews' && <ProductReviewsTab showToast={showToast} />}
                 {tab === 'workshops' && <WorkshopsTab showToast={showToast} />}
-                {tab === 'chapter_leads' && isFoundingMember && <ChapterLeadsManagement showToast={showToast} />}
+                {tab === 'chapter_leads' && isFoundingMember && <ChapterLeadsManagement showToast={showToast} onOpenApprovals={() => setTab('pending')} />}
                 {tab === 'nominations' && <AdminNominees embedded />}
                 {tab === 'framework' && <FrameworkManagement />}
                 {tab === 'contact' && isFoundingMember && <ContactMessagesManagement showToast={showToast} onCountChange={setContactNewCount} />}

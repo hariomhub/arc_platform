@@ -41,6 +41,9 @@ const optionalAuth = async (req, res, next) => {
             role: rows[0].role,
             professional_sub_type: rows[0].professional_sub_type || null,
             status: rows[0].status,
+            tier: rows[0].team_tier || null,
+            team_chapter_id: rows[0].team_chapter_id ?? null,
+            team_profile_id: rows[0].team_profile_id ?? null,
         };
     } catch (err) {
         console.error('[OptionalAuth] Role lookup failed, using token claims:', err.message);
