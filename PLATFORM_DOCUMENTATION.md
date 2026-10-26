@@ -845,3 +845,36 @@ Revenue ledger, earnings accrual and payouts wait for the payment gateway. Lead 
 1. Apply `0021_auth_otp.sql` **before** deploying (`npm run db:migrate`).
 2. Optionally set `EMAIL_BASE_URL=https://www.riskaicouncil.org` in the Azure app settings (now the default anyway) and, if wanted, a separate `OTP_SECRET`.
 3. After deploying, use the admin dashboard's test email and check the received headers.
+
+---
+
+## 14. AI Learning Agents (the robots)
+
+The five Learning Agents (NIST AI RMF, EU AI Act, ISO/IEC 42001, RBI FREE-AI, AI Risk Bridge Model) are small 3D robots.
+They appear in a row on the Framework page and each has its own page, `/agents/<slug>`, where the robot performs on a set
+that explains its framework. The pages still say "Coming soon" for the quizzes themselves.
+
+**Where things live** — `frontend/src/components/agents/robot/`:
+
+| File | What it does |
+|---|---|
+| `../../config/agents.js` | The five agents: name, slug, colourway (`finish`), set (`scene`), tagline, facts and voice pitch |
+| `engine.js` | The animation brain. One shared frame loop, springs for every joint, scripts as async functions (`walkTo`, `say`, `hello`, `spin` ...). Runs only while a robot is on screen |
+| `three/model.js` | The robot itself, built from primitives (no model files to download) |
+| `three/runtime.js` | One transparent WebGL canvas per row or stage; draws only when something moved. Loaded on demand with three.js |
+| `layout.js` | The geometry of the stage: the board on a screen in the middle, a pad for the robot at each side. The robot explains from whichever side is nearer the point and walks across the floor between points, so at rest it is never in front of the board |
+| `scenes/*.jsx` | One set per agent: the board (SVG) and the script the robot performs on it. `scenes/helpers.js` has the shared moves (walk to a side, point at something with the nearer arm, throw a block at the board, relax) |
+| `AgentHeroStage.jsx` / `SceneShell.jsx` | The stage on an agent page: set, effects, status bar, subtitles, "Ask me" buttons |
+| `AgentLauncher.jsx` | The row on the Framework page (and the other-agents strip). Puts on a short show by itself |
+| `voice.js` | Reads the robot's lines aloud with the browser's built-in speech: ranks the voices (natural ones first), speaks phrase by phrase, on/off button and a voice picker, both remembered per browser |
+
+**Behaviour to know about**
+- Nothing runs off screen: the loop, the 3D drawing and the robot's own timers all pause when the stage or row is not visible.
+- With `prefers-reduced-motion`, or a browser without WebGL, the robot is not drawn and the page shows the finished set with the
+  facts as plain text.
+- Voice is spoken only after the visitor has interacted with the page (a browser rule). Every spoken line is also shown as a subtitle.
+  How natural it sounds depends on the voices installed on the visitor's device (Edge's "Natural" voices and Chrome's Google voices are the best); the picker next to "Voice on" lets them choose.
+- The `facts` and the lines in `scenes/*.jsx` are plain-language summaries of each framework; have them reviewed against the
+  source documents before the agents go live (the RBI FREE-AI lines in particular).
+- Adding a sixth agent: add an entry to `config/agents.js`, a `scenes/<Name>Scene.jsx` (copy the closest one), and pick a finish
+  from `finishes.js`.

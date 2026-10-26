@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, ClipboardList, ChevronRight, ArrowRight, BookOpen, Download, Lock, Shield, Target, ShieldCheck, Search, BarChart, Landmark, Check, RefreshCw, Flag, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as frameworkAPI from '../api/framework';
-import BotMascot from '../components/agents/BotMascot';
-import { LEARNING_AGENTS, BOT_PALETTE } from '../config/agents';
+import AgentLauncher from '../components/agents/robot/AgentLauncher';
 
 // ─── Design constants ──────────────────────────────────────────────────────────
 // One brand accent (navy) used everywhere; gold is reserved for the single
@@ -641,32 +640,6 @@ const PlaybooksSection = () => {
     );
 };
 
-// ─── Learning Agents launcher ───────────────────────────────────────────────────
-// Agent data and the bot artwork are shared with the "coming soon" page each
-// agent link opens — see config/agents.js and components/agents/BotMascot.jsx.
-
-// Shows all five agent bots inline, no shared card/background — each stands
-// directly on the hero; the name brightening on hover is the click cue.
-const LearningAgentsLauncher = () => (
-    <div className="agents-bar">
-        <div className="agents-bar-head">
-            <div className="agents-bar-title-row">
-                <span className="agents-bar-title">AI Learning Agents</span>
-                <span className="agents-bar-new">NEW</span>
-            </div>
-            <span className="agents-bar-sub">{LEARNING_AGENTS.length} frameworks · Quiz-based learning for each</span>
-        </div>
-        <div className="agents-bar-row">
-            {LEARNING_AGENTS.map((a, i) => (
-                <Link key={a.key} to={a.path} className="agents-bar-item" style={{ animationDelay: `${i * 90}ms` }}>
-                    <BotMascot size={78} accent={BOT_PALETTE[i % BOT_PALETTE.length]} className="agent-card-icon" />
-                    <span className="agents-bar-name">{a.name.replace(/ Agent$/, '')}</span>
-                </Link>
-            ))}
-        </div>
-    </div>
-);
-
 const NAV_ITEMS = [
     { key: 'bridge', label: 'AI Risk Bridge Model', component: BridgeStagesSection },
     { key: 'maturity', label: 'Maturity Levels', component: MaturityLevelsSection },
@@ -938,52 +911,7 @@ const Framework = () => {
                 .hero-stat { transition: transform 0.18s, background 0.18s; }
                 .hero-stat:hover { transform: translateY(-3px); background: rgba(255,255,255,0.12); }
 
-                /* ── Learning Agents bar — shows all five bots inline, no shared card ──
-                   z-index 1200 keeps it above the sticky navbar's z-index:1000. */
-                @keyframes agentItemIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-                @keyframes agentItemFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-                /* Deliberately always in normal document flow, never absolutely
-                   positioned/floating — that was tried and kept overlapping the
-                   title or the stats row at various widths since an absolute box's
-                   height (which changes if its row wraps) isn't reserved by the
-                   layout around it. It's a real flex child stacked above the stats
-                   (see the hero JSX) instead, so the layout always reserves its
-                   space and it can't overlap anything at any screen size, while
-                   still visually landing top-right like before. */
-                .agents-bar { position: relative; }
-                .agents-bar-title-row { display: flex; align-items: center; gap: 10px; }
-                .agents-bar-new { display: inline-block; background: rgba(249,168,37,0.16); border: 1px solid rgba(249,168,37,0.4); color: ${GOLD}; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; }
-                .agents-bar-head { display: flex; flex-direction: column; margin-bottom: 14px; }
-                .agents-bar-title { font-size: 1.2rem; font-weight: 800; color: white; }
-                .agents-bar-sub { font-size: 0.85rem; color: #CBD5E1; margin-top: 4px; }
-                /* Fixed per-item width (not content/nowrap-driven) keeps the row's total
-                   width predictable regardless of agent-name length — 5 * 108px + 4 *
-                   16px gap ≈ 604px, which reliably fits next to the hero title within
-                   the hero's 1320px content cap. Bumping these two numbers is safe as
-                   long as title + gap + (that sum) still clears 1320px. */
-                .agents-bar-row { display: flex; gap: 16px; flex-wrap: wrap; max-width: 640px; }
-                .agents-bar-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 108px; text-decoration: none; cursor: pointer; animation: agentItemIn 0.4s ease both; transition: transform 0.18s; }
-                .agents-bar-item .agent-card-icon { animation: botBob 2.4s ease-in-out infinite, agentItemFloat 3.2s ease-in-out infinite; }
-                .agents-bar-item:hover { transform: translateY(-5px); }
-                .agents-bar-item:hover .agent-card-icon { animation-play-state: paused; transform: scale(1.1); }
-                .agents-bar-item:hover .agents-bar-name { color: ${GOLD}; }
-                /* min-height reserves room for 2 lines even for names that fit on one
-                   ("EU AI Act"), so every item is the same height and the stats row
-                   below sits flush regardless of which names happen to wrap. */
-                .agents-bar-name { font-size: 0.8rem; font-weight: 700; color: #E2E8F0; text-align: center; line-height: 1.3; min-height: 2.6em; transition: color 0.18s; }
-                /* BotMascot's size is a JS prop baked into an inline style (span) and
-                   plain width/height attributes (svg) — a class alone can't shrink it,
-                   so the span needs !important to beat its own inline style. The svg
-                   doesn't: CSS width/height on an <svg> already outranks its plain
-                   attributes, no !important needed there. */
-                @media (max-width: 480px) {
-                    .agents-bar-row { gap: 10px; }
-                    .agents-bar-item { width: 74px; gap: 5px; }
-                    .agents-bar-item .agent-card-icon { width: 52px !important; height: 68px !important; }
-                    .agents-bar-item .agent-card-icon .bot-mascot-svg { width: 52px; height: 68px; }
-                    .agents-bar-name { font-size: 0.66rem; min-height: 2.2em; }
-                }
-                .agent-card-icon { transition: transform 0.2s; }
+                /* ── Learning Agents — the launcher (five robots) styles itself, see components/agents/robot ── */
 
                 /* ── Responsive ── */
                 @media (max-width: 720px) {
@@ -1026,7 +954,7 @@ const Framework = () => {
                             takes the vertical space it needs and can't overlap the title
                             or wrap into anything below it, at any screen width. */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '28px' }}>
-                            <LearningAgentsLauncher />
+                            <AgentLauncher />
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
                                 {[{ n: '5', label: 'Bridge Stages' }, { n: '4', label: 'Maturity Levels' }, { n: '16+', label: 'Implementation Steps' }, { n: '6', label: 'Audit Templates' }].map(s => (
                                     <div key={s.label} className="hero-stat" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '14px 18px', textAlign: 'center', minWidth: '80px' }}>

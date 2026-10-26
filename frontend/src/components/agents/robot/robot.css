@@ -1,0 +1,144 @@
+/*
+ * robot.css - the few things that animate with CSS instead of the animation engine.
+ *
+ * The robot itself is moved by engine.js. Everything here is a short, one-off transition or keyframe: a prop that a
+ * scene toggles by flipping `data-on` ("0" / "1") (a card lighting up, a pillar rising, a plank dropping into place),
+ * the frame that slides to whatever the robot is explaining, and the marks drawn in front of everything (sparks, a
+ * ring on the pad, a beam from its hand, a block it throws). Browsers run these on their own, so the scripts never
+ * animate props frame by frame.
+ */
+
+.bot-stage { position: relative; border-radius: 18px; overflow: hidden; isolation: isolate;
+    background: radial-gradient(120% 90% at 20% 20%, #17356b 0%, #0b1d3f 55%, #071428 100%);
+    border: 1px solid rgba(147, 197, 253, 0.18); box-shadow: 0 18px 44px rgba(2, 8, 23, 0.45); }
+.bot-scene { display: block; width: 100%; height: auto; }
+.bot-scene-wrap { position: relative; }
+.bot-front { position: absolute; inset: 0; pointer-events: none; }
+.bot-3d { position: absolute; inset: 0; pointer-events: none; }
+.bot-canvas { display: block; width: 100%; height: 100%; }
+
+/* props: lit / popped / dropped / risen (the CSS owns their transform, so a position goes on a wrapper) */
+.bot-lit { opacity: 0.3; transition: opacity 0.45s ease; }
+.bot-lit[data-on="1"] { opacity: 1; }
+
+.bot-pop, .bot-drop, .bot-rise, .bot-spin { transform-box: fill-box; transform-origin: center; }
+.bot-pop { transition: transform 0.5s cubic-bezier(0.2, 1.5, 0.4, 1), opacity 0.2s ease; }
+.bot-pop[data-on="0"] { opacity: 0; transform: scale(0.3); }
+.bot-drop { transition: transform 0.55s cubic-bezier(0.3, 1.6, 0.5, 1), opacity 0.2s ease; }
+.bot-drop[data-on="0"] { opacity: 0; transform: translateY(-46px); }
+.bot-rise { transform-origin: 50% 100%; transition: transform 0.65s cubic-bezier(0.2, 1.35, 0.4, 1), opacity 0.2s ease; }
+.bot-rise[data-on="0"] { opacity: 0; transform: scaleY(0.04); }
+.bot-spin { transition: transform 0.9s cubic-bezier(0.3, 1.2, 0.4, 1); }
+.bot-slide { transition: transform 2.6s cubic-bezier(0.45, 0, 0.35, 1), opacity 0.3s ease; }
+.bot-glow { transition: opacity 0.5s ease; opacity: 0; }
+.bot-glow[data-on="1"] { opacity: 1; }
+
+/* the frame round whatever is being explained: it slides from one thing to the next */
+.bot-focus { fill: rgba(249, 168, 37, 0.06); stroke: #f9a825; stroke-width: 2; opacity: 0; pointer-events: none;
+    transition: transform 0.42s cubic-bezier(0.3, 1.15, 0.4, 1), width 0.42s cubic-bezier(0.3, 1.15, 0.4, 1), height 0.42s cubic-bezier(0.3, 1.15, 0.4, 1), opacity 0.25s ease;
+    animation: botFocus 1.7s ease-in-out infinite; }
+@keyframes botFocus { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.4; } }
+
+/* the pad: a slow ripple so the floor never sits dead */
+.bot-pulse { fill: none; stroke: #7FB1F5; stroke-width: 1.4; transform-box: fill-box; transform-origin: center; opacity: 0; animation: botPulse 5s ease-out infinite; }
+.bot-pulse.b { animation-delay: 2.5s; }
+@keyframes botPulse { 0% { opacity: 0.32; transform: scale(0.12); } 100% { opacity: 0; transform: scale(1); } }
+
+/* in front of everything: sparks, a ring where the robot lands, a beam from its hand, a block it throws */
+.bot-burst .bot-spark { transform-box: fill-box; transform-origin: center; animation: botSpark 0.9s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; opacity: 0; }
+@keyframes botSpark {
+    0%   { opacity: 0; transform: rotate(var(--a)) translateY(0) scale(0.4); }
+    15%  { opacity: 1; }
+    100% { opacity: 0; transform: rotate(var(--a)) translateY(-66px) scale(1); }
+}
+.bot-ring { fill: none; stroke: var(--fx, #7FB1F5); stroke-width: 2.4; transform-box: fill-box; transform-origin: center; opacity: 0; animation: botRing 0.95s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
+@keyframes botRing { 0% { opacity: 0.9; transform: scale(0.25); } 100% { opacity: 0; transform: scale(2.4); } }
+
+.bot-beam path { fill: none; stroke: var(--fx, #7FB1F5); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: botBeamDraw 0.28s ease-out forwards, botFade 1.5s ease-in 0.3s forwards; }
+.bot-beam path.halo { stroke-width: 9; opacity: 0.2; }
+.bot-beam circle { fill: var(--fx, #7FB1F5); opacity: 0; transform-box: fill-box; transform-origin: center; animation: botDot 1.8s ease-out 0.22s forwards; }
+.bot-beam .bot-beam-ping { fill: none; stroke: var(--fx, #7FB1F5); stroke-width: 2; animation: botPing 1.2s ease-out 0.22s forwards; }
+@keyframes botBeamDraw { to { stroke-dashoffset: 0; } }
+@keyframes botFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes botDot { 0% { opacity: 0; transform: scale(0.3); } 15% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes botPing { 0% { opacity: 0.9; transform: scale(0.4); } 100% { opacity: 0; transform: scale(3.4); } }
+
+.bot-throw-x { animation: botThrowX 0.64s linear forwards; }
+.bot-throw-y { animation: botThrowY 0.64s linear forwards; }
+@keyframes botThrowX { 0% { opacity: 1; transform: translateX(0); } 90% { opacity: 1; } 100% { opacity: 0; transform: translateX(var(--dx)); } }
+@keyframes botThrowY {
+    0%   { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+    45%  { transform: translateY(calc(var(--lift) * -1)); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4); }
+    100% { transform: translateY(var(--dy)); }
+}
+
+/* the bar under the set: who is speaking and what it is doing, what it says, how far through it is */
+.bot-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.35rem 1rem; padding: 0.5rem 1rem 0.6rem;
+    border-top: 1px solid rgba(147, 197, 253, 0.14); background: rgba(4, 11, 26, 0.5); }
+.bot-status { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #93C5FD; white-space: nowrap; min-width: 0; }
+.bot-status b { color: #E0F2FE; font-weight: 800; }
+.bot-status span.what { color: #94A3B8; overflow: hidden; text-overflow: ellipsis; }
+.bot-led { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #22C55E; animation: botLed 2.2s ease-out infinite; }
+.bot-led.busy { background: #F9A825; animation-name: botLedBusy; animation-duration: 1.1s; }
+@keyframes botLed { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); } 70%, 100% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } }
+@keyframes botLedBusy { 0% { box-shadow: 0 0 0 0 rgba(249, 168, 37, 0.6); } 70%, 100% { box-shadow: 0 0 0 7px rgba(249, 168, 37, 0); } }
+.bot-dots { display: inline-flex; gap: 6px; min-width: 6px; }
+.bot-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(147, 197, 253, 0.26); transition: background 0.2s ease, transform 0.2s ease; }
+.bot-dots i.done { background: rgba(147, 197, 253, 0.8); }
+.bot-dots i.now { background: #f9a825; transform: scale(1.4); }
+
+/* what the robot says, as a subtitle */
+.bot-caption { min-height: 2.5rem; display: flex; align-items: center; justify-content: center; text-align: center;
+    color: #E2E8F0; font-size: 0.94rem; line-height: 1.45; font-weight: 600; letter-spacing: 0.005em; }
+.bot-caption span { max-width: 40rem; animation: botCaptionIn 0.28s ease both; }
+.bot-caption.idle span { color: #94A3B8; font-weight: 500; }
+@keyframes botCaptionIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (max-width: 720px) {
+    .bot-bar { grid-template-columns: minmax(0, 1fr) auto; }
+    .bot-caption { grid-column: 1 / -1; order: 3; }
+}
+
+/* "Ask me" chips */
+.bot-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: center; margin-top: 0.7rem; }
+.bot-chip { appearance: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 0.8rem; color: #E0F2FE; background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(147, 197, 253, 0.32); border-radius: 100px; padding: 0.45rem 0.9rem; line-height: 1.2;
+    transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease, color 0.16s ease; }
+.bot-chip:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(249, 168, 37, 0.7); color: #fff; transform: translateY(-2px); }
+.bot-chip:active { transform: translateY(0); }
+.bot-chip:focus-visible { outline: 2px solid #f9a825; outline-offset: 2px; }
+.bot-chip:disabled { opacity: 0.55; cursor: default; transform: none; }
+.bot-chip[aria-pressed="true"] { background: rgba(249, 168, 37, 0.18); border-color: rgba(249, 168, 37, 0.75); color: #FDE68A; }
+
+/* voice on/off and the voice picker sit with the chips */
+.bot-voice { display: inline-flex; align-items: center; gap: 7px; }
+.bot-voice[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); border-color: rgba(147, 197, 253, 0.32); color: #E0F2FE; }
+.bot-voice[aria-pressed="false"] { color: #94A3B8; border-style: dashed; }
+select.bot-voice-pick { appearance: auto; color-scheme: dark; max-width: 10.5rem; padding-right: 0.5rem; text-overflow: ellipsis; }
+select.bot-voice-pick:hover { transform: none; }
+
+/* the agents as a row (Framework page launcher, and the strip on each agent page) */
+.bot-mini { display: block; overflow: visible; width: 100%; height: auto; }
+.bot-launch { position: relative; }
+.bot-launch-head { display: flex; flex-direction: column; margin-bottom: 10px; }
+.bot-launch-title-row { display: flex; align-items: center; gap: 10px; }
+.bot-launch-title { font-size: 1.2rem; font-weight: 800; color: white; }
+.bot-launch-new { display: inline-block; background: rgba(249,168,37,0.16); border: 1px solid rgba(249,168,37,0.4); color: #f9a825; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; }
+.bot-launch-sub { font-size: 0.85rem; color: #CBD5E1; margin-top: 4px; }
+.bot-launch-row { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px 10px; max-width: 700px; padding-top: 20px; }
+.bot-launch-slot { display: block; width: 92px; aspect-ratio: 240 / 290; }
+.bot-launch-item { display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; cursor: pointer; border-radius: 16px; padding: 4px 2px 8px; }
+.bot-launch-item:focus-visible { outline: 2px solid #f9a825; outline-offset: 2px; }
+.bot-launch-name { font-size: 0.8rem; font-weight: 700; color: #E2E8F0; text-align: center; line-height: 1.3; min-height: 2.6em; transition: color 0.18s; }
+.bot-launch-item:hover .bot-launch-name, .bot-launch-item:focus-visible .bot-launch-name { color: #f9a825; }
+@media (max-width: 520px) {
+    .bot-launch-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; }
+    .bot-launch-slot { width: 76px; }
+    .bot-launch-name { font-size: 0.72rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bot-lit, .bot-pop, .bot-drop, .bot-rise, .bot-spin, .bot-glow, .bot-slide, .bot-chip, .bot-dots i, .bot-focus { transition: none !important; }
+    .bot-caption span { animation: none; }
+    .bot-pulse, .bot-led, .bot-focus { animation: none; }
+    .bot-burst .bot-spark, .bot-ring, .bot-beam *, .bot-throw-x, .bot-throw-y { animation: none; opacity: 0; }
+}
