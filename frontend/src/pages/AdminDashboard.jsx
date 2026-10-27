@@ -475,7 +475,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                         </div>
                         <div style={{ padding: '1.5rem' }}>
                             <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: '#475569' }}>
-                                You are approving <strong>{badgeModal.name}</strong>. Assign a profile badge to display next to their name in the community feed.
+                                You are approving <strong>{badgeModal.name}</strong>. Assign a profile badge to display next to their name on Tech Social.
                             </p>
                             {badgeModal.type === 'council' && (
                                 <div style={{ marginBottom: '1rem' }}>
@@ -552,7 +552,7 @@ const PendingTab = ({ showToast, onApproved }) => {
                                 </div>
                             )}
                             <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#475569' }}>
-                                This badge appears next to <strong>{editBadgeModal.name}'s</strong> name in the community feed. Leave empty to remove the badge.
+                                This badge appears next to <strong>{editBadgeModal.name}'s</strong> name on Tech Social. Leave empty to remove the badge.
                             </p>
                             <input
                                 type="text"

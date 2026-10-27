@@ -168,7 +168,7 @@ export default function PrivacyPolicy() {
 
             <SectionCard id="how-we-use" title="3. How We Use Your Information">
               <Row label="Account Management" value="Creating accounts, OTP email verification, admin approval processing." />
-              <Row label="Platform Services" value="Posts, comments, events, resources, community feed, and member interactions." />
+              <Row label="Platform Services" value="Posts, comments, events, resources, Tech Social, and member interactions." />
               <Row label="Communications" value="Welcome emails, OTPs, membership expiry notices, and activity notifications." />
               <Row label="Moderation" value="Reviewing community content against our standards and terms of use." />
               <Row label="Chapter Lead Programme" value="Attributing referred members to their referrer, measuring quarterly goals, showing chapter teams on the public Chapters pages and a team leaderboard, reviewing performance under the Terms, sending quarter results and warnings, and calculating revenue share and commission." />

@@ -31,3 +31,6 @@ export const getLeaderboard = (params) => api.get('/chapter-lead/leaderboard', {
 export const getTeam               = ()           => api.get('/chapter-lead/team');
 export const decideTeamApplication = (id, data)   => api.patch(`/chapter-lead/team/applications/${id}`, data);
 export const removeTeamMember      = (profileId, reason) => api.post(`/chapter-lead/team/members/${profileId}/remove`, { reason });
+
+// The invitation messages shown beside the referral code (the words an administrator can edit)
+export const getOutreachKit = () => api.get('/chapter-lead/outreach-kit');

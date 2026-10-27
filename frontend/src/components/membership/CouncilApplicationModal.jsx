@@ -184,7 +184,7 @@ const CouncilApplicationModal = ({ isOpen, onClose, initialTier = 'ambassador', 
                                     <div><dt style={{ fontWeight: 800, color: colors.text }}>Each quarter</dt><dd style={{ margin: 0, color: colors.muted }}>{summary ? summary.join(', ') : 'Loading the current targets…'}{rules ? `. At least ${rules.min_goals_met} of 4 goals make a quarter count.` : ''}</dd></div>
                                     <div><dt style={{ fontWeight: 800, color: colors.text }}>Who decides</dt><dd style={{ margin: 0, color: colors.muted }}>{role.reviewer}</dd></div>
                                     <div><dt style={{ fontWeight: 800, color: colors.text }}>Money</dt><dd style={{ margin: 0, color: colors.muted }}>{tier === 'lead' ? leadMoney : role.money}</dd></div>
-                                    <div><dt style={{ fontWeight: 800, color: colors.text }}>You can</dt><dd style={{ margin: 0, color: colors.muted }}>Post in the community feed, write blogs, request to host podcasts and workshops, and draft events and news (an administrator publishes them){tier === 'lead' ? ', approve ambassadors and manage the automated news feed' : ''}.</dd></div>
+                                    <div><dt style={{ fontWeight: 800, color: colors.text }}>You can</dt><dd style={{ margin: 0, color: colors.muted }}>Post on Tech Social, write blogs, request to host podcasts and workshops, and draft events and news (an administrator publishes them){tier === 'lead' ? ', approve ambassadors and manage the automated news feed' : ''}.</dd></div>
                                 </dl>
                             </div>
                             <p style={{ margin: 0, fontSize: '0.78rem', color: colors.muted, lineHeight: 1.6 }}>

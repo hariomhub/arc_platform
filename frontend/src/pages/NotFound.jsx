@@ -5,7 +5,7 @@ import { Home, ArrowLeft, Calendar, BookOpen, MessageSquare } from 'lucide-react
 const SUGGESTIONS = [
     { label: 'Events', href: '/events', icon: Calendar },
     { label: 'Resources', href: '/resources', icon: BookOpen },
-    { label: 'Community Q&A', href: '/community-qna', icon: MessageSquare },
+    { label: 'Tech Social', href: '/community-qna', icon: MessageSquare },
 ];
 
 const NotFound = () => {

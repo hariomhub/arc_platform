@@ -14,28 +14,24 @@ import { countryName } from '../../utils/countries.js';
 const Skeleton = ({ height }) => <div className="skel" style={{ height }} />;
 
 /**
- * The dashboard of a Chapter Lead or Chapter Ambassador, laid out as one column of full-width rows so
- * nothing sits beside a long sidebar:
+ * The dashboard of a Chapter Lead or Chapter Ambassador, laid out as full-width rows so nothing sits beside a
+ * long sidebar:
  *
- *   1. Referral code (the thing to share) and, beside it, the tour video.
- *   2. "Get started": the first steps, ticked off as they happen. Folds away when all are done.
+ *   1. Referral code with "Invite someone" (ready-made messages) under it, and beside them the tour video and
+ *      the chapter summary. The two columns come out about the same height.
+ *   2. "Get started": the first steps, ticked off as they happen, as a strip. Folds away when all are done.
  *   3. The current quarter: what is left to do, then the four goals.
  *   4. Tabs: Overview, team, content, referrals, requests, leaderboard, history, settings.
  *
- * Wide screens put the referral card and checklist on the left and the video and chapter summary on the
- * right. On a phone they stack: referral, video, chapter, checklist.
+ * On a phone they stack: referral and invite, video, chapter, checklist.
  */
 
 const CSS = `
-    .tm-top { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); grid-template-rows: auto 1fr; gap: 1.25rem; align-items: start; }
-    .tm-ref   { grid-column: 1; grid-row: 1; min-width: 0; }
-    .tm-start { grid-column: 1; grid-row: 2; min-width: 0; }
-    .tm-side  { grid-column: 2; grid-row: 1 / span 2; display: grid; gap: 1.25rem; min-width: 0; }
+    .tm-top { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); gap: 1.25rem; align-items: start; }
+    .tm-ref  { min-width: 0; }
+    .tm-side { display: grid; gap: 1.25rem; min-width: 0; }
     @media (max-width: 1000px) {
-        .tm-top { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
-        .tm-ref { grid-column: 1; grid-row: 1; }
-        .tm-side { grid-column: 1; grid-row: 2; }
-        .tm-start { grid-column: 1; grid-row: 3; }
+        .tm-top { grid-template-columns: minmax(0, 1fr); }
     }
     .tm-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 1.25rem; align-items: stretch; }
     .tour-play .tour-play-icon { transition: transform .15s ease; }
@@ -107,10 +103,10 @@ const TeamDashboard = ({ lead, tab, setTab, showToast, onReload, member, Unavail
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.25rem', minWidth: 0 }}>
                 <style>{CSS}</style>
                 <div className="tm-top">
-                    <div className="tm-ref"><Skeleton height={210} /></div>
-                    <div className="tm-start"><Skeleton height={260} /></div>
+                    <div className="tm-ref"><Skeleton height={520} /></div>
                     <div className="tm-side"><Skeleton height={300} /></div>
                 </div>
+                <Skeleton height={130} />
                 <Skeleton height={120} />
             </div>
         );
@@ -142,16 +138,18 @@ const TeamDashboard = ({ lead, tab, setTab, showToast, onReload, member, Unavail
                         tier={tier}
                         goal={membersGoal && !data.quarter.partial ? { counted: membersGoal.counted, target: membersGoal.target } : null}
                         profileId={data.profile.id}
+                        chapterName={data.profile.chapter?.name || ''}
                         onOpenReferrals={() => openTab('referrals')}
                         showToast={showToast}
                     />
                 </div>
-                <div className="tm-start"><GetStarted data={data} onOpenTab={openTab} /></div>
                 <aside className="tm-side" aria-label="Tour and chapter">
                     <TourVideo tour={data.tour} profileId={data.profile.id} />
                     <ChapterCard data={data} />
                 </aside>
             </div>
+
+            <GetStarted data={data} onOpenTab={openTab} />
 
             <CurrentQuarter data={data} onOpenTab={openTab} />
 

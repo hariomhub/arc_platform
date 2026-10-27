@@ -52,7 +52,7 @@ const Sidebar = ({ onTagClick, topTags, totalCount }) => {
                             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', animation: 'cf-pulse-dot 2s ease-in-out infinite' }} />
                             <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Feed</span>
                         </div>
-                        <h3 style={{ margin: '0 0 6px', fontSize: '1.2rem', fontWeight: '800', color: 'white' }}>Community Feed</h3>
+                        <h3 style={{ margin: '0 0 6px', fontSize: '1.2rem', fontWeight: '800', color: 'white' }}>Tech Social</h3>
                         <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5' }}>
                             Curated knowledge from AI risk professionals.
                         </p>
@@ -158,7 +158,7 @@ const CommunityQnA = () => {
     const canPost = (isCouncilMember?.() || isAdmin?.());
     const feedRef = useRef(null);
 
-    useEffect(() => { document.title = 'Community Feed | Risk AI Council'; }, []);
+    useEffect(() => { document.title = 'Tech Social | Risk AI Council'; }, []);
 
     const setParam = useCallback((key, value) => {
         setSearchParams(prev => {

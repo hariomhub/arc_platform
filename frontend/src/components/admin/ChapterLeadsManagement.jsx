@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users, Inbox, FileText, Mic, MapPin, SlidersHorizontal, CalendarClock, Video } from 'lucide-react';
+import { Users, Inbox, FileText, Mic, MapPin, SlidersHorizontal, CalendarClock, Video, Megaphone } from 'lucide-react';
 import { getChapterLeadSummary } from '../../api/adminChapterLeads.js';
 import LeadsOverview from './chapterLeads/LeadsOverview.jsx';
 import LeadDetailModal from './chapterLeads/LeadDetailModal.jsx';
@@ -10,6 +10,7 @@ import ChaptersManager from './chapterLeads/ChaptersManager.jsx';
 import PolicyManager from './chapterLeads/PolicyManager.jsx';
 import TermChanges from './chapterLeads/TermChanges.jsx';
 import TourManager from './chapterLeads/TourManager.jsx';
+import OutreachKitManager from './chapterLeads/OutreachKitManager.jsx';
 
 const VIEWS = [
     { key: 'leads',    label: 'Chapter teams',  icon: Users },
@@ -20,6 +21,7 @@ const VIEWS = [
     { key: 'terms',    label: 'Term changes',   icon: CalendarClock },
     { key: 'policy',   label: 'Programme rules', icon: SlidersHorizontal },
     { key: 'tour',     label: 'Tour video',     icon: Video },
+    { key: 'outreach', label: 'Outreach kit',   icon: Megaphone },
 ];
 
 /**
@@ -90,6 +92,7 @@ const ChapterLeadsManagement = ({ showToast, onOpenApprovals }) => {
             {view === 'terms' && <TermChanges onOpenLead={setOpenLeadId} />}
             {view === 'policy' && <PolicyManager showToast={showToast} />}
             {view === 'tour' && <TourManager showToast={showToast} />}
+            {view === 'outreach' && <OutreachKitManager showToast={showToast} />}
 
             {openLeadId && (
                 <LeadDetailModal

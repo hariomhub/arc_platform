@@ -492,7 +492,7 @@ export const sendAccountApprovedEmail = ({ name, email, role, profile_badge }) =
     ${listBox('Available to you now', [
       'Browse research papers, whitepapers &amp; resources',
       'Register for upcoming AI governance events',
-      'Join the discussion in the Community Feed',
+      'Join the discussion on Tech Social',
       'Submit nominations for the awards',
       'Explore the AI Risk Framework',
     ])}
@@ -793,14 +793,14 @@ export const sendMembershipApplicationStatusEmail = ({ name, email, requestedRol
         'Your Chapter Ambassador dashboard, with quarterly goals and tracking',
         'Your personal referral code and link for inviting new members',
         'Write blogs and request to host podcasts or workshops',
-        'Share posts in the Community Feed',
+        'Share posts on Tech Social',
         'A volunteer role: it does not include revenue share or commission',
       ]
       : [
         'Your Chapter Lead dashboard, with quarterly goals and tracking',
         'Your personal referral code and link for inviting new members',
         'Write blogs and request to host podcasts or workshops',
-        'Share posts in the Community Feed',
+        'Share posts on Tech Social',
       ];
 
   const notes = adminNotes

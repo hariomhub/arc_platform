@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Copy, Check, Link2, Share2, Mail, MessageCircle, Linkedin, ArrowRight } from 'lucide-react';
+import { Copy, Check, Link2, Share2, ArrowRight } from 'lucide-react';
 import { colors } from '../ui/kit.jsx';
+import InvitePanel from './InvitePanel.jsx';
 import { metaOfUser } from '../../config/roles.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { setLocalFlag } from '../../utils/localFlags.js';
@@ -11,11 +12,12 @@ export const sharedFlag = (profileId) => `shared:${profileId}`;
 const shareText = 'Join me on Risk AI Council, a community for practical AI governance and risk.';
 
 /**
- * The referral code, front and centre. A member counts toward the goal once an administrator approves
- * them, so the three numbers under the code say how many have joined, how many are counted, and how many
- * are waiting.
+ * The referral code, front and centre, with the way to use it: "Invite someone" (ready-made messages with the
+ * sender's name, chapter, code and link already in them) sits right under the code. A member counts toward the
+ * goal once an administrator approves them, so the three numbers at the bottom say how many have joined, how
+ * many are counted, and how many are waiting.
  */
-const ReferralHero = ({ code, counts, tier, goal, profileId, onOpenReferrals, showToast }) => {
+const ReferralHero = ({ code, counts, tier, goal, profileId, chapterName, onOpenReferrals, showToast }) => {
     const { user } = useAuth();
     const accent = metaOfUser(user).color;
     const [copied, setCopied] = useState('');
@@ -40,13 +42,6 @@ const ReferralHero = ({ code, counts, tier, goal, profileId, onOpenReferrals, sh
             mark();
         } catch { /* closed without sharing */ }
     };
-
-    const encoded = encodeURIComponent(link);
-    const channels = [
-        { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${link}`)}` },
-        { key: 'linkedin', label: 'LinkedIn', icon: Linkedin, href: `https://www.linkedin.com/sharing/share-offsite/?url=${encoded}` },
-        { key: 'email', label: 'Email', icon: Mail, href: `mailto:?subject=${encodeURIComponent('Join me on Risk AI Council')}&body=${encodeURIComponent(`${shareText}\n\n${link}`)}` },
-    ];
 
     const stat = (value, label) => (
         <div>
@@ -82,21 +77,14 @@ const ReferralHero = ({ code, counts, tier, goal, profileId, onOpenReferrals, sh
                 <button type="button" onClick={() => copy(link, 'link')} className="kit-btn kit-focus" style={button(copied === 'link')} aria-live="polite">
                     {copied === 'link' ? <><Check size={15} aria-hidden="true" /> Copied</> : <><Link2 size={15} aria-hidden="true" /> Copy link</>}
                 </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: '0.8rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: colors.muted }}>Send it:</span>
-                {channels.map(({ key, label, icon: Icon, href }) => (
-                    <a key={key} href={href} target="_blank" rel="noopener noreferrer" onClick={mark} className="kit-btn kit-focus" style={{ ...button(false), padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
-                        <Icon size={14} aria-hidden="true" /> {label}
-                    </a>
-                ))}
                 {typeof navigator !== 'undefined' && navigator.share && (
-                    <button type="button" onClick={nativeShare} className="kit-btn kit-focus" style={{ ...button(false), padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
-                        <Share2 size={14} aria-hidden="true" /> More
+                    <button type="button" onClick={nativeShare} className="kit-btn kit-focus" style={button(false)}>
+                        <Share2 size={15} aria-hidden="true" /> Share
                     </button>
                 )}
             </div>
+
+            <InvitePanel tier={tier} chapterName={chapterName} userName={user?.name || ''} code={code} link={link} accent={accent} onShared={mark} showToast={showToast} />
 
             <div style={{ display: 'flex', gap: 'clamp(1rem,3vw,2rem)', flexWrap: 'wrap', alignItems: 'flex-end', borderTop: `1px solid ${colors.border}`, marginTop: '1.1rem', paddingTop: '0.95rem' }}>
                 {stat(counts.total, 'joined with your code')}

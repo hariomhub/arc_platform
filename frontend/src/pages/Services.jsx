@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Users, ArrowRight, CheckCircle, Award, BookOpen, Globe } from 'lucide-react';
 
 const WHY_ITEMS = [
@@ -17,9 +17,13 @@ const Services = () => {
         <>
             <style>{`
                 /* ── Hero ── */
+                .svc-hero-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.2rem 1.1rem; margin-bottom: 1rem; font-size: 0.85rem; }
+                .svc-hero-links span { color: #93C5FD; }
+                .svc-hero-links a { color: white; font-weight: 600; text-decoration: none; }
+                .svc-hero-links a:hover { text-decoration: underline; }
                 .svc-hero {
                     background: linear-gradient(135deg,#002244 0%,#003366 60%,#005599 100%);
-                    padding: clamp(1.5rem,4vw,2.5rem) clamp(0.75rem,1.6vw,1rem);
+                    padding: clamp(0.7rem,1.8vw,1rem) clamp(0.75rem,1.6vw,1rem) clamp(1.5rem,4vw,2.5rem);
                     text-align: center;
                     position: relative;
                     overflow: hidden;
@@ -96,6 +100,13 @@ const Services = () => {
                 <div style={{ position:'absolute', top:'-100px', right:'-100px', width:'400px', height:'400px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }}/>
                 <div style={{ position:'absolute', bottom:'-80px', left:'-80px', width:'320px', height:'320px', borderRadius:'50%', background:'rgba(255,255,255,0.02)', pointerEvents:'none' }}/>
                 <div style={{ maxWidth:'750px', margin:'0 auto', position:'relative', zIndex:1 }}>
+                    {/* Events and awards sit in the Services menu; this line is for visitors who land here directly */}
+                    <div className="svc-hero-links">
+                        <span>Looking for events or awards?</span>
+                        <Link to="/events">Events &amp; Podcasts</Link>
+                        <Link to="/nominees">Vote for nominees</Link>
+                        <Link to="/winners">Award winners</Link>
+                    </div>
                     <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(255,255,255,0.1)', borderRadius:'999px', padding:'0.4rem 1rem', marginBottom:'1.5rem', color:'#93C5FD', fontSize:'0.85rem', fontWeight:'600' }}>
                         <Globe size={14}/> Professional Services
                     </div>

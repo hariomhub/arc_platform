@@ -210,6 +210,20 @@ router.post('/tour/upload', tourFile, tourText, validate, ctrl.uploadTour);
 router.patch('/tour', tourText, validate, ctrl.patchTour);
 router.delete('/tour', ctrl.deleteTour);
 
+// ── Outreach kit ─────────────────────────────────────────────────────────────
+router.get('/outreach-kit', ctrl.getOutreachKitAdmin);
+router.put(
+    '/outreach-kit',
+    [
+        body('blocks').optional().isObject().withMessage('Send the shared blocks as an object.'),
+        body('templates').optional().isObject().withMessage('Send the messages as an object.'),
+        body('based_on').optional({ nullable: true }).isString().withMessage('based_on must be the time the kit was loaded.'),
+    ],
+    validate,
+    ctrl.putOutreachKit,
+);
+router.delete('/outreach-kit', ctrl.deleteOutreachKit);
+
 // ── Jobs ─────────────────────────────────────────────────────────────────────
 router.post('/run-daily', ctrl.runDaily);
 

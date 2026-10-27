@@ -26,7 +26,7 @@
 
 **AI Risk Council (ARC)** is a professional membership platform for AI risk governance practitioners. It provides:
 - A curated AI Risk Framework with downloadable playbooks
-- Community Q&A and knowledge sharing
+- Tech Social (the member feed) and knowledge sharing
 - Events, webinars, and workshops
 - Curated and automated AI news
 - Research resources and whitepapers
@@ -118,7 +118,7 @@ Guests can browse most public content but cannot interact.
 | AI Risk Framework | ✅ Browse pillars/content — ❌ Cannot download playbooks |
 | Research & Resources | ✅ Browse listing — ❌ Cannot download |
 | Product Reviews | ✅ View only |
-| Community Q&A | ✅ View only — ❌ Cannot post or vote |
+| Tech Social | ✅ View only — ❌ Cannot post or vote |
 | Certifications | ✅ View only |
 | All Nominees | ✅ View only |
 | Register / Login | ✅ |
@@ -135,7 +135,7 @@ Self-registers via `/register`. Account starts as `pending` until approved by a 
 |---|---|
 | Everything guests can do | ✅ |
 | Register for events & workshops | ✅ + Confirmation email sent |
-| Community Q&A — post, answer, vote | ✅ |
+| Tech Social — post, answer, vote | ✅ |
 | Download resources (whitepapers, articles, tools) | ✅ |
 | Upload resources | ✅ — requires admin approval before visible |
 | AI Risk Framework — browse all content | ✅ |
@@ -158,7 +158,7 @@ Applies from `/membership` (or a chapter's page `/chapters/:slug`), choosing one
 |---|---|
 | Everything a Professional can do | ✅ |
 | Dashboard with quarterly goals (5 members, 1 podcast, 5-8 posts, 1 blog; 3 of 4 = met), referral code, team leaderboard | ✅ |
-| Post in the community feed, write blogs, request to host podcasts / workshops | ✅ |
+| Post on Tech Social, write blogs, request to host podcasts / workshops | ✅ |
 | Draft events, news and workshops | ✅ (saved as drafts; an administrator publishes) |
 | Download framework playbooks and resources, upload resources (pending approval) | ✅ |
 | Admin Dashboard: Manage News, Manage Events, Manage Resources | ✅ (drafts and own items) |
@@ -337,7 +337,7 @@ A structured framework for AI governance, organized into pillars, phases, maturi
 
 ---
 
-### 6.7 Community Q&A (`/community-qna`)
+### 6.7 Tech Social (`/community-qna`; formerly the Community Feed, and before that Community Q&A)
 
 **Public:** Browse questions and answers (read-only).  
 **All logged-in members:** Full participation.
@@ -451,7 +451,7 @@ Overview page linking to:
 - Product Reviews
 - Certifications
 - Framework
-- Community Q&A
+- Tech Social
 
 ---
 
@@ -487,7 +487,7 @@ The tab list comes from `tabsFor(user, can)` in `AdminDashboard.jsx`: founding m
 (Before this change the chapter team's dashboard opened on Pending Resources, an admin-only list, and showed an access-denied error. It now opens on Manage News.)
 
 ### Chapter Teams tab (Founding Member)
-Sections: **Chapter teams** (everyone with tier, chapter, goals, standing and earnings choice; filters for role, status and search; a banner for chapters without a lead), Host requests, Blog review, Sessions, **Chapters** (lead, ambassadors, seats, applications waiting; "Team" opens one chapter's whole team and lets you make an ambassador the lead when the seat is empty), Term changes, **Programme rules** (goals and seat limit per tier; every save is a new dated version), **Tour video** (the one video every Chapter Lead and Chapter Ambassador sees at the top of their dashboard: paste a YouTube or Vimeo link, a direct .mp4/.webm link, or upload a file up to 100 MB; a live preview shows exactly what they see; setting a new video asks everyone to watch it again).
+Sections: **Chapter teams** (everyone with tier, chapter, goals, standing and earnings choice; filters for role, status and search; a banner for chapters without a lead), Host requests, Blog review, Sessions, **Chapters** (lead, ambassadors, seats, applications waiting; "Team" opens one chapter's whole team and lets you make an ambassador the lead when the seat is empty), Term changes, **Programme rules** (goals and seat limit per tier; every save is a new dated version), **Tour video** (the one video every Chapter Lead and Chapter Ambassador sees at the top of their dashboard: paste a YouTube or Vimeo link, a direct .mp4/.webm link, or upload a file up to 100 MB; a live preview shows exactly what they see; setting a new video asks everyone to watch it again), **Outreach kit** (the words of the invitation messages on their dashboard; see "The outreach kit" below).
 
 ### Manage Users (Founding Member)
 List with role, tier and chapter filters. **Manage user** edits profile, role, tier, chapter and term start in one transaction (`PATCH /api/admin/users/:id`), and shows the person's change history (`GET /api/admin/users/:id/audit`). Only the fields you changed are sent. The person is told what changed; an email change signs them out everywhere and warns the old address; changes to a founding member's email, role or password alert the other founding members.
@@ -578,7 +578,7 @@ Tabs can be opened directly via URL query param:
 | `/framework` | AI Risk Framework | Download gated to Chapter team+ |
 | `/resources` | Resources | Download/upload gated |
 | `/certification` | Certifications | Browse only |
-| `/community-qna` | Community Q&A | Post/vote requires login |
+| `/community-qna` | Tech Social | Post/vote requires login |
 | `/community-qna/:id` | Q&A Detail | |
 | `/news` | News | Write access gated to Chapter team+ |
 | `/contact` | Contact | |
@@ -777,12 +777,19 @@ Every chapter has one **Chapter Lead** and up to a set number of **Chapter Ambas
 
 ### The team dashboard
 Laid out top to bottom in full-width rows, so nothing sits beside a long sidebar:
-1. **Referral code** (large, with Copy code, Copy link, WhatsApp / LinkedIn / Email / system share, and how many joined, were counted and are waiting) next to the **tour video** (set by an admin; click-to-play, so nothing is fetched from YouTube or Vimeo until pressed).
-2. **Get started**: the first steps with a progress bar, each ticked from something real (a referral joined, a post published, a choice saved) or from a small memory in the browser ("watched the tour", "shared my link"). Leads also see "choose receive or waive". It folds away when all are done.
-3. **Your chapter** card under the video (chapter, seats or lead, term end, links to the public page and the profile).
+1. **Referral code** (large, with Copy code, Copy link, system share, and how many joined, were counted and are waiting), with **Invite someone** directly under the code (ready-made messages, see "The outreach kit" below). Beside it, the **tour video** (set by an admin; click-to-play, so nothing is fetched from YouTube or Vimeo until pressed) and the **Your chapter** card (chapter, seats or lead, term end, links to the public page and the profile).
+2. **Get started**: a strip of tiles, one per first step, with a progress bar, each ticked from something real (a referral joined, a post published, a choice saved) or from a small memory in the browser ("watched the tour", "invited someone"). Leads also see "choose receive or waive". It folds away when all are done.
+3. (The chapter card is in row 1, under the video.)
 4. **Current quarter** with what is left to do, then the four goals.
 5. **Tabs.** Overview is "What you can do" tiles (only what the person's capabilities allow), then events, posts, messages, stats and registrations in balanced pairs. **Settings** holds the account details, the earnings choice (leads), the promotion request (ambassadors), what the public chapter page shows, the programme rules and quick links.
-On a phone the order is referral, video, chapter, checklist, quarter, tabs. The payload comes from `GET /api/chapter-lead/dashboard`, which now also carries `tour`, `referrals` (joined / counted / waiting) and `setup` (has posted, has chosen what shows publicly). `services/portalService.js` builds them; a failure in any of the three never takes the dashboard down.
+On a phone the order is referral and invite, video, chapter, checklist, quarter, tabs. The payload comes from `GET /api/chapter-lead/dashboard`, which now also carries `tour`, `referrals` (joined / counted / waiting) and `setup` (has posted, has chosen what shows publicly). `services/portalService.js` builds them; a failure in any of the three never takes the dashboard down.
+
+### The outreach kit
+"Invite someone" sits inside the referral card. A Chapter Lead or Ambassador picks the kind of message (first message: LinkedIn request, LinkedIn message, WhatsApp, email; announce: LinkedIn post, WhatsApp group; follow up: three reminders, email reminder, "said yes", welcome; quick answers), who it is for (a vendor or a tech enthusiast), types the recipient's first name (and company or topic where the message needs one), reads the preview (editable), and copies it or opens WhatsApp, email or LinkedIn with it. Their name, role, chapter, referral code and sign-up link (`/register?ref=CODE`, which already carries the code) are filled in. What they type never leaves the browser, and copying or opening one counts as "invited someone" for the Get started tile.
+- **Where the words live.** The defaults are in `Backend/utils/outreachKitDefaults.js`. An administrator edits them under Admin > Chapter Leads > **Outreach kit**: each message, and the shared sentences that many messages use ("who you are", "what a member gets", "how to sign up" and so on), with a live preview as a Chapter Lead or an Ambassador, a vendor or an enthusiast. Only what differs from the default is stored, as JSON in `app_settings` under the key `outreach_kit` (no new table, no migration), so anything nobody edited follows the latest default. Each save is written to the audit log.
+- **What is checked on save** (`Backend/utils/outreachKitRules.js`): every `{{placeholder}}` must exist; a shared sentence cannot contain another; a message that brings people to the site must keep `{{link}}` (or `{{signup}}`); lengths are capped; two administrators saving at once get a "reload" message instead of overwriting each other.
+- **Endpoints.** Members: `GET /api/chapter-lead/outreach-kit`. Admins: `GET | PUT | DELETE /api/admin/chapter-leads/outreach-kit` (PUT sends only the differences; DELETE puts everything back).
+- **Facts the default wording relies on** (re-check them if the product changes): the sign-up link pre-fills the referral code; new accounts wait for an administrator's approval and then get an email; membership is free for the first year (as the sign-up page says); members download resources but not the Framework playbooks; vendors post an "AI Product Showcase" and members can react "Need a POC"; there are no chats, and Tech Social is not split by chapter. No earnings or commission wording is included while the earnings gate is off; leads who choose to receive earnings may need a disclosure line once it is on (ask counsel).
 
 ### Behaviour worth knowing
 - Every route to "becomes a team member" (application approval, user approval, role change, admin-created user) goes through `activateChapterLead()`, so the profile, referral code and term are always created. A person's referral code belongs to the *person* (`users.referral_code`) and survives a promotion.
@@ -794,7 +801,7 @@ On a phone the order is referral, video, chapter, checklist, quarter, tabs. The 
 - Database session time zone is assumed to be UTC (the Azure default); quarter windows are UTC.
 
 ### Database (migrations 0019 to 0024)
-`0019` and `0020` created the Chapter Lead programme. **`0022_chapter_team_foundation.sql`** is additive and safe to re-run: `team_tiers`, `tier_code` / `approved_by` / `predecessor_profile_id` on `chapter_lead_profiles`, the unique-lead-per-chapter index now lead-only (same name, `uq_clp_one_active_per_chapter`), `chapter_lead_policy_targets` (goals and seat cap per tier), `earnings_elections`, `audit_log`, application columns (tier, kind, routing, decision), `users.referral_code`, `referrals.referrer_profile_id`, `member_display_settings`, `chapters.slug`, and the view `chapter_team_summary`. **`0023_chapter_team_backfill.sql`** fills those from existing data (idempotent). **`0024_app_settings.sql`** adds `app_settings` (key, JSON value, who and when), used first for the tour video (key `team_tour`); until it is applied the dashboard simply shows no video, and saving one from the admin screen would fail, so run it before using that screen. The old target columns on `chapter_lead_policy` are kept for now; a later "contract" migration can drop them once nothing reads them.
+`0019` and `0020` created the Chapter Lead programme. **`0022_chapter_team_foundation.sql`** is additive and safe to re-run: `team_tiers`, `tier_code` / `approved_by` / `predecessor_profile_id` on `chapter_lead_profiles`, the unique-lead-per-chapter index now lead-only (same name, `uq_clp_one_active_per_chapter`), `chapter_lead_policy_targets` (goals and seat cap per tier), `earnings_elections`, `audit_log`, application columns (tier, kind, routing, decision), `users.referral_code`, `referrals.referrer_profile_id`, `member_display_settings`, `chapters.slug`, and the view `chapter_team_summary`. **`0023_chapter_team_backfill.sql`** fills those from existing data (idempotent). **`0024_app_settings.sql`** adds `app_settings` (key, JSON value, who and when), used for the tour video (key `team_tour`) and the outreach kit wording (key `outreach_kit`); until it is applied the dashboard simply shows no video, and saving one from the admin screen would fail, so run it before using that screen (the invitation messages simply show the default wording). The old target columns on `chapter_lead_policy` are kept for now; a later "contract" migration can drop them once nothing reads them.
 
 ### Not built yet (deliberately)
 Revenue ledger, earnings accrual and payouts wait for the payment gateway. Lead publishing of content (admins still publish everything), waitlists beyond routing applications to the administrators, and a different seat limit for one chapter (admins can still allow an extra ambassador case by case with the "allow this even if the chapter is at its limit" option).

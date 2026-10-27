@@ -130,7 +130,7 @@ const Footer = () => (
                             <Link to="/events"        className="ft-col-link">Events &amp; Webinars</Link>
                             <Link to="/membership"    className="ft-col-link">Membership</Link>
                             <Link to="/chapters"      className="ft-col-link">Chapters</Link>
-                            <Link to="/community-qna" className="ft-col-link">Community Feed</Link>
+                            <Link to="/community-qna" className="ft-col-link">Tech Social</Link>
                         </nav>
                     </div>
 

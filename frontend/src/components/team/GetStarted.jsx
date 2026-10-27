@@ -14,6 +14,7 @@ const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior:
  * something that really happened (a referral joined, a post published, a choice saved), or from a small
  * memory in this browser for "watched the tour" and "shared my link". Only steps that apply to this
  * person are listed: a lead also chooses receive or waive; an ambassador has nothing to choose.
+ * Shown as a strip of tiles under the referral card and the tour video (it has the full width), one tile per step.
  */
 export const buildSetupSteps = ({ data, watched, shared }) => {
     const steps = [];
@@ -21,15 +22,15 @@ export const buildSetupSteps = ({ data, watched, shared }) => {
         steps.push({ key: 'tour', title: 'Watch the short tour', detail: 'A few minutes on what is where and how the quarter works.', done: watched, cta: 'Watch', scroll: 'team-tour' });
     }
     steps.push({
-        key: 'share', title: 'Share your referral link', detail: 'Send it to one person who would value the community.',
-        done: shared || (data.referrals?.total || 0) > 0, cta: 'Share now', scroll: 'team-referral',
+        key: 'share', title: 'Invite one person', detail: 'Pick a ready-made message under your referral code and send it to one person who would value the community.',
+        done: shared || (data.referrals?.total || 0) > 0, cta: 'Invite someone', scroll: 'team-referral',
     });
     steps.push({
         key: 'public', title: 'Choose what shows on your chapter page', detail: 'Your name and role are listed. Photo, organisation and bio are up to you.',
         done: Boolean(data.setup?.display_saved), cta: 'Choose', tab: 'settings',
     });
     steps.push({
-        key: 'post', title: 'Publish your first post', detail: 'A short note in the community feed counts toward your quarter.',
+        key: 'post', title: 'Publish your first post', detail: 'A short note on Tech Social counts toward your quarter.',
         done: Boolean(data.setup?.has_posted), cta: 'Write a post', to: '/community-qna',
     });
     if (data.earnings) {
@@ -92,23 +93,25 @@ const GetStarted = ({ data, onOpenTab }) => {
             </div>
 
             {open && (
-                <ol style={{ listStyle: 'none', margin: '0.8rem 0 0', padding: 0 }}>
+                <ol style={{ listStyle: 'none', margin: '0.8rem 0 0', padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: '0.7rem' }}>
                     {steps.map((step) => {
                         const isNext = next?.key === step.key;
                         return (
-                            <li key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '0.6rem 0.7rem', margin: '0 -0.7rem', borderRadius: 10, background: isNext ? '#F0F6FF' : 'transparent' }}>
-                                <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${step.done ? colors.green : isNext ? colors.primary : '#CBD5E1'}`, background: step.done ? colors.green : 'white' }}>
-                                    {step.done && <Check size={14} color="white" strokeWidth={3} />}
-                                </span>
-                                <span style={{ flex: '1 1 200px', minWidth: 0 }}>
-                                    <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: step.done ? colors.muted : colors.text }}>
-                                        {step.title}
-                                        {step.done && <span className="sr-only"> (done)</span>}
-                                        {isNext && <span style={{ marginLeft: 8, fontSize: '0.66rem', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Do this next</span>}
+                            <li key={step.key} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0.8rem 0.9rem', borderRadius: 12, border: `1px solid ${isNext ? '#BFDBFE' : colors.border}`, background: isNext ? '#F0F6FF' : step.done ? '#F8FAFC' : 'white' }}>
+                                <span style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                    <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${step.done ? colors.green : isNext ? colors.primary : '#CBD5E1'}`, background: step.done ? colors.green : 'white' }}>
+                                        {step.done && <Check size={14} color="white" strokeWidth={3} />}
                                     </span>
-                                    {!step.done && <span style={{ display: 'block', fontSize: '0.76rem', color: colors.muted, lineHeight: 1.5 }}>{step.detail}</span>}
+                                    <span style={{ minWidth: 0 }}>
+                                        <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.35, color: step.done ? colors.muted : colors.text }}>
+                                            {step.title}
+                                            {step.done && <span className="sr-only"> (done)</span>}
+                                        </span>
+                                        {isNext && <span style={{ display: 'block', marginTop: 2, fontSize: '0.66rem', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Do this next</span>}
+                                    </span>
                                 </span>
-                                {!step.done && <StepAction step={step} onOpenTab={onOpenTab} primary={isNext} />}
+                                {!step.done && <span style={{ fontSize: '0.76rem', color: colors.muted, lineHeight: 1.5 }}>{step.detail}</span>}
+                                {!step.done && <span style={{ marginTop: 'auto' }}><StepAction step={step} onOpenTab={onOpenTab} primary={isNext} /></span>}
                             </li>
                         );
                     })}

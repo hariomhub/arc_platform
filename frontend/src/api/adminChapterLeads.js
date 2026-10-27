@@ -60,3 +60,8 @@ export const uploadTourVideo = (file, { title, description } = {}) => {
     // a video can take a while to upload; the default timeout would cut it short
     return api.post(`${base}/tour/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 10 * 60 * 1000 });
 };
+
+// ── Outreach kit (the invitation messages Chapter Leads and Ambassadors copy from their dashboard) ──
+export const getOutreachKitAdmin = ()     => api.get(`${base}/outreach-kit`);
+export const saveOutreachKit     = (data) => api.put(`${base}/outreach-kit`, data);     // { blocks, templates, based_on }: what differs from the defaults
+export const resetOutreachKit    = ()     => api.delete(`${base}/outreach-kit`);

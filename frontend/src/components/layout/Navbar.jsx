@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     Menu, X, LogOut, User, ChevronDown, Shield,
-    BookOpen, LayoutDashboard, Home, Calendar,
+    BookOpen, LayoutDashboard, Home,
     Settings, FileText, HelpCircle, Info, Phone, Award,
     MessageSquare, PenSquare,
 } from 'lucide-react';
@@ -10,12 +10,37 @@ import { useAuth } from '../../hooks/useAuth.js';
 import NotificationBell from './NotificationBell.jsx';
 import { metaOfUser } from '../../config/roles.js';
 
+// The Services menu: the title links to the overview page and the rows below open each part directly.
+// "match" lists every path that belongs to a row, so the row (and the menu title) stays highlighted on the
+// awards pages too, which are also reached from the Events page.
+const SERVICES_MENU = {
+    overview: { label: 'All services', path: '/services' },
+    groups: [
+        {
+            title: 'Events & awards',
+            items: [
+                { label: 'Events & Podcasts', path: '/events',   match: ['/events'] },
+                { label: 'Vote for nominees', path: '/nominees', match: ['/nominees', '/self-nominate', '/nomination-terms'] },
+                { label: 'Award winners',     path: '/winners',  match: ['/winners'] },
+            ],
+        },
+        {
+            title: 'Work with us',
+            items: [
+                { label: 'Executive Workshops', path: '/executive-workshops',      match: ['/executive-workshops'] },
+                { label: 'AI Product Reviews',  path: '/services/product-reviews', match: ['/services/product-reviews'] },
+            ],
+        },
+    ],
+};
+const SERVICES_PATHS = ['/services', ...SERVICES_MENU.groups.flatMap((g) => g.items.flatMap((i) => i.match))];
+const onPath = (pathname, paths) => paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
 const PUBLIC_NAV = [
     { label: 'Home',                 path: '/',              icon: Home },
     { label: 'AI Risk Framework',    path: '/framework',     icon: FileText },
-    { label: 'Events',               path: '/events',        icon: Calendar },
-    { label: 'Services',             path: '/services',      icon: Settings },
-    { label: 'Community Feed',        path: '/community-qna', icon:  MessageSquare },
+    { label: 'Services',             path: '/services',      icon: Settings, menu: true },
+    { label: 'Tech Social',          path: '/community-qna', icon: MessageSquare },
     { label: 'Research & Resources', path: '/resources',     icon: BookOpen },
     { label: 'Blog',                 path: '/blog',          icon: PenSquare },
     { label: 'Certifications',       path: '/certification', icon: Award },
@@ -36,10 +61,18 @@ const Navbar = () => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const dropdownRef       = useRef(null);
     const mobileDropdownRef = useRef(null);
+    // Services menu: the desktop panel and the drawer's list
+    const [svcOpen,    setSvcOpen]    = useState(false);
+    const [svcMobOpen, setSvcMobOpen] = useState(false);
+    const [svcPos,     setSvcPos]     = useState({ left: 0, top: 0 });
+    const svcRef    = useRef(null);
+    const svcBtnRef = useRef(null);
+    const svcTimer  = useRef(null);
 
     const adminUser = isAdmin && isAdmin();
     const roleInfo  = metaOfUser(user);
     const role      = { bg: roleInfo.color, text: BADGE_TEXT[roleInfo.key] };
+    const inServices = onPath(location.pathname, SERVICES_PATHS);
 
     useEffect(() => {
         const handler = (e) => {
@@ -54,7 +87,33 @@ const Navbar = () => {
     useEffect(() => {
         setMobileOpen(false);
         setUserMenuOpen(false);
+        setSvcOpen(false);
     }, [location.pathname]);
+
+    /* ── Services menu: a click outside, Escape or a resize closes the panel ── */
+    useEffect(() => {
+        if (!svcOpen) return undefined;
+        const onDown = (e) => { if (svcRef.current && !svcRef.current.contains(e.target)) setSvcOpen(false); };
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            if (svcRef.current?.contains(document.activeElement)) svcBtnRef.current?.focus();
+            setSvcOpen(false);
+        };
+        const onResize = () => setSvcOpen(false);
+        document.addEventListener('mousedown', onDown);
+        document.addEventListener('keydown', onKey);
+        window.addEventListener('resize', onResize);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            document.removeEventListener('keydown', onKey);
+            window.removeEventListener('resize', onResize);
+        };
+    }, [svcOpen]);
+
+    useEffect(() => () => clearTimeout(svcTimer.current), []);
+
+    // The drawer opens with the Services list already showing when the visitor is on one of its pages.
+    useEffect(() => { if (mobileOpen) setSvcMobOpen(inServices); }, [mobileOpen, inServices]);
 
     /* ── Scroll lock — works on iOS Safari too ── */
     useEffect(() => {
@@ -83,6 +142,19 @@ const Navbar = () => {
         };
     }, [mobileOpen]);
 
+    // Hovering with a mouse opens the panel; a short delay lets the pointer cross the gap to it. Touch and
+    // keyboard use the chevron button instead.
+    const openSvc = () => {
+        clearTimeout(svcTimer.current);
+        const r = svcRef.current?.getBoundingClientRect();
+        if (r) setSvcPos({ left: Math.max(8, Math.min(Math.round(r.left), window.innerWidth - 272)), top: Math.round(r.bottom) + 4 });
+        setSvcOpen(true);
+    };
+    const closeSvcSoon = () => {
+        clearTimeout(svcTimer.current);
+        svcTimer.current = setTimeout(() => setSvcOpen(false), 160);
+    };
+    const svcRowActive = (row) => onPath(location.pathname, row.match);
     const handleLogout  = () => { logout(); setUserMenuOpen(false); setMobileOpen(false); };
     const isActive      = (p) => p === '/' ? location.pathname === '/' : location.pathname.startsWith(p);
     const handleNavClick = () => { setMobileOpen(false); window.scrollTo({ top: 0 }); };
@@ -106,6 +178,31 @@ const Navbar = () => {
                 }
                 .nb-link:hover     { color: #0f172a; background: #f1f5f9; text-decoration: none; }
                 .nb-link.nb-active { color: #003366; background: rgba(0,51,102,0.07); font-weight: 700; }
+                /* A little tighter on narrower desktops so the whole row fits */
+                @media (max-width: 1400px) {
+                    .nb-link { padding: 0.35rem 0.42rem; font-size: 0.78rem; }
+                }
+
+                /* Services: the title is a link to the overview, the chevron opens the list. The panel is
+                   position: fixed because the nav row clips anything that overflows it. */
+                .nb-split { position: relative; display: inline-flex; align-items: center; border-radius: 6px; transition: background 0.15s; }
+                .nb-split:hover, .nb-split.nb-open { background: #f1f5f9; }
+                .nb-split.nb-active { background: rgba(0,51,102,0.07); }
+                .nb-split > .nb-link,
+                .nb-split > .nb-link:hover,
+                .nb-split > .nb-link.nb-active { background: transparent; padding-right: 0; }
+                /* index.css gives every button a 44px minimum, so it is cancelled here; the ::after keeps a larger tap area */
+                .nb-chev { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; width: 18px; height: 28px; margin: 0 3px 0 1px; padding: 0; border: none; border-radius: 6px; background: transparent; color: #475569; cursor: pointer; }
+                .nb-chev::after { content: ''; position: absolute; inset: -8px -3px; }
+                .nb-split:hover .nb-chev, .nb-split.nb-open .nb-chev { color: #003366; }
+                .nb-split.nb-active .nb-chev { color: #003366; }
+                .nb-chev:focus-visible { outline: 2px solid #003366; outline-offset: 1px; }
+                .nb-svc-panel { position: fixed; z-index: 1001; width: 264px; padding: 0.4rem; background: white; border: 1px solid #d5deea; border-radius: 12px; box-shadow: 0 12px 36px rgba(15,23,42,0.18); }
+                .nb-svc-head { margin: 0.6rem 0.6rem 0.2rem; font-size: 0.64rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
+                .nb-svc-item { display: block; padding: 0.5rem 0.6rem; border-radius: 8px; font-size: 0.84rem; font-weight: 500; color: #374151; text-decoration: none; }
+                .nb-svc-item:hover, .nb-svc-item:focus-visible { background: #f8fafc; color: #003366; text-decoration: none; }
+                .nb-svc-item.nb-active { background: rgba(0,51,102,0.07); color: #003366; font-weight: 700; }
+                .nb-svc-all { font-weight: 700; color: #003366; }
 
                 .nb-dd-item {
                     display: flex; align-items: center; gap: 0.6rem;
@@ -163,6 +260,13 @@ const Navbar = () => {
                 .nb-mob-link.nb-active .nb-mob-icon { color: #003366; }
                 .nb-mob-icon { color: #94a3b8; flex-shrink: 0; transition: color 0.12s; }
                 .nb-mob-link:hover .nb-mob-icon { color: #64748b; }
+                .nb-mob-split { display: flex; align-items: center; }
+                .nb-mob-split > .nb-mob-link { flex: 1; min-width: 0; width: auto; }
+                .nb-mob-chev { flex-shrink: 0; width: 44px; height: 48px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 10px; background: transparent; color: #94a3b8; cursor: pointer; }
+                .nb-mob-chev:hover { background: #f1f5f9; color: #64748b; }
+                .nb-mob-sub { margin: 0 0 0.35rem 1.4rem; padding-left: 0.5rem; border-left: 2px solid #e2e8f0; }
+                .nb-mob-sub .nb-mob-link { min-height: 42px; padding: 0.45rem 0.75rem; font-size: 0.86rem; }
+                .nb-mob-subhead { margin: 0.5rem 0 0.1rem 0.75rem; font-size: 0.6rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; }
 
                 .nb-mob-admin           { color: #6D28D9 !important; }
                 .nb-mob-admin:hover     { background: #f5f3ff !important; }
@@ -225,12 +329,47 @@ const Navbar = () => {
                     {/* Desktop nav */}
                     <nav className="nb-desktop" aria-label="Main navigation"
                         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
-                        {PUBLIC_NAV.map((item) => (
+                        {PUBLIC_NAV.map((item) => (item.menu ? (
+                            <div key={item.path} ref={svcRef}
+                                className={`nb-split${inServices ? ' nb-active' : ''}${svcOpen ? ' nb-open' : ''}`}
+                                onPointerEnter={(e) => { if (e.pointerType === 'mouse') openSvc(); }}
+                                onPointerLeave={(e) => { if (e.pointerType === 'mouse') closeSvcSoon(); }}
+                                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setSvcOpen(false); }}>
+                                <Link to={item.path} onClick={() => setSvcOpen(false)}
+                                    className={`nb-link${inServices ? ' nb-active' : ''}`}>
+                                    {item.label}
+                                </Link>
+                                <button ref={svcBtnRef} type="button" className="nb-chev"
+                                    aria-label="Services menu" aria-expanded={svcOpen} aria-controls="nb-svc-panel"
+                                    onClick={() => (svcOpen ? setSvcOpen(false) : openSvc())}>
+                                    <ChevronDown size={15} strokeWidth={2.6} style={{ transition: 'transform 0.2s', transform: svcOpen ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                {svcOpen && (
+                                    <div id="nb-svc-panel" className="nb-svc-panel" style={{ left: svcPos.left, top: svcPos.top }}>
+                                        <Link to={SERVICES_MENU.overview.path} onClick={() => setSvcOpen(false)}
+                                            className={`nb-svc-item nb-svc-all${location.pathname === SERVICES_MENU.overview.path ? ' nb-active' : ''}`}>
+                                            {SERVICES_MENU.overview.label}
+                                        </Link>
+                                        {SERVICES_MENU.groups.map((group) => (
+                                            <div key={group.title}>
+                                                <p className="nb-svc-head">{group.title}</p>
+                                                {group.items.map((row) => (
+                                                    <Link key={row.path} to={row.path} onClick={() => setSvcOpen(false)}
+                                                        className={`nb-svc-item${svcRowActive(row) ? ' nb-active' : ''}`}>
+                                                        {row.label}
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
                             <Link key={item.path} to={item.path}
                                 className={`nb-link${isActive(item.path) ? ' nb-active' : ''}`}>
                                 {item.label}
                             </Link>
-                        ))}
+                        )))}
                     </nav>
 
                     {/* ── Right side ── */}
@@ -430,12 +569,48 @@ const Navbar = () => {
                         <nav aria-label="Mobile navigation">
                             {PUBLIC_NAV.map((item) => {
                                 const Icon = item.icon;
+                                if (!item.menu) {
+                                    return (
+                                        <Link key={item.path} to={item.path} onClick={handleNavClick}
+                                            className={`nb-mob-link${isActive(item.path) ? ' nb-active' : ''}`}>
+                                            <span className="nb-mob-icon"><Icon size={16} strokeWidth={1.9} /></span>
+                                            {item.label}
+                                        </Link>
+                                    );
+                                }
                                 return (
-                                    <Link key={item.path} to={item.path} onClick={handleNavClick}
-                                        className={`nb-mob-link${isActive(item.path) ? ' nb-active' : ''}`}>
-                                        <span className="nb-mob-icon"><Icon size={16} strokeWidth={1.9} /></span>
-                                        {item.label}
-                                    </Link>
+                                    <div key={item.path}>
+                                        <div className="nb-mob-split">
+                                            <Link to={item.path} onClick={handleNavClick}
+                                                className={`nb-mob-link${inServices ? ' nb-active' : ''}`}>
+                                                <span className="nb-mob-icon"><Icon size={16} strokeWidth={1.9} /></span>
+                                                {item.label}
+                                            </Link>
+                                            <button type="button" className="nb-mob-chev" aria-label="Show Services pages"
+                                                aria-expanded={svcMobOpen} onClick={() => setSvcMobOpen((o) => !o)}>
+                                                <ChevronDown size={16} style={{ transition: 'transform 0.2s', transform: svcMobOpen ? 'rotate(180deg)' : 'none' }} />
+                                            </button>
+                                        </div>
+                                        {svcMobOpen && (
+                                            <div className="nb-mob-sub">
+                                                <Link to={SERVICES_MENU.overview.path} onClick={handleNavClick}
+                                                    className={`nb-mob-link${location.pathname === SERVICES_MENU.overview.path ? ' nb-active' : ''}`}>
+                                                    {SERVICES_MENU.overview.label}
+                                                </Link>
+                                                {SERVICES_MENU.groups.map((group) => (
+                                                    <div key={group.title}>
+                                                        <p className="nb-mob-subhead">{group.title}</p>
+                                                        {group.items.map((row) => (
+                                                            <Link key={row.path} to={row.path} onClick={handleNavClick}
+                                                                className={`nb-mob-link${svcRowActive(row) ? ' nb-active' : ''}`}>
+                                                                {row.label}
+                                                            </Link>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </nav>

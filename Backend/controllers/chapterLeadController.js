@@ -37,6 +37,7 @@ import { recordElection } from '../services/earningsElectionService.js';
 import { getDisplaySettings, saveDisplaySettings } from '../services/publicChapterService.js';
 import { getTeamBoard, getChaptersBoard, getPastTeamBoard, listBoardQuarters } from '../services/leaderboardService.js';
 import { getTourForMember, getReferralCounts, getSetupSignals } from '../services/portalService.js';
+import { getKitForMember } from '../services/outreachKitService.js';
 import { earningsGateOn } from '../utils/featureFlags.js';
 import { dbDate } from '../utils/chapterLeadRules.js';
 
@@ -289,6 +290,15 @@ export const removeMember = async (req, res, next) => {
     try {
         await removeAmbassador(parseInt(req.params.profileId, 10), req.user, { reason: req.body.reason });
         return res.json({ success: true, data: { message: 'The ambassador has been removed from your team.' } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /outreach-kit — the ready-made invitation messages shown beside the referral code (any chapter team member)
+export const getOutreachKit = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await getKitForMember() });
     } catch (err) {
         next(err);
     }

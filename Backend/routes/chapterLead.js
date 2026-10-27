@@ -3,7 +3,8 @@
  *
  *   Public                 : GET /policy
  *   Any logged-in user     : POST /accept-policy
- *   Active team member     : the rest (Chapter Lead or Chapter Ambassador, role council_member)
+ *   Active team member     : the rest (Chapter Lead or Chapter Ambassador, role council_member),
+ *                            including GET /outreach-kit (the invitation messages on the dashboard)
  *   Chapter Leads only     : /team/*  (approve or reject ambassadors, remove them)
  */
 
@@ -41,6 +42,7 @@ router.get('/dashboard',   ctrl.getDashboard);
 router.get('/referrals',   ctrl.getReferrals);
 router.get('/performance', ctrl.getPerformance);
 router.get('/quarters',    ctrl.getQuarters);
+router.get('/outreach-kit', ctrl.getOutreachKit);
 
 router.get('/requests', ctrl.getRequests);
 router.post(

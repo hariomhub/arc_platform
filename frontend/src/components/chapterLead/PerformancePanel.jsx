@@ -103,7 +103,7 @@ const PerformancePanel = ({ showToast, onChanged }) => {
             {error && <Empty>{error}</Empty>}
 
             {data && tab === 'posts' && (
-                data.posts.length === 0 ? <Empty>You have not posted yet. Share an update in the Community Feed.</Empty> : (
+                data.posts.length === 0 ? <Empty>You have not posted yet. Share an update on Tech Social.</Empty> : (
                     <Table minWidth={680} columns={[{ label: 'Posted' }, { label: 'Type' }, { label: 'Post' }, { label: 'Status' }, { label: 'Engagement' }]}>
                         {data.posts.map((p) => (
                             <tr key={p.id}>

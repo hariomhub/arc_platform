@@ -14,6 +14,7 @@
  *                PATCH /sessions/:type/:id/conducted
  *   Referrals    PATCH /referrals/:id
  *   Tour video   GET|PUT|PATCH|DELETE /tour, POST /tour/upload
+ *   Outreach kit GET|PUT|DELETE /outreach-kit
  *   Jobs         POST /run-daily
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -30,6 +31,7 @@ import { resetElection } from '../services/earningsElectionService.js';
 import { getTeamBoard, getChaptersBoard } from '../services/leaderboardService.js';
 import { setHiddenByAdmin } from '../services/publicChapterService.js';
 import { getTourForAdmin, saveTourLink, saveTourUpload, updateTourText, removeTour } from '../services/portalService.js';
+import { getKitForAdmin, saveKit, resetKit } from '../services/outreachKitService.js';
 import { recordAudit } from '../services/auditService.js';
 import { dbDate, toSqlDate, TIERS, DEFAULT_TIER_TARGETS } from '../utils/chapterLeadRules.js';
 
@@ -595,6 +597,35 @@ export const patchReferral = async (req, res, next) => {
 export const runDaily = async (req, res, next) => {
     try {
         return res.json({ success: true, data: await runChapterLeadDaily(new Date()) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ── Outreach kit (the invitation messages Chapter Leads and Ambassadors copy from their dashboard) ──────────
+
+// GET /outreach-kit
+export const getOutreachKitAdmin = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await getKitForAdmin() });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// PUT /outreach-kit   body: { blocks?, templates?, based_on? }   what differs from the defaults; replaces earlier changes
+export const putOutreachKit = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await saveKit(req.user, req.body, req.ip) });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// DELETE /outreach-kit   back to the defaults
+export const deleteOutreachKit = async (req, res, next) => {
+    try {
+        return res.json({ success: true, data: await resetKit(req.user, req.ip) });
     } catch (err) {
         next(err);
     }

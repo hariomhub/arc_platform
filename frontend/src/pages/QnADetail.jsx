@@ -148,7 +148,7 @@ const QnADetail = () => {
             const data = res.data?.data;
             setPost(data);
             if (data?.id) trackView('post', data.id); // Chapter Leads see how their posts are read
-            document.title = `${data?.author_name || 'Post'} on Community Feed | Risk AI Council`;
+            document.title = `${data?.author_name || 'Post'} on Tech Social | Risk AI Council`;
         } catch (err) {
             if (err?.response?.status === 404) setNotFound(true);
             else setError(getErrorMessage(err));
